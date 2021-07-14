@@ -375,7 +375,7 @@ def read_ktable(filename,wavemin,wavemax):
 
 ###############################################################################################
 
-def calc_klbl(filename,nwave,wave,npoints,press,temp,MakePlot=False):
+def calc_klbl(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
     
     """
         
@@ -387,8 +387,8 @@ def calc_klbl(filename,nwave,wave,npoints,press,temp,MakePlot=False):
         INPUTS :
         
             filename :: Name of the file (supposed to have a .lta extension)
-            nwave :: Number of wavenumbers (cm-1)
-            wave :: Wavenumber (cm-1)
+            wavemin :: Minimum Wavenumber (cm-1)
+            wavemax :: Maximum Wavenumber (cm-1)
             npoints :: Number of p-T levels at which the absorption coefficient must be computed
             press(npoints) :: Pressure (atm)
             temp(npoints) :: Temperature (K)
@@ -409,8 +409,8 @@ def calc_klbl(filename,nwave,wave,npoints,press,temp,MakePlot=False):
     """
     
     #Reading the lbl-tables
-    wavemin = wave.min()
-    wavemax = wave.max()
+    #wavemin = wave.min()
+    #wavemax = wave.max()
     #wavemin = wave[0] - (wave[1]-wave[0])
     #wavemax = wave[nwave-1] + (wave[nwave-1]-wave[nwave-2])
     

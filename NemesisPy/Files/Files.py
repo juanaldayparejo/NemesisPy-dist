@@ -20,8 +20,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.font_manager as font_manager
 import matplotlib as mpl
-import nemesislib.utils as utils
-import nemesislib.spectroscopy as spec
+import NemesisPy.Utils.Utils as utils
 from NemesisPy.Profile import *
 from NemesisPy.Data import *
 from NemesisPy.Models.Models import *
@@ -419,6 +418,85 @@ def read_sur(runname,MakePlot=False):
         plt.show()
     
     return nem,vem,emissivity
+
+###############################################################################################
+
+def read_sol(runname,MakePlot=False,datarchive='/Users/aldayparejo/radtrancode/raddata/'):
+    
+    """
+        FUNCTION NAME : read_sol()
+        
+        DESCRIPTION : Read the .sol file (stellar spectrum)
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is made
+        
+        OUTPUTS :
+        
+            solrad :: Radius of the star
+            ispace :: Spectral unit of the file (0) Wavenumber (1) Wavelength
+            nvsol :: Number of spectral points in stellar spectrum
+            vsol(nvsol) :: Wavenumber/Wavelength array (cm-1)
+            solrad(nvsol) :: Stellar power spectrum (W/(cm-1) or W/um)
+        
+        CALLING SEQUENCE:
+        
+            solrad,nvsol,vsol,rsol = read_sol(runname)
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2021)
+        
+    """
+    
+    #Opening file
+    f = open(runname+'.sol','r')
+    s = f.readline().split()
+    solname = s[0]
+    f.close()
+
+    nlines = utils.file_lines(datarchive+solname)
+
+    #Reading buffer
+    ibuff = 0
+    with open(datarchive+solname,'r') as fsol:
+        for curline in fsol:
+            if curline.startswith("#"):
+                ibuff = ibuff + 1
+            else:
+                break
+
+    nvsol = nlines - ibuff - 2
+        
+    #Reading file
+    fsol = open(datarchive+solname,'r')
+    for i in range(ibuff):
+        s = fsol.readline().split()
+    
+    s = fsol.readline().split()
+    ispace = int(s[0])
+    s = fsol.readline().split()
+    solrad = float(s[0])
+    vsol = np.zeros(nvsol)
+    rad = np.zeros(nvsol)
+    for i in range(nvsol):
+        s = fsol.readline().split()
+        vsol[i] = float(s[0])
+        rad[i] = float(s[1])
+    
+    fsol.close()
+
+    if MakePlot==True:
+        fig,ax1=plt.subplots(1,1,figsize=(8,3))
+        ax1.plot(vsol,rad)
+        #ax1.set_yscale('log')
+        plt.tight_layout()
+        plt.show()
+    
+    return solrad,nvsol,vsol,rad
 
 ###############################################################################################
 
@@ -1664,7 +1742,8 @@ def read_drv(runname,MakePlot=False):
         ax3.grid()
         
         for i in range(ngas):
-            strgas = spec.read_gasname(gasID[i],isoID[i])
+            #strgas = spec.read_gasname(gasID[i],isoID[i])
+            strgas = 'CHANGE'
             ax4.semilogx(par_coldens[:,i],baseH,label=strgas)
     
         ax4.legend()
@@ -1769,6 +1848,215 @@ def read_spx_SO(runname):
 
 
     return inst_fwhm,xlat,xlon,ngeom,nav,wgeom,nconv,flat,flon,tanhe,wave,meas,errmeas
+
+
+###############################################################################################
+
+def read_spx(runname, MakePlot=False, SavePlot=False):
+
+    """
+    FUNCTION NAME : read_spx()
+
+    DESCRIPTION : Reads the .spx file from a Nemesis run
+
+    INPUTS :
+ 
+        runname :: Name of the Nemesis run
+
+    OPTIONAL INPUTS:
+
+        MakePlot : If True, a summary plot is made
+            
+    OUTPUTS : 
+        inst_fwhm :: Instrument full-width at half maximum
+        xlat :: Planetocentric latitude at centre of the field of view
+        xlon :: Planetocentric longitude at centre of the field of view
+        ngeom :: Number of different observation geometries under which the location is observed
+        nav(ngeom) ::  For each geometry, nav how many individual spectral calculations need to be
+                performed in order to reconstruct the field of fiew
+        nconv(ngeom) :: Number of wavenumbers/wavelengths in each spectrum
+        flat(ngeom,nav) :: Integration point latitude (when nav > 1)
+        flon(ngeom,nav) :: Integration point longitude (when nav > 1)
+        sol_ang(ngeom,nav) :: Solar incident angle 
+        emiss_ang(ngeom,nav) :: Emission angle
+        azi_ang(ngeom,nav) :: Azimuth angle
+        wgeom(ngeom,nav) :: Weights for the averaging of the FOV
+        wave(nconv,ngeom,nav) :: Wavenumbers/wavelengths
+        meas(nconv,ngeom,nav) :: Measured spectrum
+        errmeas(nconv,ngeom,nav) :: Measurement noise
+
+    CALLING SEQUENCE:
+
+        inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emiss_ang,azi_ang,wgeom,wave,meas,errmeas = read_spx(runname)
+
+    MODIFICATION HISTORY : Juan Alday (29/04/2019)
+
+    """
+
+    #Opening file
+    f = open(runname+'.spx','r')
+
+    #Reading first line
+    tmp = np.fromfile(f,sep=' ',count=4,dtype='float')
+    inst_fwhm = float(tmp[0])
+    xlat = float(tmp[1])
+    xlon = float(tmp[2])
+    ngeom = int(tmp[3])
+
+    #Defining variables
+    navmax = 1000
+    nconvmax = 15000
+    nconv = np.zeros([ngeom],dtype='int')
+    nav = np.zeros([ngeom],dtype='int')
+    flattmp = np.zeros([ngeom,navmax])
+    flontmp = np.zeros([ngeom,navmax])
+    sol_angtmp = np.zeros([ngeom,navmax])
+    emiss_angtmp = np.zeros([ngeom,navmax])
+    azi_angtmp = np.zeros([ngeom,navmax])
+    wgeomtmp = np.zeros([ngeom,navmax])
+    wavetmp = np.zeros([nconvmax,ngeom,navmax])
+    meastmp = np.zeros([nconvmax,ngeom,navmax])
+    errmeastmp = np.zeros([nconvmax,ngeom,navmax])
+    for i in range(ngeom):
+        nconv[i] = int(f.readline().strip())
+        nav[i] = int(f.readline().strip())
+        for j in range(nav[i]):
+            tmp = np.fromfile(f,sep=' ',count=6,dtype='float')
+            flattmp[i,j] = float(tmp[0])
+            flontmp[i,j] = float(tmp[1])
+            sol_angtmp[i,j] = float(tmp[2])
+            emiss_angtmp[i,j] = float(tmp[3])
+            azi_angtmp[i,j] = float(tmp[4])
+            wgeomtmp[i,j] = float(tmp[5])
+            for iconv in range(nconv[i]):
+                tmp = np.fromfile(f,sep=' ',count=3,dtype='float')
+                wavetmp[iconv,i,j] = float(tmp[0])
+                meastmp[iconv,i,j] = float(tmp[1])
+                errmeastmp[iconv,i,j] = float(tmp[2])
+
+
+    #Making final arrays for the measured spectra
+    nconvmax2 = max(nconv)
+    navmax2 = max(nav)
+    wave = np.zeros([nconvmax2,ngeom,navmax2])
+    meas = np.zeros([nconvmax2,ngeom,navmax2])
+    errmeas = np.zeros([nconvmax2,ngeom,navmax2])
+    flat = np.zeros([ngeom,navmax2])
+    flon = np.zeros([ngeom,navmax2])
+    sol_ang = np.zeros([ngeom,navmax2])
+    emiss_ang = np.zeros([ngeom,navmax2])
+    azi_ang = np.zeros([ngeom,navmax2])
+    wgeom = np.zeros([ngeom,navmax2])
+    for i in range(ngeom):
+        wave[0:nconv[i],:,0:nav[i]] = wavetmp[0:nconv[i],:,0:nav[i]]
+        meas[0:nconv[i],:,0:nav[i]] = meastmp[0:nconv[i],:,0:nav[i]]
+        errmeas[0:nconv[i],:,0:nav[i]] = errmeastmp[0:nconv[i],:,0:nav[i]]  
+        flat[:,0:nav[i]] = flattmp[:,0:nav[i]]
+        flon[:,0:nav[i]] = flontmp[:,0:nav[i]]
+        sol_ang[:,0:nav[i]] = sol_angtmp[:,0:nav[i]]
+        emiss_ang[:,0:nav[i]] = emiss_angtmp[:,0:nav[i]]
+        azi_ang[:,0:nav[i]] = azi_angtmp[:,0:nav[i]]
+        wgeom[:,0:nav[i]] = wgeomtmp[:,0:nav[i]]
+
+
+    #Make plot if keyword is specified
+    if (MakePlot == True) or (SavePlot == True):
+        axis_font = {'size':'13'}
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True,figsize=(20,8))
+        wavemin = wave.min()
+        wavemax = wave.max()
+        ax1.set_xlim(wavemin,wavemax)
+        ax1.tick_params(labelsize=13)
+        ax1.ticklabel_format(useOffset=False)
+        ax2.set_xlim(wavemin,wavemax)
+        ax2.tick_params(labelsize=13)
+        ax2.ticklabel_format(useOffset=False)
+        ax2.set_yscale('log')
+
+        ax2.set_xlabel('Wavenumber/Wavelength',**axis_font)
+        ax1.set_ylabel('Radiance',**axis_font)  
+        ax2.set_ylabel('Radiance',**axis_font)
+
+        for i in range(ngeom):
+            im = ax1.plot(wave[0:nconv[i],i,0],meas[0:nconv[i],i,0])
+            ax1.fill_between(wave[0:nconv[i],i,0],meas[0:nconv[i],i,0]-errmeas[0:nconv[i],i,0],meas[0:nconv[i],i,0]+errmeas[0:nconv[i],i,0],alpha=0.4)
+
+        for i in range(ngeom):
+            im = ax2.plot(wave[0:nconv[i],i,0],meas[0:nconv[i],i,0]) 
+            ax2.fill_between(wave[0:nconv[i],i,0],meas[0:nconv[i],i,0]-errmeas[0:nconv[i],i,0],meas[0:nconv[i],i,0]+errmeas[0:nconv[i],i,0],alpha=0.4)
+        
+        plt.grid()
+
+        if MakePlot==True:
+            plt.show()
+        if SavePlot == True:
+            fig.savefig(runname+'_spectra.png',dpi=300)
+
+
+    return inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emiss_ang,azi_ang,wgeom,wave,meas,errmeas
+
+
+
+###############################################################################################
+
+def write_spx(runname,inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emiss_ang,azi_ang,wgeom,wave,meas,errmeas, MakePlot=False, SavePlot=False):
+
+    """
+
+    FUNCTION NAME : write_spx()
+
+    DESCRIPTION : Writes the .spx file from a Nemesis run
+
+    INPUTS :
+
+        runname :: Name of the Nemesis run
+        inst_fwhm :: Instrument full-width at half maximum
+        xlat :: Planetocentric latitude at centre of the field of view
+        xlon :: Planetocentric longitude at centre of the field of view
+        ngeom :: Number of different observation geometries under which the location is observed
+        nav(ngeom) ::  For each geometry, nav how many individual spectral calculations need to be
+                performed in order to reconstruct the field of fiew
+        nconv(ngeom) :: Number of wavenumbers/wavelengths in each spectrum
+        flat(ngeom,nav) :: Integration point latitude (when nav > 1)
+        flon(ngeom,nav) :: Integration point longitude (when nav > 1)
+        sol_ang(ngeom,nav) :: Solar incident angle
+        emiss_ang(ngeom,nav) :: Emission angle
+        azi_ang(ngeom,nav) :: Azimuth angle
+        wgeom(ngeom,nav) :: Weights for the averaging of the FOV
+        wave(nconv,ngeom,nav) :: Wavenumbers/wavelengths
+        meas(nconv,ngeom,nav) :: Measured spectrum
+        errmeas(nconv,ngeom,nav) :: Measurement noise
+
+    OPTIONAL INPUTS:
+
+        MakePlot : If True, a summary plot is made
+
+    OUTPUTS :
+    
+        Nemesis .spx file
+
+    CALLING SEQUENCE:
+
+        ll = write_spx(runname,inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emiss_ang,azi_ang,wgeom,wave,meas,errmeas)
+
+    MODIFICATION HISTORY : Juan Alday (29/04/2021)
+
+    """
+
+    fspx = open(runname+'.spx','w')
+    fspx.write('%7.5f \t %7.5f \t %7.5f \t %i \n' % (inst_fwhm,xlat,xlon,ngeom))
+
+    for i in range(ngeom):
+        fspx.write('\t %i \n' % (nconv))
+        fspx.write('\t %i \n' % (nav[i]))
+        for j in range(nav[i]):
+            fspx.write('\t %7.4f \t %7.4f \t %7.4f \t %7.4f \t %7.4f \t %7.4f \t \n' % (flat[i,j],flon[i,j],sol_ang[i,j],emiss_ang[i,j],azi_ang[i,j],wgeom[i,j]))
+            for k in range(nconv[i]):
+                fspx.write('\t %10.5f \t %20.7f \t %20.7f \n' % (wave[k,i,j],meas[k,i,j],errmeas[k,i,j]))
+
+    fspx.close()
+    dummy = 1
+    return dummy
 
 
 ###############################################################################################

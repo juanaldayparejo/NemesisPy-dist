@@ -409,6 +409,24 @@ planet_info = {
         "rotation": 15.945, #days
         "isurf": 1,
         "Jcoeff": [0.0,0.0,0.0]
+        },
+    "85": {
+        "name": "NGTS-10b",
+        "mass": 4103.757,  #kg
+        "radius": 86147.86,    #km
+        "flatten": 0.0,      
+        "rotation": 100000.0, #days
+        "isurf": 0,
+        "Jcoeff": [0.0,0.0,0.0]
+        },
+    "87": {
+        "name": "WASP-43b",
+        "mass": 3895.110,  #kg
+        "radius": 74065.70,    #km
+        "flatten": 0.0,      
+        "rotation": 100000.0, #days
+        "isurf": 0,
+        "Jcoeff": [0.0,0.0,0.0]
         }
 }
 
