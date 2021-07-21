@@ -2064,7 +2064,7 @@ def write_spx(runname,inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emis
 def read_sha(runname):
     
     """
-        FUNCTION NAME : read_sha_nemesis()
+        FUNCTION NAME : read_sha()
         
         DESCRIPTION : Read the .sha file
         
@@ -2270,3 +2270,43 @@ def read_fil(runname, MakePlot=False):
     
     
     return nconv,wave,nfil,vfil,afil
+
+###############################################################################################
+
+def read_hlay():
+    
+    """
+        FUNCTION NAME : read_hlay()
+        
+        DESCRIPTION : Read the height.lay file used to set the altitude of the base of the layers
+                      in a Nemesis run
+        
+        INPUTS : None
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            nlay :: Number of layers in atmospheric model
+
+        
+        CALLING SEQUENCE:
+        
+            nlay,hbase = read_hlay()
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+    """
+
+    f = open('height.lay','r')
+
+    header = f.readline().split()
+
+    s = f.readline().split()
+    nlay = int(s[0])
+    hbase = np.zeros(nlay)
+    for i in range(nlay):
+        s = f.readline().split()
+        hbase[i] = float(s[0])
+
+    return nlay,hbase

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from .interp import interp
+from NemesisPy.Files.Files import *
 Test = False
 
 def layer_split(RADIUS, H, P, LAYANG=0.0, LAYHT=0.0, NLAY=20,
@@ -94,12 +95,15 @@ def layer_split(RADIUS, H, P, LAYANG=0.0, LAYHT=0.0, NLAY=20,
         BASEH = interp(P,H,BASEP,INTERTYP)
 
     elif LAYTYP == 5: # split by specifying input base heights
-        assert H_base, 'Need input layer base heighs'
-        assert (H_base[-1] <= H[-1]) and (H_base[0] >= H[0]), \
-            'Input layer base heights out of range of atmosphere profile'
-        BASEH = H_base
+        NLAY,H_base = read_hlay()
+        #assert H_base, 'Need input layer base heighs'
+        #assert (H_base[-1] <= H[-1]) and (H_base[0] >= H[0]), \
+        #    'Input layer base heights out of range of atmosphere profile'
+        BASEH = H_base * 1.0e3
         NLAY = len(H_base)
-        BASEP = interp(H,P,BASEP,INTERTYP)
+        logBASEP = interp(H,np.log(P),BASEH,INTERTYP)
+        BASEP = np.exp(logBASEP)
+
 
     else:
         raise('Layering scheme not defined')

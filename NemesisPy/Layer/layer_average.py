@@ -3,7 +3,7 @@ from scipy.integrate import simps
 from .interp import interp
 import sys
 sys.path.append('../')
-from Data import Calc_mmw
+from NemesisPy.Data.ref_data import Calc_mmw
 
 k_B = 1.38065e-23
 

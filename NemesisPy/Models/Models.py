@@ -203,12 +203,8 @@ class Variables:
         nxvar = np.zeros(self.NVAR,dtype='int32')
         for i in range(self.NVAR):
 
-            if self.NVAR==1:
-                imod = self.VARIDENT[2]
-                ipar = self.VARPARAM[0]
-            else:
-                imod = self.VARIDENT[i,2]
-                ipar = self.VARPARAM[i,0]
+            imod = self.VARIDENT[i,2]
+            ipar = self.VARPARAM[i,0]
 
             if imod == -1:
                 nxvar[i] = NPRO

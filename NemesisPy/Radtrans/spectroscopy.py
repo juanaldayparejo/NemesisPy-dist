@@ -21,6 +21,7 @@ import matplotlib.image as mpimg
 import matplotlib.font_manager as font_manager
 import matplotlib as mpl
 from NemesisPy.Utils.Utils import find_nearest
+from NemesisPy.Files.Files import *
 #import nemesislib.files as files
 
 ###############################################################################################
@@ -227,7 +228,7 @@ def read_lbltable(filename,wavemin,wavemax):
     k = np.zeros([nwave,npress,ntemp])
     
     #Jumping until we get to the minimum wavenumber
-    njump = npress*ntemp*ins[0]
+    njump = npress*ntemp*(ins[0]-1)
     ioff = njump*nbytes_float32 + (irec0-1)*nbytes_float32
     f.seek(ioff,0)
     
@@ -402,7 +403,7 @@ def calc_klbl(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         
         CALLING SEQUENCE:
         
-            wavelta,k = calc_klbl(filename,nwave,wave,npoints,press,temp)
+            wavelta,k = calc_klbl(filename,wavemin,wavemax,npoints,press,temp)
         
         MODIFICATION HISTORY : Juan Alday (25/09/2019)
         
@@ -473,7 +474,14 @@ def calc_klbl(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         v = (lpress-plo)/(phi-plo)
         u = (temp1-tlo)/(thi-tlo)
 
-        kgood[:,ipoint] = (1.0-v)*(1.0-u)*klo1[:] + v*(1.0-u)*khi1[:] + v*u*khi2[:] + (1.0-v)*u*klo2[:]
+        #kgood[:,ipoint] = (1.0-v)*(1.0-u)*np.log(klo1[:]) + v*(1.0-u)*np.log(khi1[:]) + v*u*np.log(khi2[:]) + (1.0-v)*u*np.log(klo2[:])
+        #kgood[:,ipoint] = np.exp(kgood[:,ipoint])
+        #kgood[:,ipoint] = (1.0-v)*(1.0-u)*klo1[:] + v*(1.0-u)*khi1[:] + v*u*khi2[:] + (1.0-v)*u*klo2[:]
+
+        igood = np.where(klo1>0.0)
+        igood = igood[0]
+        kgood[igood,ipoint] = (1.0-v)*(1.0-u)*np.log(klo1[igood]) + v*(1.0-u)*np.log(khi1[igood]) + v*u*np.log(khi2[igood]) + (1.0-v)*u*np.log(klo2[igood])
+        kgood[igood,ipoint] = np.exp(kgood[igood,ipoint])
 
     if MakePlot==True:
         fig, ax = plt.subplots(1,1,figsize=(10,6))
@@ -619,3 +627,394 @@ def calc_k(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
 
     return wave,ng,g_ord,del_g,k_good
 
+
+###############################################################################################
+
+def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
+
+    """
+        FUNCTION NAME : lblconv()
+        
+        DESCRIPTION : Convolve the modelled spectrum with a given instrument line shape
+        
+        INPUTS :
+        
+            fwhm :: FWHM of the instrument line shape
+                if FWHM<0.0 then the function defining the ILS for each convolution wavelength
+                is assumed to be stored in the .fil file. In that case, the keyword runname
+                needs to be included
+
+            ishape :: Shape of the instrument function (if FWHM>0.0)
+                ishape = 0 :: Square instrument lineshape
+                ishape = 1 :: Triangular instrument shape
+                ishape = 2 :: Gaussian instrument shape
+
+            nwave :: Number of calculation wavenumbers
+            vwave(nwave) :: Calculation wavenumbers
+            y(nwave) :: Modelled spectrum
+            nconv :: Number of convolution wavenumbers
+            vconv(nconv) :: Convolution wavenumbers
+
+        OPTIONAL INPUTS:
+
+            runname :: Name of the Nemesis run
+        
+        OUTPUTS :
+        
+            yout(nconv) :: Convolved spectrum
+
+        CALLING SEQUENCE:
+        
+            yout = lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv)
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2021)
+        
+    """
+
+
+    yout = np.zeros([nconv])
+    ynor = np.zeros([nconv])
+
+    if fwhm>0.0:
+        #Set total width of Hamming/Hanning function window in terms of
+        #numbers of FWHMs for ISHAPE=3 and ISHAPE=4
+        nfw = 3.
+
+        for j in range(nconv):
+            yfwhm = fwhm
+            vcen = vconv[j]
+            if ishape==0:
+                v1 = vcen-0.5*yfwhm
+                v2 = v1 + yfwhm
+            elif ishape==1:
+                v1 = vcen-yfwhm
+                v2 = vcen+yfwhm
+            elif ishape==2:
+                sig = 0.5*yfwhm/np.sqrt( np.log(2.0)  )
+                v1 = vcen - 3.*sig
+                v2 = vcen + 3.*sig
+            else:
+                v1 = vcen - nfw*yfwhm
+                v2 = vcen + nfw*yfwhm
+
+
+            #Find relevant points in tabulated files
+            inwave1 = np.where( (vwave>=v1) & (vwave<=v2) )
+            inwave = inwave1[0]
+
+            np1 = len(inwave)
+            for i in range(np1):
+                f1=0.0
+                if ishape==0:
+                    #Square instrument lineshape
+                    f1=1.0
+                elif ishape==1:
+                    #Triangular instrument shape
+                    f1=1.0 - abs(vwave[inwave[i]] - vcen)/yfwhm
+                elif ishape==2:
+                    #Gaussian instrument shape
+                    f1 = np.exp(-((vwave[inwave[i]]-vcen)/sig)**2.0)
+                else:
+                    sys.exit('lblconv :: ishape not included yet in function')
+
+                if f1>0.0:
+                    yout[j] = yout[j] + f1*y[inwave[i]]
+                    ynor[j] = ynor[j] + f1
+
+            yout[j] = yout[j]/ynor[j]
+
+    if fwhm<0.0:
+        #Line shape for each convolution number in each case is read from .fil file
+        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+
+        if nconv1 != nconv:
+            sys.exit('lblconv :: Convolution wavenumbers must be the same in .spx and .fil files')
+
+        for j in range(nconv):
+            v1 = vfil[0,j]
+            v2 = vfil[nfil[j]-1,j]
+            #Find relevant points in tabulated files
+            inwave1 = np.where( (vwave>=v1) & (vwave<=v2) )
+            inwave = inwave1[0]
+
+            np1 = len(inwave)
+            xp = np.zeros([nfil[j]])
+            yp = np.zeros([nfil[j]])
+            xp[:] = vfil[0:nfil[j],j]
+            yp[:] = afil[0:nfil[j],j]
+            for i in range(np1):
+                #Interpolating (linear) for finding the lineshape at the calculation wavenumbers
+                f1 = np.interp(vwave[inwave[i]],xp,yp)
+                if f1>0.0:
+                    yout[j] = yout[j] + f1*y[inwave[i]]
+                    ynor[j] = ynor[j] + f1
+
+            yout[j] = yout[j]/ynor[j]
+
+
+    return yout
+
+
+###############################################################################################
+
+def wavesetb(runname,nconv,vconv,fwhm):
+
+    """
+    FUNCTION NAME : wavesetb()
+
+    DESCRIPTION : Subroutine to calculate which 'calculation' wavelengths are needed to cover the required 'convolution wavelengths'.
+
+    INPUTS : 
+
+        runname :: Name of the Nemesis run
+        nconv :: Number of convolution wavelengths
+        vconv(nconv) :: Convolution wavelengths
+        fwhm :: FWHM of convolved spectrum
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    nwave :: Number of calculation wavenumbers
+	    vwave(mwave) :: Calculation wavenumbers
+ 
+    CALLING SEQUENCE:
+
+	    nwave,vwave = wavesetb_nemesis(runname,nconv,vconv,fwhm)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/04/2019)
+
+    """
+
+    #Reading the .kls file to get the initial and end wavenumbers in the .kta files
+    ngasact,strlta = read_kls(runname)
+    nwavelta = np.zeros([ngasact],dtype='int')
+    
+    for i in range(ngasact):
+        nwave,vmin,delv,fwhmk,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels = read_ktahead(strlta[i])
+        nwavelta[i] = nwave
+
+    if len(np.unique(nwavelta)) != 1:
+        sys.exit('error :: Number of wavenumbers in all .kta files must be the same')
+
+    vkstart = vmin
+    vkstep = delv
+    vkend = vkstart + delv*(nwave-1)  
+
+    #Determining the calculation numbers
+    savemax = 1000000
+    save = np.zeros([savemax])
+    ico = 0
+
+    if (vkstep < 0.0 or fwhm == 0.0):
+        ico = nconv
+        for i in range(nconv):
+            save[i] = vconv[i]
+
+    if fwhm < 0.0:
+        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        if nconv != nconv1:
+            sys.exit('error :: onvolution wavenumbers must be the same in .spx and .fil files')
+
+        for i in range(nconv1):
+            vcentral = vconv1[i]
+            for j in range(nconv):
+                dv = abs(vcentral-vconv[j])
+                if dv < 0.00001:
+                    j1 = int((vfil[0,i]-vkstart)/vkstep - 1)
+                    j2 = int((vfil[nfil[i]-1,i]-vkstart)/vkstep + 1)
+                    v1 = vkstart + (j1-1)*vkstep
+                    v2 = vkstart + (j2-1)*vkstep
+                    if (v1 < vkstart or v2 > vkend):
+                        print('warning from wavesetc')
+                        print('Channel wavelengths not covered by lbl-tables')
+                        print('v1,v2,vkstart,vkend',v1,v2,vkstart,vkend)
+                    for k in range(j2-j1):
+                        jj = k + j1
+                        vj = vkstart + jj*vkstep
+                        save[ico]=vj
+                        ico = ico + 1
+
+
+    elif fwhm > 0.0:
+
+        for i in range(nconv):
+            j1 = int( (vconv[i]-0.5*fwhm-vkstart)/vkstep )
+            j2 = 2 + int( (vconv[i]+0.5*fwhm-vkstart)/vkstep )
+            v1 = vkstart + (j1-1)*vkstep
+            v2 = vkstart + (j2-1)*vkstep
+
+            if (v1 < vkstart or v2 > vkend):
+                print('warning from wavesetc')
+                print('Channel wavelengths not covered by lbl-tables')
+                print('v1,v2,vkstart,vkend',v1,v2,vkstart,vkend)
+
+            for k in range(j2-j1):
+                jj = k + j1
+                vj = v1 + (jj-j1)*vkstep
+                save[ico]=vj
+                ico = ico + 1
+
+    nco = ico
+    #sort calculation wavenumbers into order
+    save1 = np.zeros([nco])
+    save1 = np.sort(save[0:nco])
+  
+    #creating calculation wavnumber array
+    nwave = nco
+    vwave = np.zeros([nwave])
+    vwave[:] = save1[:]
+
+    #Now weed out repeated wavenumbers
+    vwave[1]=save[1]
+    xdiff = 0.9*vkstep  
+    ico = 0
+    for i in range(nco-1):
+        test = abs(save1[i+1]-vwave[ico])
+        if test >= xdiff:
+            ico = ico + 1
+            vwave[ico] = save1[i+1]
+            nwave = ico
+
+    print('wavesetb_nemesis :: nwave = '+str(nwave))
+
+    return nwave,vwave
+
+
+
+###############################################################################################
+
+def wavesetc(runname,nconv,vconv,fwhm):
+
+
+    """
+    FUNCTION NAME : wavesetc_nemesis()
+
+    DESCRIPTION : Subroutine to calculate which 'calculation' wavelengths are needed to cover the required 'convolution wavelengths'.
+
+    INPUTS : 
+
+        runname :: Name of the Nemesis run
+        nconv :: NUmber of convolution wavelengths
+        vconv(nconv) :: Convolution wavelengths
+        fwhm :: Full width at half maximum of instrument line shape
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    nwave :: Number of calculation wavenumbers
+	    vwave(nave) :: Calculation wavenumbers
+ 
+    CALLING SEQUENCE:
+
+	    nwave,vwave = wavesetc(runname,nconv,vconv,fwhm)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/04/2019)
+
+    """
+
+    #Reading the .lls file to get the initial and end wavenumbers in the .lta files
+    ngasact,strlta = read_lls(runname)
+    nwavelta = np.zeros([ngasact],dtype='int')
+    
+    for i in range(ngasact):
+        nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels = read_ltahead(strlta[i])
+        nwavelta[i] = nwave
+
+    if len(np.unique(nwavelta)) != 1:
+        sys.exit('error :: Number of wavenumbers in all .lta files must be the same')
+
+    vkstart = vmin
+    vkstep = delv
+    vkend = vkstart + delv*(nwave-1)    
+
+    #Determining the calculation numbers
+    savemax = 10000000
+    save = np.zeros([savemax])
+    ico = 0
+    if fwhm < 0.0:
+        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        if nconv != nconv1:
+            sys.exit('error :: convolution wavenumbers must be the same in .spx and .fil files')
+
+        for i in range(nconv1):
+            vcentral = vconv1[i]
+            for j in range(nconv):
+                dv = abs(vcentral-vconv[j])
+                if dv < 0.00001:
+                    j1 = int((vfil[0,i]-vkstart)/vkstep - 1)
+                    j2 = int((vfil[nfil[i]-1,i]-vkstart)/vkstep + 1)
+                    v1 = vkstart + (j1-1)*vkstep
+                    v2 = vkstart + (j2-1)*vkstep
+                    if (v1 < vkstart or v2 > vkend):
+                        print('warning from wavesetc')
+                        print('Channel wavelengths not covered by lbl-tables')
+                        print('v1,v2,vkstart,vkend',v1,v2,vkstart,vkend)
+                    for k in range(j2-j1):
+                        jj = k + j1
+                        vj = vkstart + jj*vkstep
+                        save[ico]=vj
+                        ico = ico + 1
+
+
+    elif fwhm > 0.0:
+        ishape = read_sha(runname)
+        if ishape == 0:
+            dv = 0.5*fwhm
+        elif ishape == 1:
+            dv = fwhm
+        elif ishape == 2:
+            dv = 3.* 0.5 * fwhm / np.sqrt(np.log(2.0))
+        else:
+            dv = 3.*fwhm
+
+        for i in range(nconv):
+            j1 = int( (vconv[i]-dv-vkstart)/vkstep )
+            j2 = 2 + int( (vconv[i]+dv-vkstart)/vkstep )
+            #v1 = vkstart + (j1-1)*vkstep
+            #v2 = vkstart + (j2-1)*vkstep
+            v1 = vkstart + (j1)*vkstep
+            v2 = vkstart + (j2)*vkstep
+
+            if (v1 < vkstart or v2 > vkend):
+                print('warning from wavesetc')
+                print('Channel wavelengths not covered by lbl-tables')
+                print('v1,v2,vkstart,vkend',v1,v2,vkstart,vkend)
+
+            for k in range(j2-j1):
+                jj = k + j1
+                vj = v1 + (jj-j1)*vkstep
+                save[ico]=vj
+                ico = ico + 1
+
+ 
+    nco = ico
+    #sort calculation wavenumbers into order
+    save1 = np.zeros([nco])
+    save1 = np.sort(save[0:nco])
+  
+    #creating calculation wavnumber array
+    nwave = nco
+    vwave1 = np.zeros([nwave])
+    vwave1[:] = save1[:]
+
+    #Now weed out repeated wavenumbers
+    vwave1[0]=save[0]
+    xdiff = 0.9*vkstep  
+    ico = 0
+    for i in range(nco-1):
+        test = abs(save1[i+1]-vwave1[ico])
+        if test >= xdiff:
+            ico = ico + 1
+            vwave1[ico] = save1[i+1]
+            nwave = ico
+
+    vwave = np.zeros(nwave)
+    vwave[0:nwave] = vwave1[0:nwave]
+    vwave = np.round(vwave,3)
+
+    return nwave,vwave
+
+
+###############################################################################################

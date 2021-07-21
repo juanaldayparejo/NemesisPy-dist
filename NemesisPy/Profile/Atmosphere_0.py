@@ -236,12 +236,14 @@ class Atmosphere_0:
         xomega = 2.*np.pi / (data["rotation"]*24.*3600.)
         xellip=1.0/(1.0-data["flatten"])
         Jcoeff = data["Jcoeff"]
-        Jcoeff[0] = Jcoeff[0] / 1.0e3
-        Jcoeff[1] = Jcoeff[1] / 1.0e6
-        Jcoeff[2] = Jcoeff[2] / 1.0e9
+        xcoeff = np.zeros(3)
+        xcoeff[0] = Jcoeff[0] / 1.0e3
+        xcoeff[1] = Jcoeff[1] / 1.0e6
+        xcoeff[2] = Jcoeff[2] / 1.0e8
         xradius = data["radius"] * 1.0e5   #cm
         isurf = data["isurf"]
         name = data["name"]
+
 
         #Calculating some values to account for the latitude dependence
         lat = 2 * np.pi * self.LATITUDE/360.      #Latitude in rad
@@ -251,7 +253,6 @@ class Atmosphere_0:
         Rr = np.sqrt(clatc**2 + (xellip**2. * slatc**2.))  #ratio of radius at equator to radius at current latitude
         r = (xradius+self.H*1.0e2)/Rr    #Radial distance of each altitude point to centre of planet (cm)
         radius = (xradius/Rr)*1.0e-5     #Radius of the planet at the given distance
-
 
         #Calculating Legendre polynomials
         pol = np.zeros(6)
@@ -265,24 +266,24 @@ class Atmosphere_0:
         g = 1.
         for i in range(3):
             ix = i + 1
-            g = g - ((2*ix+1) * Rr**(2 * ix) * Jcoeff[ix-1] * pol[2*ix-1])
+            g = g - ((2*ix+1) * Rr**(2 * ix) * xcoeff[ix-1] * pol[2*ix-1])
 
-        g = (g * xgm/r**2.) - (r * xomega**2. * clatc**2.)
+        gradial = (g * xgm/r**2.) - (r * xomega**2. * clatc**2.)
 
         #Evaluate latitudinal contribution for 
         # first three terms, then add centrifugal effects
 
-        gtheta = 0.
+        gtheta1 = 0.
         for i in range(3):
             ix = i + 1
-            gtheta = gtheta - (4. * ix**2 * Rr**(2 * ix) * Jcoeff[ix-1] * (pol[2*ix-1-1] - slatc * pol[2*ix-1])/clatc)
+            gtheta1 = gtheta1 - (4. * ix**2 * Rr**(2 * ix) * xcoeff[ix-1] * (pol[2*ix-1-1] - slatc * pol[2*ix-1])/clatc)
 
-        gtheta = (gtheta * xgm/r**2) + (r * xomega**2 * clatc * slatc)
+        gtheta = (gtheta1 * xgm/r**2) + (r * xomega**2 * clatc * slatc)
 
         #Combine the two components and write the result
-        g = np.sqrt(g**2. + gtheta**2.)*0.01   #m/s2
+        gtot = np.sqrt(gradial**2. + gtheta**2.)*0.01   #m/s2
 
-        self.GRAV = g
+        self.GRAV = gtot
 
     def adjust_hydrostatP(self,htan,ptan):
         """
@@ -297,6 +298,9 @@ class Atmosphere_0:
         alt0,ialt = find_nearest(self.H,htan)
         if ( (alt0>htan) & (ialt>0)):
             ialt = ialt -1
+
+        #Calculating the gravity at each altitude level
+        self.calc_grav()
 
         #Calculate the scaling factor
         R = const["R"]
@@ -313,7 +317,7 @@ class Atmosphere_0:
             delh = self.H[i]-self.H[i-1]
             self.P[i]=self.P[i-1]*np.exp(-delh/sh)
 
-        for i in range(ialt):
+        for i in range(ialt-1,-1,-1):
             sh =  0.5*(scale[i+1]+scale[i])
             delh = self.H[i]-self.H[i+1]
             self.P[i]=self.P[i+1]*np.exp(-delh/sh)
@@ -330,21 +334,43 @@ class Atmosphere_0:
         if ( (alt0>0.0) & (ialt>0)):
             ialt = ialt -1
 
-        #Calculate the scaling factor
-        R = const["R"]
-        scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
 
-        if ((ialt>0) & (ialt<self.NP-1)):
-            self.H[ialt] = 0.0
+        xdepth = 100.
+        while xdepth>1:  
 
-        nupper = self.NP - ialt - 1
-        for i in range(ialt+1,self.NP):
-            sh = 0.5 * (scale[i-1] + scale[i])
-            self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
+        
+            #Calculating the atmospheric depth
+            atdepth = self.H[self.NP-1] - self.H[0]
 
-        for i in range(ialt):
-            sh = 0.5 * (scale[i+1] + scale[i])
-            self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])
+            #Calculate the gravity at each altitude level
+            self.calc_grav()
+
+            #Calculate the scale height
+            R = const["R"]
+            scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
+
+            if ((ialt>0) & (ialt<self.NP-1)):
+                self.H[ialt] = 0.0
+
+            nupper = self.NP - ialt - 1
+            for i in range(ialt+1,self.NP):
+                sh = 0.5 * (scale[i-1] + scale[i])
+                self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
+
+            for i in range(ialt-1,-1,-1):
+                print(i)
+                print(self.H[i]/1000.)
+                sh = 0.5 * (scale[i+1] + scale[i])
+                self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])  
+                print(sh/1000.,self.H[i]/1000.) 
+
+            atdepth1 = self.H[self.NP-1] - self.H[0]
+
+            xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
+
+            #Re-Calculate the gravity at each altitude level
+            self.calc_grav()  
+
 
     def write_to_file(self):
         """
