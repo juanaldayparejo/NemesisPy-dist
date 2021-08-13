@@ -17,7 +17,7 @@ class Atmosphere_0:
     Clear atmosphere. Simplest possible profile.
     """
     def __init__(self, runname='wasp43b', NP=10, NVMR=6, ID=[0,0,0,0,0,0],
-                ISO=[0,0,0,0,0,0], LATITUDE=0.0, IPLANET=1, AMFORM=1):
+                ISO=[0,0,0,0,0,0], LATITUDE=0.0, IPLANET=1, AMFORM=1, RADIUS=0.0):
         """
         Set up an atmosphere profile with NP points and NVMR gases.
         Use the class methods to edit Height, Pressure, Temperature and
@@ -252,7 +252,9 @@ class Atmosphere_0:
         clatc = np.cos(latc)
         Rr = np.sqrt(clatc**2 + (xellip**2. * slatc**2.))  #ratio of radius at equator to radius at current latitude
         r = (xradius+self.H*1.0e2)/Rr    #Radial distance of each altitude point to centre of planet (cm)
-        radius = (xradius/Rr)*1.0e-5     #Radius of the planet at the given distance
+        radius = (xradius/Rr)*1.0e-5     #Radius of the planet at the given distance (km)
+
+        self.RADIUS = radius * 1.0e3
 
         #Calculating Legendre polynomials
         pol = np.zeros(6)
@@ -358,11 +360,8 @@ class Atmosphere_0:
                 self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
 
             for i in range(ialt-1,-1,-1):
-                print(i)
-                print(self.H[i]/1000.)
                 sh = 0.5 * (scale[i+1] + scale[i])
                 self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])  
-                print(sh/1000.,self.H[i]/1000.) 
 
             atdepth1 = self.H[self.NP-1] - self.H[0]
 
@@ -394,6 +393,7 @@ class Atmosphere_0:
                 f.write('{:<15.5E} '.format(self.VMR[i][j]))
         f.close()
 
+
     def check(self):
         assert isinstance(self.H, np.ndarray),\
             'Need to input height profile'
@@ -406,26 +406,92 @@ class Atmosphere_0:
         return True
 
 
-atm0 = Atmosphere_0()
-for i in range(1):
-    #atm0 = Atmosphere_0()
-    #atm0.write_to_file()
+    def read_ref(self,runname,MakePlot=False):
+        """
+        Fills the parameters of the Atmospheric class by reading the .ref file
+        """
 
-    # create profiles from external models
-    H = np.linspace(0,9000,10)
-    P = np.logspace(6,1,10)
-    T = np.linspace(40,20,10)**2
-    VMR = np.array([np.ones(10)*1.6e-6,
-                          np.ones(10)*1.6e-6,
-                          np.ones(10)*1.6e-6,
-                          np.ones(10)*1.6e-6,
-                          np.ones(10)*1.6e-6,
-                          np.ones(10)*1.6e-6,]).T
+        #Opening file
+        f = open(runname+'.ref','r')
+    
+        #Reading first and second lines
+        tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
+        amform = int(tmp[0])
+        tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
+    
+        #Reading third line
+        tmp = np.fromfile(f,sep=' ',count=5,dtype='float')
+        nplanet = int(tmp[0])
+        xlat = float(tmp[1])
+        npro = int(tmp[2])
+        ngas = int(tmp[3])
+        molwt = float(tmp[4])
+    
+        #Reading gases
+        gasID = np.zeros(ngas,dtype='int')
+        isoID = np.zeros(ngas,dtype='int')
+        for i in range(ngas):
+            tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
+            gasID[i] = int(tmp[0])
+            isoID[i] = int(tmp[1])
+    
+        #Reading profiles
+        height = np.zeros(npro)
+        press = np.zeros(npro)
+        temp = np.zeros(npro)
+        vmr = np.zeros([npro,ngas])
+        s = f.readline().split()
+        for i in range(npro):
+            tmp = np.fromfile(f,sep=' ',count=ngas+3,dtype='float')
+            height[i] = float(tmp[0])
+            press[i] = float(tmp[1])
+            temp[i] = float(tmp[2])
+            for j in range(ngas):
+                vmr[i,j] = float(tmp[3+j])
 
-    # add profiles to atmosphere
-    atm0.edit_H(H)
-    atm0.edit_P(P)
-    atm0.edit_T(T)
-    atm0.edit_VMR(VMR)
-    atm0.check()
-    #atm0.write_to_file()
+        #Storing the results into the atmospheric class
+        self.NP = npro
+        self.NVMR = ngas
+        self.ID = gasID
+        self.ISO = isoID
+        self.IPLANET = nplanet
+        self.LATITUDE = xlat
+        self.AMFORM = amform
+        self.edit_H(height*1.0e3)
+        self.edit_P(press*101325.)
+        self.edit_T(temp)
+        self.edit_VMR(vmr)
+        self.runname = runname
+
+        if ( (self.AMFORM==1) or (self.AMFORM==2) ):
+            self.calc_molwt()
+        else:
+            molwt1 = np.zeros(npro)
+            molwt1[:] = molwt
+            self.MOLWT = molwt1 / 1000.   #kg/m3
+
+        self.calc_grav()
+
+        #Make plot if keyword is specified
+        if MakePlot == True:
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True,figsize=(10,4))
+
+            ax1.semilogx(self.P/101325.,self.H/1.0e3,c='black')
+            ax2.plot(self.T,self.H/1.0e3,c='black')
+            for i in range(self.NVMR):
+                label1 = gas_info[str(self.ID[i])]['name']
+                if self.ISO[i]!=0:
+                    label1 = label1+' ('+str(self.ISO[i])+')'
+                ax3.semilogx(self.VMR[:,i],self.H/1.0e3,label=label1)
+            ax1.set_xlabel('Pressure (atm)')
+            ax1.set_ylabel('Altitude (km)')
+            ax2.set_xlabel('Temperature (K)')
+            ax3.set_xlabel('Volume mixing ratio')
+            plt.subplots_adjust(left=0.08,bottom=0.12,right=0.88,top=0.96,wspace=0.16,hspace=0.20)
+            legend = ax3.legend(bbox_to_anchor=(1.01, 1.02))
+            ax1.grid()
+            ax2.grid()
+            ax3.grid()
+
+            plt.show()
+

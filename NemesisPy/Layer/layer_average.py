@@ -3,12 +3,12 @@ from scipy.integrate import simps
 from .interp import interp
 import sys
 sys.path.append('../')
-from NemesisPy.Data.ref_data import Calc_mmw
+from NemesisPy.Data import *
 
 k_B = 1.38065e-23
 
-def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
-                  LAYANG=0.0, LAYINT=0, LAYHT=0.0, NINT=101):
+def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
+                  LAYANG=0.0, LAYINT=0, LAYHT=0.0, NINT=101, AMFORM=1):
     """
     Calculates average layer properties.
     Takes an atmosphere profile and a layering shceme specified by
@@ -31,6 +31,8 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
     @param VMR: 2D array
         VMR[i,j] is Volume Mixing Ratio of gas j at vertical point i
         the column j corresponds to the gas with RADTRANS ID ID[j].
+    @param DUST: 2D array
+        DUST[i,j] is dust density of dust popoulation j at vertical point i  (particles/m3)
     @param BASEH: 1D array
         Heights of the layer bases.
     @param BASEP: 1D array
@@ -45,6 +47,11 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
         Height of the base of the lowest layer. Default 0.0.
     @param NINT: int
         Number of integration points to be used if LAYINT=1.
+    @param AMFORM: int,
+        Flag indicating how the molecular weight must be calculated:
+        0 - The mean molecular weight of the atmosphere is passed in XMOLWT
+        1 - The mean molecular weight of each layer is calculated (atmosphere previously adjusted to have sum(VMR)=1.0)
+        2 - The mean molecular weight of each layer is calculated (VMRs do not necessarily add up to 1.0)
 
     Returns
     -------
@@ -98,6 +105,11 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
     else:
         NVMR = len(VMR[0])
 
+    if DUST.ndim == 1:
+        NDUST = 1
+    else:
+        NDUST = len(DUST[0])
+
     # HEIGHT = average layer height
     HEIGHT = np.zeros(NLAY)
     # PRESS = average layer pressure
@@ -108,12 +120,14 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
     TOTAM  = np.zeros(NLAY)
     # DUDS = no. of molecules per area per distance
     DUDS   = np.zeros(NLAY)
-    # AMOUNT = no. of molecules/aera for each gas
+    # AMOUNT = no. of molecules/aera for each gas (molecules/m2)
     AMOUNT = np.zeros((NLAY, NVMR))
     # PP = gas partial pressures
     PP     = np.zeros((NLAY, NVMR))
     # MOLWT = mean molecular weight
     MOLWT  = np.zeros(NLAY)
+    # CONT = no. of particles/area for each dust population (particles/m2)
+    CONT = np.zeros((NLAY,NDUST))
 
     # Calculate average properties depending on intergration type
     if LAYINT == 0:
@@ -139,8 +153,21 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
             AMOUNT = interp(H, VMR, HEIGHT)
             PP = AMOUNT * PRESS
             AMOUNT = AMOUNT * TOTAM
-            for I in range(NLAY):
-                MOLWT[I] = Calc_mmw(VMR[I], ID)
+            if AMFORM==0:
+                sys.exit('error :: AMFORM=0 needs to be implemented in Layer.py')
+            else:
+                for I in range(NLAY):
+                    MOLWT[I] = Calc_mmw(VMR[I], ID)
+
+        #Use the dust density information
+        if DUST.ndim > 1:
+            for J in range(NDUST):
+                DD = interp(H, DUST[:,J],HEIGHT)  
+                CONT[:,J] = DD * DELS
+
+        else:
+            DD = interp(H, DUST,HEIGHT)  
+            CONT = DD * DELS
 
     elif LAYINT == 1:
         # Curtis-Godson equivalent path for a gas with constant mixing ratio
@@ -173,17 +200,34 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
                 pp = (amount.T * p).T     # gas partial pressures
                 for J in range(NVMR):
                     PP[I, J] = simps(pp[:,J]*duds,S)/TOTAM[I]
-                for K in range(NINT):
-                    molwt[K] = Calc_mmw(amount[K,:], ID)
-                MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
+                
+                if AMFORM==0:
+                    sys.exit('error :: AMFORM=0 needs to be implemented in Layer.py')
+                else:
+                    for K in range(NINT):
+                        molwt[K] = Calc_mmw(amount[K,:], ID)
+                    MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
             else:
                 amount = interp(H, VMR, h)
                 pp = amount * p
                 AMOUNT[I] = simps(amount*duds,S)
                 PP[I] = simps(pp*duds,S)/TOTAM[I]
-                for K in range(NINT):
-                    molwt[K] = Calc_mmw(amount[K], ID)
-                MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
+
+                if AMFORM==0:
+                    sys.exit('error :: AMFORM=0 needs to be implemented in Layer.py')
+                else:
+                    for K in range(NINT):
+                        molwt[K] = Calc_mmw(amount[K], ID)
+                    MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
+
+
+            if DUST.ndim > 1:
+                dd = np.zeros((NINT,NDUST))
+                for J in range(NDUST):
+                    dd[:,J] = interp(H, DUST[:,J], h)
+                    #CONT[I,J] = simps(dd[:,J]*duds,S)/TOTAM[I] * DELS[I]
+                    CONT[I,J] = simps(dd[:,J],S)
+
 
     # Scale back to vertical layers
     TOTAM = TOTAM / LAYSF
@@ -192,4 +236,9 @@ def layer_average(RADIUS, H, P, T, ID, VMR, BASEH, BASEP,
     else:
         AMOUNT = AMOUNT/LAYSF
 
-    return HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,DELH,BASET,LAYSF
+    if DUST.ndim > 1:
+        CONT = (CONT.T * LAYSF**-1 ).T
+    else:
+        CONT = CONT/LAYSF
+
+    return HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,CONT,DELH,BASET,LAYSF

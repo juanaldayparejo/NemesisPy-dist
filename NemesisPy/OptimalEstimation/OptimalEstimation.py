@@ -14,326 +14,256 @@
 
 import numpy as np
 from struct import *
-import pylab
-import sys,os,errno,shutil
+import sys,os
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib.font_manager as font_manager
-import matplotlib as mpl
-import nemesislib.utils as utils
-import nemesislib.spectroscopy as spec
-from NemesisPy.Profile import *
-from NemesisPy.Data import *
-from NemesisPy.Models.Models import *
+from NemesisPy import *
+from copy import *
 
 ###############################################################################################
 
-def calc_gain_matrix(nx,ny,kk,sa,se):
+def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,\
+                 NITER=10,PHILIMIT=0.1):
 
 
     """
-        FUNCTION NAME : calc_gain_matrix()
+        FUNCTION NAME : coreretOE()
         
         DESCRIPTION : 
 
-            Calculate gain matrix and averaging kernels. The gain matrix is calculated with
-               dd = sx*kk_T*(kk*sx*kk_T + se)^-1    (if nx>=ny)
-               dd = ((sx^-1 + kk_T*se^-1*kk)^-1)*kk_T*se^-1  (if ny>nx)
-
- 
-        INPUTS :
-       
-            nx :: Number of elements in state vector 
-            ny :: Number of elements in measurement vector
-            kk(ny,nx) :: Jacobian matrix
-            sa(nx,nx) :: A priori covariance matric
-            se(ny,ny) :: Measurement error covariance matrix
-
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-
-            dd(nx,ny) :: Gain matrix
-            aa(nx,nx) :: Averaging kernels
- 
-        CALLING SEQUENCE:
-        
-            dd,aa = calc_gain_matrix(nx,ny,kk,sa,se)       
- 
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
-        
-    """
-
-    #Calculating the transpose of kk
-    kt = np.transpose(kk)
-
-    #Calculating the gain matrix dd
-    if (nx >= ny):
-        #Multiply sa*kt
-        m = np.matmul(sa,kt)
-
-        #Multiply kk*m so that a = kk*sa*kt
-        a = np.matmul(kk,m)
-
-        #Add se to a so that b = kk*sa*kt + se
-        b = np.add(a,se)
-
-        #Inverting b so that we calculate c = (kk*sa*kt + se)^(-1)
-        c = np.linalg.inv(b)
-
-        #Multiplying sa*kt (m above) to c
-        dd = np.matmul(m,c)
-
-    else:
-
-        #Calculating the inverse of Sa and Se
-        sai = np.linalg.inv(sa)
-#        sei = np.linalg.inv(se)
-        sei = np.zeros([ny,ny])
-        for i in range(ny):
-            sei[i,i] = 1./se[i,i]  #As it is just a diagonal matrix
-
-        #Calculate kt*sei
-        m = np.matmul(kt,sei)
-
-        #Calculate m*kk so that kt*se^(-1)*kk
-        a = np.matmul(m,kk)
-
-        #Add sai to a so that b = kt*se^(-1)*kk + sa^(-1)
-        b = np.add(sai,a)
-
-        #Invert b so that c = (kt*se^(-1)*kk + sa^(-1))^(-1)
-        c = np.linalg.inv(b)
-
-        #Multiplying c by kt*sei (m from before) 
-        dd = np.matmul(c,m) 
-
-    aa = np.matmul(dd,kk)
-
-    return dd,aa
-
-
-###############################################################################################
-
-def calc_serr(nx,ny,sa,se,dd,aa):
-
-
-    """
-        FUNCTION NAME : calc_serr()
-        
-        DESCRIPTION : 
-
-            This subroutine calculates the error covariance matrices after the final iteration has been completed.
-
-            The subroutine calculates the MEASUREMENT covariance matrix according to the 
-            equation (re: p130 of Houghton, Taylor and Rodgers) :
-               
-                                  sm = dd*se*dd_T
-
-            The subroutine calculates the SMOOTHING error covariance matrix according to the equation:
-  
-                                  sn = (aa-I)*sx*(aa-I)_T  
-
-            The subroutine also calculates the TOTAL error matrix:
-
-                                  st=sn+sm
+            This subroutine runs the Optimal Estimation iterarive algorithm to solve the inverse
+            problem and find the set of parameters that fit the spectral measurements and are closest
+            to the a priori estimates of the parameters.
 
         INPUTS :
        
-            nx :: Number of elements in state vector 
-            ny :: Number of elements in measurement vector
-            sa(mx,mx) :: A priori covariance matric
-            se(my,my) :: Measurement error covariance matrix
-            dd(mx,my) :: Gain matrix
-            aa(mx,mx) :: Averaging kernels
+            runname :: Name of the Nemesis run
+            Variables :: Python class defining the parameterisations and state vector
+            Measurement :: Python class defining the measurements 
+            Atmosphere :: Python class defining the reference atmosphere
+            Spectroscopy :: Python class defining the spectroscopic parameters of gaseous species
+            Scatter :: Python class defining the parameters required for scattering calculations
+            Stellar :: Python class defining the stellar spectrum
+            Surface :: Python class defining the surface
+            CIA :: Python class defining the Collision-Induced-Absorption cross-sections
+            Layer :: Python class defining the layering scheme to be applied in the calculations
 
-        OPTIONAL INPUTS: none
+        OPTIONAL INPUTS:
+
+            NITER :: Number of iterations in retrieval
+            PHILIMIT :: Percentage convergence limit. If the percentage reduction of the cost function PHI
+                        is less than philimit then the retrieval is deemed to have converged.
+
         
         OUTPUTS :
 
-            sm(nx,nx) :: Final measurement covariance matrix
-            sn(nx,nx) :: Final smoothing error covariance matrix
-            st(nx,nx) :: Final full covariance matrix
+            OptimalEstimation :: Python class defining all the variables required as input or output
+                                 from the Optimal Estimation retrieval
  
         CALLING SEQUENCE:
         
-            sm,sn,st = calc_serr(nx,ny,sa,se,dd,aa)
+            OptimalEstimation = coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,Layer)
  
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        MODIFICATION HISTORY : Juan Alday (06/08/2021)
 
     """
 
-    #Multiplying dd*se
-    a = np.matmul(dd,se)
+    from NemesisPy import OptimalEstimation_0
 
-    #Multiplying a*dt so that dd*se*dt
-    dt = np.transpose(dd)
-    sm = np.matmul(a,dt)
+    #Creating class and including inputs
+    #############################################
 
-    #Calculate aa-ii where I is a diagonal matrix
-    b = np.zeros([nx,nx])
-    for i in range(nx):
-        for j in range(nx):
-            b[i,j] = aa[i,j]
-        b[i,i] = b[i,i] - 1.0
-    bt = np.transpose(b)
+    OptimalEstimation = OptimalEstimation_0()
 
-    #Multiply b*sa so that (aa-I)*sa
-    c = np.matmul(b,sa)
-  
-    #Multiply c*bt so tthat (aa-I)*sx*(aa-I)_T  
-    sn = np.matmul(c,bt)
+    OptimalEstimation.NITER = NITER
+    OptimalEstimation.PHILIMIT = PHILIMIT
+    OptimalEstimation.NX = Variables.NX
+    OptimalEstimation.NY = Measurement.NY
+    OptimalEstimation.edit_XA(Variables.XA)
+    OptimalEstimation.edit_XN(Variables.XN)
+    OptimalEstimation.edit_SA(Variables.SA)
+    OptimalEstimation.edit_Y(Measurement.Y)
+    OptimalEstimation.edit_SE(Measurement.SE)
 
-    #Add sn and sm and get total retrieved error
-    st = np.add(sn,sm)
+    #Opening .itr file
+    #################################################################
 
-    return sm,sn,st
-
-###############################################################################################
-
-def calc_phiret(ny,y,yn,se,nx,xn,xa,sa):
-
-    """
-        FUNCTION NAME : calc_phiret_nemesis()
-        
-        DESCRIPTION : 
-
-            Calculate the retrieval cost function to be minimised in the optimal estimation 
-            framework, which combines departure from a priori and closeness to spectrum.
- 
-        INPUTS :
-      
-            ny :: Number of elements in measurement vector
-            y(my) :: Measurement vector
-            yn(my) :: Modelled measurement vector
-            se(my,my) :: Measurement error covariance matrix
-            nx :: Number of elements in state vector 
-            xn(mx) :: State vector
-            xa(mx) :: A priori state vector
-            sa(mx,mx) :: A priori covariance matrix       
- 
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-
-            chisq :: Closeness of fit to measurement vector
-            phi :: Total cost function
- 
-        CALLING SEQUENCE:
-        
-            chisq,phi = calc_phiret_nemesis(ny,y,yn,se,nx,xn,xa,sa)       
- 
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
-
-    """
-
-    #Calculating yn-y
-    b = np.zeros([ny,1])
-    b[:,0] = yn[0:ny] - y[0:ny]
-    bt = np.transpose(b)
-
-    #Calculating inverse of sa and se
-    sai = np.linalg.inv(sa)
-#    sei = np.linalg.inv(se)
-    sei = np.zeros([ny,ny])
-    for i in range(ny):
-        sei[i,i] = 1./se[i,i]  #As it is just a diagonal matrix
-
-    #Multiplying se^(-1)*b
-    a = np.matmul(sei,b)
- 
-    #Multiplying bt*a so that (yn-y)^T * se^(-1) * (yn-y)
-    c = np.matmul(bt,a)
-
-    phi1 = c[0,0]
-    chisq = phi1
-
-    #Calculating xn-xa
-    d = np.zeros([nx,1])
-    d[:,0] = xn[0:nx] - xa[0:nx]
-    dt = np.transpose(d)
-   
-    #Multiply sa^(-1)*d 
-    e = np.matmul(sai,d)
-
-    #Multiply dt*e so that (xn-xa)^T * sa^(-1) * (xn-xa)
-    f = np.matmul(dt,e)
-
-    phi2 = f[0,0]
-   
-    print('calc_phiret_nemesis: phi1,phi2 = '+str(phi1)+','+str(phi2)+')')
-    phi = phi1+phi2
-
-    return chisq,phi
-
-###############################################################################################
-
-def assess(nx,ny,kk,sa,se):
+    if OptimalEstimation.NITER>0:
+        fitr = open(runname+'.itr','w')
+        fitr.write("\t %i \t %i \t %i\n" % (OptimalEstimation.NX,OptimalEstimation.NY,OptimalEstimation.NITER))
 
 
-    """
-        FUNCTION NAME : assess()
-        
-        DESCRIPTION : 
+    #Calculate the first measurement vector and jacobian matrix
+    #################################################################
 
-            This subroutine assesses the retrieval matrices to see
-            whether an exact retrieval may be expected.
+    print('nemesisSO :: Calculating Jacobian matrix KK')
+    YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
 
-            One formulation of the gain matrix is dd = sx*kk_T*(kk*sx*kk_T + se)^-1
+    OptimalEstimation.edit_YN(YN)
+    OptimalEstimation.edit_KK(KK)
 
-            If the retrieval is exact, the se will be very small. Since Se is
-            diagonal all we need do is compare to  the diagonal elements of
- 
-        INPUTS :
-      
-            nx :: Number of elements in state vector 
-            ny :: Number of elements in measurement vector
-            kk(my,mx) :: Jacobian matrix
-            sa(mx,mx) :: A priori covariance matric
-            se(my,my) :: Measurement error covariance matrix
- 
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS : none
+    #Calculate gain matrix and average kernels
+    #################################################################
 
-        CALLING SEQUENCE:
-        
-            assess(nx,ny,kk,sa,se)       
- 
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+    print('nemesisSO :: Calculating gain matrix')
+    OptimalEstimation.calc_gain_matrix()
 
-    """
+    #Calculate initial value of cost function phi
+    #################################################################
 
-    #Calculating transpose of kk
-    kt = np.transpose(kk)
+    print('nemesisSO :: Calculating cost function')
+    OptimalEstimation.calc_phiret()
 
-    #Multiply sa*kt
-    m = np.matmul(sa,kt)
+    OPHI = OptimalEstimation.PHI
+    print('chisq/ny = '+str(OptimalEstimation.CHISQ))
 
-    #Multiply kk*m so that a = kk*sa*kt
-    a = np.matmul(kk,m)
+    #Assessing whether retrieval is going to be OK
+    #################################################################
 
-    #Add se to a
-    b = np.add(a,se)
+    OptimalEstimation.assess()
 
-    sum1 = 0.0
-    sum2 = 0.0
-    sum3 = 0.0
-    for i in range(ny):
-            sum1 = sum1 + b[i,i]
-            sum2 = sum2 + se[i,i]
-            sum3 = sum3 + b[i,i]/se[i,i]
+    #Run retrieval for each iteration
+    #################################################################
 
-    sum1 = sum1/ny
-    sum2 = sum2/ny
-    sum3 = sum3/ny
-  
-    print('Assess:')
-    print('Average of diagonal elements of Kk*Sx*Kt : '+str(sum1))
-    print('Average of diagonal elements of Se : '+str(sum2))
-    print('Ratio = '+str(sum1/sum2))
-    print('Average of Kk*Sx*Kt/Se element ratio : '+str(sum3))
-    if sum3 > 10.0:
-        print('******************* ASSESS WARNING *****************')
-        print('Insufficient constraint. Solution likely to be exact')
-        print('****************************************************')
+    #Initializing some variables
+    alambda = 1.0   #Marquardt-Levenberg-type 'braking parameter'
+    NX11 = np.zeros(OptimalEstimation.NX)
+    XN1 = copy(OptimalEstimation.XN)
+    NY1 = np.zeros(OptimalEstimation.NY)
+    YN1 = copy(OptimalEstimation.YN)
+
+    for it in range(OptimalEstimation.NITER):
+
+        print('nemesisSO :: Iteration '+str(it)+'/'+str(OptimalEstimation.NITER))
+
+        #Writing into .itr file
+        ####################################
+
+        fitr.write('%10.5f %10.5f \n' % (OptimalEstimation.CHISQ,OptimalEstimation.PHI))
+        for i in range(OptimalEstimation.NX):fitr.write('%10.5f \n' % (XN1[i]))
+        for i in range(OptimalEstimation.NX):fitr.write('%10.5f \n' % (OptimalEstimation.XA[i]))
+        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.Y[i]))
+        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.SE[i,i]))
+        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (YN1[i]))
+        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.YN[i]))
+        for i in range(OptimalEstimation.NX):
+            for j in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.KK[j,i]))
+
+
+        #Calculating next state vector
+        #######################################
+
+        print('nemesisSO :: Calculating next iterated state vector')
+        X_OUT = OptimalEstimation.calc_next_xn()
+        #  x_out(nx) is the next iterated value of xn using classical N-L
+        #  optimal estimation. However, we want to apply a braking parameter
+        #  alambda to stop the new trial vector xn1 being too far from the
+        #  last 'best-fit' value xn
+
+        IBRAKE = 0
+        while IBRAKE==0: #We continue in this while loop until we do not find problems with the state vector
+    
+            for j in range(OptimalEstimation.NX):
+                XN1[j] = OptimalEstimation.XN[j] + (X_OUT[j]-OptimalEstimation.XN[j])/(1.0+alambda)
+            
+                #Check to see if log numbers have gone out of range
+                if Variables.LX[j]==1:
+                    if((XN1[j]>85.) or (XN1[j]<-85.)):
+                        print('nemesisSO :: log(number gone out of range) --- increasing brake')
+                        alambda = alambda * 10.
+                        IBRAKE = 0
+                        if alambda>1.e30:
+                            sys.exit('error in nemesisSO :: Death spiral in braking parameters - stopping')
+                        break
+                    else:
+                        IBRAKE = 1
+                else:
+                    IBRAKE = 1
+                    pass
+                        
+            if IBRAKE==0:
+                continue
+                        
+            #Check to see if any VMRs or other parameters have gone negative.
+            Variables1 = copy(Variables)
+            Variables1.XN = XN1
+            Measurement1 = copy(Measurement)
+            Atmosphere1 = copy(Atmosphere)
+            Scatter1 = copy(Scatter)
+            Stellar1 = copy(Stellar)
+            Surface1 = copy(Surface)
+            Layer1 = copy(Layer)
+            flagh2p = False
+            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+
+            #if(len(np.where(Atmosphere1.VMR<0.0))>0):
+            #    print('nemesisSO :: VMR has gone negative --- increasing brake')
+            #    alambda = alambda * 10.
+            #    IBRAKE = 0
+            #    continue
+            
+            iwhere = np.where(Atmosphere1.T<0.0)
+            if(len(iwhere[0])>0):
+                print('nemesisSO :: Temperature has gone negative --- increasing brake')
+                alambda = alambda * 10.
+                IBRAKE = 0
+                continue
+
+
+        #Calculate test spectrum using trial state vector xn1. 
+        #Put output spectrum into temporary spectrum yn1 with
+        #temporary kernel matrix kk1. Does it improve the fit? 
+        Variables.edit_XN(XN1)
+        YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+
+        OptimalEstimation1 = copy(OptimalEstimation)
+        OptimalEstimation1.edit_YN(YN1)
+        OptimalEstimation1.edit_XN(XN1)
+        OptimalEstimation1.edit_KK(KK1)
+        OptimalEstimation1.calc_phiret()
+        print('chisq/ny = '+str(OptimalEstimation1.CHISQ))
+
+        #Does the trial solution fit the data better?
+        if (OptimalEstimation1.PHI <= OPHI):
+            print('Successful iteration. Updating xn,yn and kk')
+            OptimalEstimation.edit_XN(XN1)
+            OptimalEstimation.edit_YN(YN1)
+            OptimalEstimation.edit_KK(KK1)
+
+            #Now calculate the gain matrix and averaging kernels
+            OptimalEstimation.calc_gain_matrix()
+
+            #Updating the cost function
+            OptimalEstimation.calc_phiret()
+
+            #Has the solution converged?
+            tphi = 100.0*(OPHI-OptimalEstimation.PHI)/OPHI
+            if (tphi>=0.0 and tphi<=OptimalEstimation.PHILIMIT and alambda<1.0):
+                print('phi, phlimit : '+str(tphi)+','+str(OptimalEstimation.PHILIMIT))
+                print('Phi has converged')
+                print('Terminating retrieval')
+                break
+            else:
+                OPHI=OptimalEstimation.PHI
+                alambda = alambda*0.3  #reduce Marquardt brake
+
+        else:
+            #Leave xn and kk alone and try again with more braking
+            alambda = alambda*10.0  #increase Marquardt brake
+
+
+    #Calculating output parameters
+    ######################################################
+
+    #Calculating retrieved covariance matrices
+    OptimalEstimation.calc_serr()
+
+    #Make sure errors stay as a priori for kiter < 0
+    if OptimalEstimation.NITER<0:
+        OptimalEstimation.ST = copy(OptimalEstimation.SA)
+
+    #Closing .itr file
+    if OptimalEstimation.NITER<0:
+        fitr.close()
+
+    return OptimalEstimation
+

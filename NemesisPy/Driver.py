@@ -66,6 +66,8 @@ Layer = Layer(RADIUS=RADIUS, LAYTYP=LAYTYP, NLAY=NLAY, LAYINT=LAYINT, NINT=101,
 BASEH, BASEP, BASET, HEIGHT, PRESS, TEMP, TOTAM, AMOUNT, PP, LAYSF, DELH\
     = Layer.integrate(H=H,P=P,T=T, LAYANG=LAYANG, ID=ID,VMR=VMR)
 
+print(LAYSF)
+
 """
 print('{:<8} {:<8} {:<8} {:<8} {:<8} {:<8} {:<8} '.format(
 'BASEH', 'DELH', "BASEP", 'BASET', 'TOTAM', 'PRESS', 'TEMP'),end="")

@@ -6,8 +6,8 @@ from .layer_average import layer_average
 """
 Object to store layering scheme settings and averaged properties of each layer.
 """
-class Layer:
-    def __init__(self, RADIUS, LAYHT=0, LAYTYP=1, LAYINT=1, NLAY=20, NINT=101,
+class Layer_0:
+    def __init__(self, RADIUS=None, LAYHT=0, LAYTYP=1, LAYINT=1, NLAY=20, NINT=101,
                 AMFORM=1, INTERTYP=1, H_base=None, P_base=None):
         """
         After creating a Layer object, call the method
@@ -72,9 +72,11 @@ class Layer:
         self.LAYANG = None
         self.BASEH = None
         self.BASEP = None
+        self.DELH = None
         # additional input for layer_average
         self.ID = None
         self.VMR = None
+        self.DUST = None
         # output for layer_average
         self.HEIGHT = None
         self.PRESS = None
@@ -82,14 +84,14 @@ class Layer:
         self.TOTAM = None
         self.AMOUNT = None
         self.PP = None
-        """
+        
         # cloud
         self.CONT = None
-        """
 
-    def integrate(self, H, P, T, LAYANG, ID, VMR):
+
+    def integrate(self, H, P, T, LAYANG, ID, VMR, DUST):
         self.layer_split(H=H, P=P, T=T, LAYANG=LAYANG)
-        self.layer_average(ID=ID, VMR=VMR)
+        self.layer_average(ID=ID, VMR=VMR, DUST=DUST)
         """
         @param H: 1D array
             Input profile heights
@@ -106,7 +108,7 @@ class Layer:
             the column j corresponds to the gas with RADTRANS ID ID[j].
         """
         return (self.BASEH, self.BASEP, self.BASET, self.HEIGHT, self.PRESS,
-                self.TEMP, self.TOTAM, self.AMOUNT, self.PP,
+                self.TEMP, self.TOTAM, self.AMOUNT, self.PP, self.CONT,
                 self.LAYSF, self.DELH)
 
     def layer_split(self, H, P, T, LAYANG):
@@ -121,11 +123,11 @@ class Layer:
         self.BASEH = BASEH
         self.BASEP = BASEP
 
-    def layer_average(self, ID, VMR):
+    def layer_average(self, ID, VMR, DUST):
         # get averaged layer properties
-        HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,DELH,BASET,LAYSF\
+        HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,CONT,DELH,BASET,LAYSF\
             = layer_average(RADIUS=self.RADIUS, H=self.H, P=self.P, T=self.T,
-                ID=ID, VMR=VMR, BASEH=self.BASEH, BASEP=self.BASEP,
+                ID=ID, VMR=VMR, DUST=DUST, BASEH=self.BASEH, BASEP=self.BASEP,
                 LAYANG=self.LAYANG, LAYINT=self.LAYINT, LAYHT=self.LAYHT,
                 NINT=self.NINT)
         self.HEIGHT = HEIGHT
@@ -134,6 +136,7 @@ class Layer:
         self.TOTAM = TOTAM
         self.AMOUNT = AMOUNT
         self.PP = PP
+        self.CONT = CONT
         self.DELH = DELH
         self.BASET = BASET
         self.LAYSF = LAYSF

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from .interp import interp
-from NemesisPy.Files.Files import *
+from NemesisPy.Files import *
 Test = False
 
 def layer_split(RADIUS, H, P, LAYANG=0.0, LAYHT=0.0, NLAY=20,
@@ -54,8 +54,13 @@ def layer_split(RADIUS, H, P, LAYANG=0.0, LAYHT=0.0, NLAY=20,
     @param BASEP: 1D array
         Pressures of the layer bases.
     """
-    assert (LAYHT>=H[0]) and (LAYHT<H[-1]) , \
-        'Lowest layer base height LAYHT not contained in atmospheric profile'
+
+    if LAYHT<H[0]:
+        print('Warning from layer_split() :: LAYHT < H(0). Resetting LAYHT')
+        LAYHT = H[0]
+
+    #assert (LAYHT>=H[0]) and (LAYHT<H[-1]) , \
+    #    'Lowest layer base height LAYHT not contained in atmospheric profile'
     assert not (H_base and P_base), \
         'Cannot input both layer base heights and base pressures'
 
@@ -109,6 +114,44 @@ def layer_split(RADIUS, H, P, LAYANG=0.0, LAYHT=0.0, NLAY=20,
         raise('Layering scheme not defined')
 
     return BASEH, BASEP
+
+def read_hlay():
+
+    """
+        FUNCTION NAME : read_hlay()
+        
+        DESCRIPTION : Read the height.lay file used to set the altitude of the base of the layers
+                      in a Nemesis run
+        
+        INPUTS : None
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            nlay :: Number of layers in atmospheric model
+
+        
+        CALLING SEQUENCE:
+        
+            nlay,hbase = read_hlay()
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+    """
+
+    f = open('height.lay','r')
+
+    header = f.readline().split()
+
+    s = f.readline().split()
+    nlay = int(s[0])
+    hbase = np.zeros(nlay)
+    for i in range(nlay):
+        s = f.readline().split()
+        hbase[i] = float(s[0])
+
+    return nlay,hbase
 
 if Test == True:
     LAYTYP = 1

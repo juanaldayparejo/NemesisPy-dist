@@ -1,3 +1,18 @@
+# NAME:
+#       Models.py (NemesisPy)
+#
+# DESCRIPTION:
+#
+#	This library contains functions to change the Nemesis atmospheric profiles or the rest
+#   of the model parameters based on the different parameterisations      
+#
+# CATEGORY:
+#
+#	NEMESIS
+# 
+# MODIFICATION HISTORY: Juan Alday 15/07/2021
+
+
 from NemesisPy.Profile import *
 from NemesisPy.Models import *
 from NemesisPy.Data import *
@@ -5,292 +20,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os,sys
 
-#!/usr/local/bin/python3
-# -*- coding: utf-8 -*-
-
-###############################################################################################
-
-"""
-Created on Tue Mar 29 17:27:12 2021
-
-@author: juanalday
-
-State Vector Class.
-"""
-
-class StateVector:
-
-    def __init__(self, NX=10, JPRE=-1, JTAN=-1, JSURF=-1, JALB=-1, JXSC=-1, JRAD=-1, JLOGG=-1, JFRAC=-1):
-
-        """
-        Inputs
-        ------
-        @param NX: int,
-            Number of points in the state vector
-        @param JPRE: int,
-            Position of ref. tangent pressure in state vector (if included)
-        @param JTAN: int,
-            Position of tangent altitude correction in state vector (if included)
-        @param JSURF: int,
-            Position of surface temperature in state vector (if included)
-        @param JALB: int,
-            Position of start of surface albedo spectrum in state vector (if included)
-        @param JXSC: int,
-            Position of start of x-section spectrum in state vector (if included)
-        @param JRAD: int,
-            Position of radius of the planet in state vector (if included)
-        @param JLOGG: int,
-            Position of surface log_10(g) of planet in state vector (if included)     
-         @param JFRAC: int,
-            Position of fractional coverage in state vector (if included)     
-        
-        Attributes
-        ----------
-        @attribute XN: 1D array
-            State vector
-        @attribute SX: 2D array
-            Covariance matrix of the state vector
-        @attribute LX: 1D array
-            Flag indicating whether the elements of the state vector are carried in log-scale
-        @attribute FIX: 1D array
-            Flag indicating whether the elements of the state vector must be fixed
-
-        Methods
-        -------
-        StateVector.edit_XN
-        StateVector.edit_LX
-        StateVector.edit_FIX
-        StateVector.edit_SX
-        """
-
-        #Input parameters
-        self.NX = NX
-        self.JPRE = JPRE
-        self.JTAN = JTAN
-        self.JSURF = JSURF
-        self.JALB = JALB
-        self.JXSC = JXSC
-        self.JRAD = JRAD
-        self.JLOGG = JLOGG
-        self.JFRAC = JFRAC
-
-        # Input the following profiles using the edit_ methods.
-        self.XN = None # np.zeros(NX)
-        self.LX = None # np.zeros(NX)
-        self.FIX =  None # np.zeros(NX)
-        self.SX = None # np.zeros((NX, NX))
-
-    def edit_XN(self, XN_array):
-        """
-        Edit the State Vector.
-        @param XN_array: 1D array
-            Parameters defining the state vector
-        """
-        XN_array = np.array(XN_array)
-        assert len(XN_array) == self.NX, 'XN should have NX elements'
-        self.XN = XN_array
-
-    def edit_LX(self, LX_array):
-        """
-        Edit the the flag indicating if the elements are in log-scale
-        @param LX_array: 1D array
-            Flag indicating whether a particular element of the state 
-            vector is in log-scale (1) or not (0)
-        """
-        LX_array = np.array(LX_array,dtype='int32')
-        assert len(LX_array) == self.NX, 'LX should have NX elements'
-        self.LX = LX_array  
-
-    def edit_FIX(self, FIX_array):
-        """
-        Edit the the flag indicating if the elements are to be fixed
-        @param FIX_array: 1D array
-            Flag indicating whether a particular element of the state 
-            vector is fixed (1) or not (0)
-        """
-        FIX_array = np.array(FIX_array,dtype='int32')
-        assert len(FIX_array) == self.NX, 'FIX should have NX elements'
-        self.FIX = FIX_array 
-
-    def edit_SX(self, SX_array):
-        """
-        Edit the state vector covariance matrix
-        @param SX_array: 2D array
-            State vector covariance matrix
-        """
-        SX_array = np.array(SX_array,dtype='int32')
-        assert len(SX_array[:,0]) == self.NX, 'SX should have (NX,NX) elements'
-        assert len(SX_array[0,:]) == self.NX, 'SX should have (NX,NX) elements'
-        self.SX = SX_array 
-
-###############################################################################################
-
-"""
-Created on Tue Mar 29 17:27:12 2021
-
-@author: juanalday
-
-Model variables Class.
-"""
-
-class Variables:
-
-    def __init__(self, NVAR=2, NPARAM=10):
-
-        """
-        Inputs
-        ------
-        @param NVAR: int,
-            Number of model variables to be included
-        @param NPARAM: int,
-            Number of extra parameters needed to implement the different models       
-        
-        Attributes
-        ----------
-        @attribute VARIDENT: 2D array
-            Variable ID
-        @attribute VARPARAM: 2D array
-            Extra parameters needed to implement the parameterisation
-        @attribute NXVAR: 1D array
-            Number of points in state vector associated with each variable
-
-        Methods
-        -------
-        StateVector.edit_VARIDENT
-        StateVector.edit_VARPARAM
-        StateVector.edit_NXVAR
-        """
-
-        #Input parameters
-        self.NVAR = NVAR
-        self.NPARAM = NPARAM
-
-        # Input the following profiles using the edit_ methods.
-        self.VARIDENT = None # np.zeros(NVAR,3)
-        self.VARPARAM = None # np.zeros(NVAR,NPARAM)
-        self.NXVAR =  None # np.zeros(NX)
-
-    def edit_VARIDENT(self, VARIDENT_array):
-        """
-        Edit the Variable IDs
-        @param VARIDENT_array: 2D array
-            Parameter IDs defining the parameterisation
-        """
-        VARIDENT_array = np.array(VARIDENT_array)
-        #assert len(VARIDENT_array[:,0]) == self.NVAR, 'VARIDENT should have (NVAR,3) elements'
-        #assert len(VARIDENT_array[0,:]) == 3, 'VARIDENT should have (NVAR,3) elements'
-        self.VARIDENT = VARIDENT_array
-
-    def edit_VARPARAM(self, VARPARAM_array):
-        """
-        Edit the extra parameters needed to implement the parameterisations
-        @param VARPARAM_array: 2D array
-            Extra parameters defining the model
-        """
-        VARPARAM_array = np.array(VARPARAM_array)
-        #assert len(VARPARAM_array[:,0]) == self.NVAR, 'VARPARAM should have (NVAR,NPARAM) elements'
-        #assert len(VARPARAM_array[0,:]) == self.NPARAM, 'VARPARAM should have (NVAR,NPARAM) elements'
-        self.VARPARAM = VARPARAM_array
-
-    def calc_NXVAR(self, NPRO):
-        """
-        Calculate the array defining the number of parameters in the state 
-        vector associated with each model
-        @param NXVAR_array: 1D array
-            Number of parameters in the state vector associated with each model
-        """
-
-        nxvar = np.zeros(self.NVAR,dtype='int32')
-        for i in range(self.NVAR):
-
-            imod = self.VARIDENT[i,2]
-            ipar = self.VARPARAM[i,0]
-
-            if imod == -1:
-                nxvar[i] = NPRO
-            elif imod == 0:
-                nxvar[i] = NPRO
-            elif imod == 1:
-                nxvar[i] = 2
-            elif imod == 2:
-                nxvar[i] = 1
-            elif imod == 3:
-                nxvar[i] = 1
-            elif imod == 4:
-                nxvar[i] = 3
-            elif imod == 5:
-                nxvar[i] = 1
-            elif imod == 6:
-                nxvar[i] = 2
-            elif imod == 7:
-                nxvar[i] = 2
-            elif imod == 8:
-                nxvar[i] = 3
-            elif imod == 9:
-                nxvar[i] = 3
-            elif imod == 10:
-                nxvar[i] = 4
-            elif imod == 11:
-                nxvar[i] = 2
-            elif imod == 12:
-                nxvar[i] = 3
-            elif imod == 13:
-                nxvar[i] = 3
-            elif imod == 14:
-                nxvar[i] = 3
-            elif imod == 15:
-                nxvar[i] = 3
-            elif imod == 16:
-                nxvar[i] = 4
-            elif imod == 17:
-                nxvar[i] = 2
-            elif imod == 18:
-                nxvar[i] = 2
-            elif imod == 19:
-                nxvar[i] = 4
-            elif imod == 20:
-                nxvar[i] = 2
-            elif imod == 21:
-                nxvar[i] = 2
-            elif imod == 22:
-                nxvar[i] = 5
-            elif imod == 23:
-                nxvar[i] = 4
-            elif imod == 24:
-                nxvar[i] = 3
-            elif imod == 25:
-                nxvar[i] = int(ipar)
-            elif imod == 26:
-                nxvar[i] = 4
-            elif imod == 27:
-                nxvar[i] = 3
-            elif imod == 28:
-                nxvar[i] = 1
-            elif imod == 228:
-                nxvar[i] = 7
-            elif imod == 229:
-                nxvar[i] = 7
-            elif imod == 230:
-                nxvar[i] = 2*int(ipar)
-            elif imod == 444:
-                nxvar[i] = 1 + 1 + int(ipar)
-            elif imod == 666:
-                nxvar[i] = 1
-            elif imod == 998:
-                nxvar[i] = int(ipar)
-            elif imod == 999:
-                nxvar[i] = 1
-            else:
-                sys.exit('error :: varID not included in calc_NXVAR()')
-
-        self.NXVAR = nxvar
-
 ###############################################################################################
 
 def modelm1(atm,ipar,xprof,MakePlot=False):
     
     """
-        FUNCTION NAME : model0()
+        FUNCTION NAME : modelm1()
         
         DESCRIPTION :
         
@@ -332,20 +67,20 @@ def modelm1(atm,ipar,xprof,MakePlot=False):
 
     npro = len(xprof)
     if npro!=atm.NP:
-        sys.exit('error in model 0 :: Number of levels in atmosphere does not match and profile')
+        sys.exit('error in model -1 :: Number of levels in atmosphere does not match and profile')
 
     npar = atm.NVMR+2+atm.NDUST
     xmap = np.zeros([npro,npar,npro])
 
     if ipar<atm.NVMR:  #Gas VMR
-        sys.exit('error :: Model -1 is just compatible with aerosol populations')
+        sys.exit('error :: Model -1 is just compatible with aerosol populations (Gas VMR given)')
     elif ipar==atm.NVMR: #Temperature
-        sys.exit('error :: Model -1 is just compatible with aerosol populations')
+        sys.exit('error :: Model -1 is just compatible with aerosol populations (Temperature given)')
     elif ipar>atm.NVMR:
         jtmp = ipar - (atm.NVMR+1)
         x1 = np.exp(xprof)
         if jtmp<atm.NDUST:
-            rho = atm.calc_rho(molwt)  #kg/m3
+            rho = atm.calc_rho()  #kg/m3
             rho = rho / 1.0e3 #g/cm3
             atm.DUST[:,jtmp] = x1 / rho
         elif jtmp==atm.NDUST:
@@ -358,7 +93,7 @@ def modelm1(atm,ipar,xprof,MakePlot=False):
         
 
     if MakePlot==True:
-        fig,(ax1,ax2) = plt.subplots(1,2,figsize=(10,5))
+        fig,(ax1,ax2) = plt.subplots(1,2,figsize=(7,5))
 
         for i in range(atm.NDUST):
             ax1.semilogx(atm.DUST[:,i]*rho,atm.H/1000.)
@@ -366,7 +101,6 @@ def modelm1(atm,ipar,xprof,MakePlot=False):
 
         ax1.grid()
         ax2.grid()
-        ax3.grid()
         ax1.set_xlabel('Aerosol density (particles per cm$^{-3}$)')
         ax1.set_ylabel('Altitude (km)')
         ax2.set_xlabel('Aerosol density (particles per gram of atm)')
@@ -440,7 +174,7 @@ def model0(atm,ipar,xprof,MakePlot=False):
         jtmp = ipar - (atm.NVMR+1)
         x1 = np.exp(xprof)
         if jtmp<atm.NDUST:
-            atm.DUST[:,jtmp] = x1
+            atm.DUST[:,jtmp] = x1 * 1.0e6
         elif jtmp==atm.NDUST:
             atm.PARAH2 = x1
         elif jtmp==atm.NDUST+1:
@@ -655,3 +389,225 @@ def model3(atm,ipar,scf,MakePlot=False):
         plt.show()
 
     return atm,xmap
+
+###############################################################################################
+
+def model229(Measurement,par1,par2,par3,par4,par5,par6,par7,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model2()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 229 in NEMESIS.
+            In this model, the ILS of the measurement is defined from every convolution wavenumber
+            using the double-Gaussian parameterisation created for analysing ACS MIR spectra
+        
+        INPUTS :
+        
+            Measurement :: Python class defining the Measurement
+            par1 :: Wavenumber offset of main at lowest wavenumber
+            par2 :: Wavenumber offset of main at wavenumber in the middle
+            par3 :: Wavenumber offset of main at highest wavenumber 
+            par4 :: Offset of the second gaussian with respect to the first one (assumed spectrally constant)
+            par5 :: FWHM of the main gaussian at lowest wavenumber (assumed to be constat in wavelength units)
+            par6 :: Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber
+            par7 :: Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (linear var)
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            Updated Measurement class
+        
+        CALLING SEQUENCE:
+        
+            Measurement = model229(Measurement,par1,par2,par3,par4,par5,par6,par7)
+        
+        MODIFICATION HISTORY : Juan Alday (29/03/2021)
+        
+    """
+
+    from NemesisPy import ngauss
+
+    #Calculating the parameters for each spectral point
+    nconv = Measurement.NCONV[0]
+    vconv1 = Measurement.VCONV[0:nconv,0]
+    ng = 2
+
+    # 1. Wavenumber offset of the two gaussians
+    #    We divide it in two sections with linear polynomials     
+    iconvmid = int(nconv/2.)
+    wavemax = vconv1[nconv-1]
+    wavemin = vconv1[0]
+    wavemid = vconv1[iconvmid]
+    offgrad1 = (par2 - par1)/(wavemid-wavemin)
+    offgrad2 = (par2 - par3)/(wavemid-wavemax)
+    offset = np.zeros([nconv,ng])
+    for i in range(iconvmid):
+        offset[i,0] = (vconv1[i] - wavemin) * offgrad1 + par1
+        offset[i,1] = offset[i,0] + par4
+    for i in range(nconv-iconvmid):
+        offset[i+iconvmid,0] = (vconv1[i+iconvmid] - wavemax) * offgrad2 + par3
+        offset[i+iconvmid,1] = offset[i+iconvmid,0] + par4
+
+    # 2. FWHM for the two gaussians (assumed to be constant in wavelength, not in wavenumber)
+    fwhm = np.zeros([nconv,ng])
+    fwhml = par5 / wavemin**2.0
+    for i in range(nconv):
+        fwhm[i,0] = fwhml * (vconv1[i])**2.
+        fwhm[i,1] = fwhm[i,0]
+
+    # 3. Amplitde of the second gaussian with respect to the main one
+    amp = np.zeros([nconv,ng])
+    ampgrad = (par7 - par6)/(wavemax-wavemin)
+    for i in range(nconv):
+        amp[i,0] = 1.0
+        amp[i,1] = (vconv1[i] - wavemin) * ampgrad + par6
+
+    #Running for each spectral point
+    nfil = np.zeros(nconv,dtype='int32')
+    mfil1 = 200
+    vfil1 = np.zeros([mfil1,nconv])
+    afil1 = np.zeros([mfil1,nconv])
+    for i in range(nconv):
+
+        #determining the lowest and highest wavenumbers to calculate
+        xlim = 0.0
+        xdist = 5.0 
+        for j in range(ng):
+            xcen = offset[i,j]
+            xmin = abs(xcen - xdist*fwhm[i,j]/2.)
+            if xmin > xlim:
+                xlim = xmin
+            xmax = abs(xcen + xdist*fwhm[i,j]/2.)
+            if xmax > xlim:
+                xlim = xmax
+
+        #determining the wavenumber spacing we need to sample properly the gaussians
+        xsamp = 7.0   #number of points we require to sample one HWHM 
+        xhwhm = 10000.0
+        for j in range(ng):
+            xhwhmx = fwhm[i,j]/2. 
+            if xhwhmx < xhwhm:
+                xhwhm = xhwhmx
+        deltawave = xhwhm/xsamp
+        np1 = 2.0 * xlim / deltawave
+        npx = int(np1) + 1
+
+        #Calculating the ILS in this spectral point
+        iamp = np.zeros([ng])
+        imean = np.zeros([ng])
+        ifwhm = np.zeros([ng])
+        fun = np.zeros([npx])
+        xwave = np.linspace(vconv1[i]-deltawave*(npx-1)/2.,vconv1[i]+deltawave*(npx-1)/2.,npx)        
+        for j in range(ng):
+            iamp[j] = amp[i,j]
+            imean[j] = offset[i,j] + vconv1[i]
+            ifwhm[j] = fwhm[i,j]
+
+        fun = ngauss(npx,xwave,ng,iamp,imean,ifwhm)  
+        nfil[i] = npx
+        vfil1[0:nfil[i],i] = xwave[:]
+        afil1[0:nfil[i],i] = fun[:]
+
+    mfil = nfil.max()
+    vfil = np.zeros([mfil,nconv])
+    afil = np.zeros([mfil,nconv])
+    for i in range(nconv):
+        vfil[0:nfil[i],i] = vfil1[0:nfil[i],i]
+        afil[0:nfil[i],i] = afil1[0:nfil[i],i]
+    
+    Measurement.NFIL = nfil
+    Measurement.VFIL = vfil
+    Measurement.AFIL = afil
+
+    if MakePlot==True:
+
+        fig, ([ax1,ax2,ax3]) = plt.subplots(1,3,figsize=(12,4))
+        
+        ix = 0  #First wavenumber
+        ax1.plot(vfil[0:nfil[ix],ix],afil[0:nfil[ix],ix],linewidth=2.)
+        ax1.set_xlabel(r'Wavenumber $\nu$ (cm$^{-1}$)')
+        ax1.set_ylabel(r'f($\nu$)')
+        ax1.set_xlim([vfil[0:nfil[ix],ix].min(),vfil[0:nfil[ix],ix].max()])
+        ax1.ticklabel_format(useOffset=False)
+        ax1.grid()
+        
+        ix = int(nconv/2)-1  #Centre wavenumber
+        ax2.plot(vfil[0:nfil[ix],ix],afil[0:nfil[ix],ix],linewidth=2.)
+        ax2.set_xlabel(r'Wavenumber $\nu$ (cm$^{-1}$)')
+        ax2.set_ylabel(r'f($\nu$)')
+        ax2.set_xlim([vfil[0:nfil[ix],ix].min(),vfil[0:nfil[ix],ix].max()])
+        ax2.ticklabel_format(useOffset=False)
+        ax2.grid()
+        
+        ix = nconv-1  #Last wavenumber
+        ax3.plot(vfil[0:nfil[ix],ix],afil[0:nfil[ix],ix],linewidth=2.)
+        ax3.set_xlabel(r'Wavenumber $\nu$ (cm$^{-1}$)')
+        ax3.set_ylabel(r'f($\nu$)')
+        ax3.set_xlim([vfil[0:nfil[ix],ix].min(),vfil[0:nfil[ix],ix].max()])
+        ax3.ticklabel_format(useOffset=False)
+        ax3.grid()
+        
+        plt.tight_layout()
+        plt.show()
+
+    return Measurement
+
+
+###############################################################################################
+
+def model887(Scatter,xsc,idust,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model2()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 887 in NEMESIS.
+            In this model, the cross-section spectrum of IDUST is changed given the parameters in 
+            the state vector
+        
+        INPUTS :
+        
+            Scatter :: Python class defining the spectral properties of aerosols in the atmosphere
+
+            xsc :: New cross-section spectrum of aerosol IDUST
+
+            idust :: Index of the aerosol to be changed (from 0 to NDUST-1)
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            Scatter :: Updated Scatter class
+        
+        CALLING SEQUENCE:
+        
+            Scatter = model887(Scatter,xsc,idust)
+        
+        MODIFICATION HISTORY : Juan Alday (29/03/2021)
+        
+    """
+
+    if len(xsc)!=Scatter.NWAVE:
+        sys.exit('error in model 887 :: Cross-section array must be defined at the same wavelengths as in .xsc')
+    else:
+        Scatter.KEXT[:,idust] = xsc[:]
+
+    if MakePlot==True:
+        fig,ax1=plt.subplots(1,1,figsize=(10,3))
+        ax1.semilogy(Scatter.WAVE,Scatter.KEXT[:,idust])
+        ax1.grid()
+        if Scatter.ISPACE==1:
+            ax1.set_xlabel('Wavelength ($\mu$m)')
+        else:
+            ax1.set_xlabel('Wavenumber (cm$^{-1}$')
+        plt.tight_layout()
+        plt.show()
+    

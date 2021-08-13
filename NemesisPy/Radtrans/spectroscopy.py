@@ -20,359 +20,9 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.font_manager as font_manager
 import matplotlib as mpl
-from NemesisPy.Utils.Utils import find_nearest
-from NemesisPy.Files.Files import *
-#import nemesislib.files as files
-
-###############################################################################################
-
-def read_ktahead(filename):
-    
-    """
-        FUNCTION NAME : read_ktahead_nemesis()
-        
-        DESCRIPTION : Read the header information in a correlated-k look-up table written with the standard format of Nemesis
-        
-        INPUTS :
-        
-            filename :: Name of the file (supposed to have a .kta extension)
-        
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-        
-            nwave :: Number of wavelength points
-            vmin :: Minimum wavelength
-            delv :: Spectral sampling
-            npress :: Number of pressure levels
-            ntemp :: Number of temperature levels
-            gasID :: RADTRAN gas ID
-            isoID :: RADTRAN isotopologue ID
-            pressleves(np) :: Pressure levels (atm)
-            templeves(np) :: Temperature levels (K)
-        
-        CALLING SEQUENCE:
-        
-            nwave,vmin,delv,fwhm,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels = read_ktahead(filename)
-        
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
-        
-    """
-    
-    #Opening file
-    strlen = len(filename)
-    if filename[strlen-3:strlen] == 'kta':
-        f = open(filename,'r')
-    else:
-        f = open(filename+'.kta','r')
-
-    irec0 = np.fromfile(f,dtype='int32',count=1)
-    nwave = np.fromfile(f,dtype='int32',count=1)
-    vmin = np.fromfile(f,dtype='float32',count=1)
-    delv = np.fromfile(f,dtype='float32',count=1)
-    fwhm = np.fromfile(f,dtype='float32',count=1)
-    npress = int(np.fromfile(f,dtype='int32',count=1))
-    ntemp = int(np.fromfile(f,dtype='int32',count=1))
-    ng = int(np.fromfile(f,dtype='int32',count=1))
-    gasID = int(np.fromfile(f,dtype='int32',count=1))
-    isoID = int(np.fromfile(f,dtype='int32',count=1))
-
-    g_ord = np.fromfile(f,dtype='float32',count=ng)
-    del_g = np.fromfile(f,dtype='float32',count=ng)
-
-    presslevels = np.fromfile(f,dtype='float32',count=npress)
-
-    N1 = abs(ntemp)
-    if ntemp < 0:
-        templevels = np.zeros([npress,n1])
-        for i in range(npress):
-            for j in range(n1):
-                templevels[i,j] =  np.fromfile(f,dtype='float32',count=1)
-    else:
-        templevels = np.fromfile(f,dtype='float32',count=ntemp)
-    
-    return nwave,vmin,delv,fwhm,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels
-
-
-###############################################################################################
-
-
-def read_ltahead(filename):
-    
-    """
-        FUNCTION NAME : read_ltahead()
-        
-        DESCRIPTION : Read the header information in a line-by-line look-up table written with the standard format of Nemesis
-        
-        INPUTS :
-        
-            filename :: Name of the file (supposed to have a .lta extension)
-        
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-        
-            nwave :: Number of wavelength points
-            vmin :: Minimum wavelength
-            delv :: Spectral sampling
-            npress :: Number of pressure levels
-            ntemp :: Number of temperature levels
-            gasID :: RADTRAN gas ID
-            isoID :: RADTRAN isotopologue ID
-            pressleves(np) :: Pressure levels (atm)
-            templeves(np) :: Temperature levels (K)
-        
-        CALLING SEQUENCE:
-        
-            nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels = read_ltahead(filename)
-        
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
-        
-    """
-    
-    #Opening file
-    strlen = len(filename)
-    if filename[strlen-3:strlen] == 'lta':
-        f = open(filename,'r')
-    else:
-        f = open(filename+'.lta','r')
-    
-    irec0 = np.fromfile(f,dtype='int32',count=1)
-    nwave = np.fromfile(f,dtype='int32',count=1)
-    vmin = np.fromfile(f,dtype='float32',count=1)
-    delv = np.fromfile(f,dtype='float32',count=1)
-    npress = int(np.fromfile(f,dtype='int32',count=1))
-    ntemp = int(np.fromfile(f,dtype='int32',count=1))
-    gasID = int(np.fromfile(f,dtype='int32',count=1))
-    isoID = int(np.fromfile(f,dtype='int32',count=1))
-
-    presslevels = np.fromfile(f,dtype='float32',count=npress)
-    templevels = np.fromfile(f,dtype='float32',count=ntemp)
-
-    return nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels
-
-
-###############################################################################################
-def read_lbltable(filename,wavemin,wavemax):
-    
-    """
-        FUNCTION NAME : read_lbltable()
-        
-        DESCRIPTION : Read the line-by-line look-up table written with the standard format of Nemesis
-        
-        INPUTS :
-        
-            filename :: Name of the file (supposed to have a .lta extension)
-            wavemin :: Minimum wavenumber to read (cm-1)
-            wavemax :: Maximum wavenumber to read (cm-1)
-        
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-        
-            npress :: Number of pressure levels
-            ntemp :: Number of temperature levels
-            gasID :: RADTRAN gas ID
-            isoID :: RADTRAN isotopologue ID
-            presslevels(np) :: Pressure levels (atm)
-            templevels(np) :: Temperature levels (K)
-            nwave :: Number of wavenumbers
-            wave :: Wavenumber array (cm-1)
-            k(nwave,np,nt) :: Absorption coefficient at each p-T point (cm2)
-        
-        CALLING SEQUENCE:
-        
-            npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k = read_lbltable(filename,wavemin,wavemax)
-        
-        MODIFICATION HISTORY : Juan Alday (25/09/2019)
-        
-    """
-    
-    #Opening file
-    strlen = len(filename)
-    if filename[strlen-3:strlen] == 'lta':
-        f = open(filename,'rb')
-    else:
-        f = open(filename+'.lta','rb')
-    
-    nbytes_int32 = 4
-    nbytes_float32 = 4
-    
-    #Reading header
-    irec0 = int(np.fromfile(f,dtype='int32',count=1))
-    nwavelta = np.fromfile(f,dtype='int32',count=1)
-    vmin = np.fromfile(f,dtype='float32',count=1)
-    delv = np.fromfile(f,dtype='float32',count=1)
-    npress = int(np.fromfile(f,dtype='int32',count=1))
-    ntemp = int(np.fromfile(f,dtype='int32',count=1))
-    gasID = int(np.fromfile(f,dtype='int32',count=1))
-    isoID = int(np.fromfile(f,dtype='int32',count=1))
-    
-    presslevels = np.fromfile(f,dtype='float32',count=npress)
-    templevels = np.fromfile(f,dtype='float32',count=ntemp)
-    
-    ioff = 8*nbytes_int32+npress*nbytes_float32+ntemp*nbytes_float32
-    
-    #Calculating the wavenumbers to be read
-    wavelta = np.arange(nwavelta)*delv[0] + vmin[0]
-    wavelta = np.round(wavelta,3)
-    ins1 = np.where( (wavelta>=wavemin) & (wavelta<=wavemax) )
-    ins = ins1[0]
-    nwave = len(ins)
-    wave = np.zeros([nwave])
-    wave[:] = wavelta[ins]
-    
-    #Reading the absorption coefficients
-    #######################################
-    
-    k = np.zeros([nwave,npress,ntemp])
-    
-    #Jumping until we get to the minimum wavenumber
-    njump = npress*ntemp*(ins[0]-1)
-    ioff = njump*nbytes_float32 + (irec0-1)*nbytes_float32
-    f.seek(ioff,0)
-    
-    #Reading the coefficients we require
-    k_out = np.fromfile(f,dtype='float32',count=ntemp*npress*nwave)
-    il = 0
-    for ik in range(nwave):
-        for i in range(npress):
-            k[ik,i,:] = k_out[il:il+ntemp]
-            il = il + ntemp
-
-    f.close()
-
-    return npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k
-
-
-###############################################################################################
-def read_ktable(filename,wavemin,wavemax):
-    
-    """
-        FUNCTION NAME : read_ktable()
-        
-        DESCRIPTION : Read the correlated-k look-up table written with the standard format of Nemesis
-        
-        INPUTS :
-        
-            filename :: Name of the file (supposed to have a .kta extension)
-            wavemin :: Minimum wavenumber to read (cm-1)
-            wavemax :: Maximum wavenumber to read (cm-1)
-        
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-        
-            gasID :: Nemesis gas identifier
-            isoID :: Nemesis isotopologue identifier
-            nwave :: Number of wavenumbers
-            wave(nwave) :: Wavenumbers or wavelengths
-            fwhm :: Full width at half maximum
-            ng :: Number of g-ordinates
-            g_ord(ng) :: g-ordinates
-            del_g(ng) :: Intervals of g-ordinates
-            npress :: Number of pressure levels
-            presslevels(npress) :: Pressure levels (atm)
-            ntemp :: Number of temperature levels
-            templevels(ntemp) :: Temperature levels (K)
-            k_g(nwave,ng,npress,ntemp) :: K coefficients
-        
-        CALLING SEQUENCE:
-        
-            gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(filename,wavemin,wavemax)
-        
-        MODIFICATION HISTORY : Juan Alday (05/03/2021)
-        
-    """
-    
-    #Opening file
-    strlen = len(filename)
-    if filename[strlen-3:strlen] == 'kta':
-        f = open(filename,'rb')
-    else:
-        f = open(filename+'.kta','rb')
-
-    nbytes_int32 = 4
-    nbytes_float32 = 4
-    ioff = 0
-    
-    #Reading header
-    irec0 = int(np.fromfile(f,dtype='int32',count=1))
-    nwavekta = int(np.fromfile(f,dtype='int32',count=1))
-    vmin = float(np.fromfile(f,dtype='float32',count=1))
-    delv = float(np.fromfile(f,dtype='float32',count=1))
-    fwhm = float(np.fromfile(f,dtype='float32',count=1))
-    npress = int(np.fromfile(f,dtype='int32',count=1))
-    ntemp = int(np.fromfile(f,dtype='int32',count=1))
-    ng = int(np.fromfile(f,dtype='int32',count=1))
-    gasID = int(np.fromfile(f,dtype='int32',count=1))
-    isoID = int(np.fromfile(f,dtype='int32',count=1))
-    
-    ioff = ioff + 10 * nbytes_int32
-
-    g_ord = np.zeros([ng])
-    del_g = np.zeros([ng])
-    templevels = np.zeros([ntemp])
-    presslevels = np.zeros([npress])
-    g_ord[:] = np.fromfile(f,dtype='float32',count=ng)
-    del_g[:] = np.fromfile(f,dtype='float32',count=ng)
-    
-    ioff = ioff + 2*ng*nbytes_float32
-
-    dummy = np.fromfile(f,dtype='float32',count=1)
-    dummy = np.fromfile(f,dtype='float32',count=1)
-
-    ioff = ioff + 2*nbytes_float32
-
-    presslevels[:] = np.fromfile(f,dtype='float32',count=npress)
-    templevels[:] = np.fromfile(f,dtype='float32',count=ntemp)
-    
-    ioff = ioff + npress*nbytes_float32+ntemp*nbytes_float32
-
-    dummy = np.fromfile(f,dtype='float32',count=1) 
-    dummy = np.fromfile(f,dtype='float32',count=1)
-    
-    ioff = ioff + 2*nbytes_float32
-
-    #Reading central wavelengths in non-uniform grid
-    if delv>0.0:
-        vmax = delv*nwavekta + vmin
-        wavetot = np.linspace(vmin,vmax,nwavekta)
-    else:
-        wavetot = np.zeros([nwavekta])
-        wavetot[:] = np.fromfile(f,dtype='float32',count=nwavekta)
-        ioff = ioff + nwavekta*nbytes_float32
-
-    #Calculating the wavenumbers to be read
-    ins1 = np.where( (wavetot>=wavemin) & (wavetot<=wavemax) )
-    ins = ins1[0]
-    nwave = len(ins)
-    wave = np.zeros([nwave])
-    wave[:] = wavetot[ins]
-
-    #Reading the k-coefficients
-    #######################################
-
-    k_g = np.zeros([nwave,ng,npress,ntemp])
-
-    #Jumping until we get to the minimum wavenumber
-    njump = npress*ntemp*ng*ins[0]
-    ioff = njump*nbytes_float32 + (irec0-1)*nbytes_float32
-    f.seek(ioff,0)
-    
-    
-    #Reading the coefficients we require
-    k_out = np.fromfile(f,dtype='float32',count=ntemp*npress*ng*nwave)
-    il = 0
-    for ik in range(nwave):
-        for i in range(npress):
-            for j in range(ntemp):
-                k_g[ik,:,i,j] = k_out[il:il+ng]
-                il = il + ng
-
-    f.close()
-
-    return gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g
+from NemesisPy import *
+from numba import jit
+from copy import copy
 
 ###############################################################################################
 
@@ -409,6 +59,8 @@ def calc_klbl(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         
     """
     
+    from NemesisPy.Utils import find_nearest
+
     #Reading the lbl-tables
     #wavemin = wave.min()
     #wavemax = wave.max()
@@ -456,7 +108,7 @@ def calc_klbl(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
                 ithi = ntemp - 1
             else:
                 ithi = it + 1
-    
+
         plo = np.log(presslevels[ipl])
         phi = np.log(presslevels[iphi])
         tlo = templevels[itl]
@@ -469,16 +121,17 @@ def calc_klbl(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         klo2[:] = k[:,ipl,ithi]
         khi1[:] = k[:,iphi,itl]
         khi2[:] = k[:,iphi,ithi]
-        
+
         #Interpolating to get the absorption coefficient at desired p-T
         v = (lpress-plo)/(phi-plo)
         u = (temp1-tlo)/(thi-tlo)
 
-        #kgood[:,ipoint] = (1.0-v)*(1.0-u)*np.log(klo1[:]) + v*(1.0-u)*np.log(khi1[:]) + v*u*np.log(khi2[:]) + (1.0-v)*u*np.log(klo2[:])
-        #kgood[:,ipoint] = np.exp(kgood[:,ipoint])
-        #kgood[:,ipoint] = (1.0-v)*(1.0-u)*klo1[:] + v*(1.0-u)*khi1[:] + v*u*khi2[:] + (1.0-v)*u*klo2[:]
-
-        igood = np.where(klo1>0.0)
+        if(thi==tlo):
+            u = 0
+        if(phi==plo):
+            v = 0
+        
+        igood = np.where((klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0))
         igood = igood[0]
         kgood[igood,ipoint] = (1.0-v)*(1.0-u)*np.log(klo1[igood]) + v*(1.0-u)*np.log(khi1[igood]) + v*u*np.log(khi2[igood]) + (1.0-v)*u*np.log(klo2[igood])
         kgood[igood,ipoint] = np.exp(kgood[igood,ipoint])
@@ -513,8 +166,8 @@ def calc_k(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         INPUTS :
         
             filename :: Name of the file (supposed to have a .lta extension)
-            nwave :: Number of wavenumbers (cm-1)
-            wave :: Wavenumber (cm-1)
+            wavemin :: Wavenumbers to calculate the spectrum (cm-1)
+            wavemax :: Maximum Wavenumber to calculate the spectrum (cm-1)
             npoints :: Number of p-T levels at which the absorption coefficient must be computed
             press(npoints) :: Pressure (atm)
             temp(npoints) :: Temperature (K)
@@ -533,11 +186,13 @@ def calc_k(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         
         CALLING SEQUENCE:
         
-            wavekta,k = calc_k(filename,wavemin,wavemax,npoints,press,temp)
+            wavekta,ng,g_ord,del_g,k = calc_k(filename,wavemin,wavemax,npoints,press,temp)
         
         MODIFICATION HISTORY : Juan Alday (25/09/2019)
         
     """
+
+    from NemesisPy import find_nearest
 
     gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(filename,wavemin,wavemax)
 
@@ -605,7 +260,7 @@ def calc_k(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
         else:
             u = (temp1-tlo)/(thi-tlo)
 
-        k_good[:,:,ipoint] = (1.0-v)*(1.0-u)*klo1[:,:] + v*(1.0-u)*khi1[:,:] + v*u*khi2[:,:] + (1.0-v)*u*klo2[:,:]
+        k_good[:,:,ipoint] = np.exp((1.0-v)*(1.0-u)*np.log(klo1[:,:]) + v*(1.0-u)*np.log(khi1[:,:]) + v*u*np.log(khi2[:,:]) + (1.0-v)*u*np.log(klo2[:,:]))
     
     if MakePlot==True:
         fig, ax = plt.subplots(1,1,figsize=(10,6))
@@ -627,6 +282,321 @@ def calc_k(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
 
     return wave,ng,g_ord,del_g,k_good
 
+
+###############################################################################################
+
+def k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f):
+    
+    """
+        
+        FUNCTION NAME : k_overlap()
+        
+        DESCRIPTION : This subroutine combines the absorption coefficient distributions of
+                      several overlapping gases. The overlap is implicitly assumed to be random
+                      and the k-distributions are assumed to have NG-1 mean values and NG-1
+                      weights. Correspondingly there are NG ordinates in total.
+        
+        INPUTS :
+        
+            nwave :: Number of wavelengths
+            ng :: Number of g-ordinates
+            del_g :: Intervals of g-ordinates
+            ngas :: Number of gases to combine
+            npoints :: Number of p-T points over to run the overlapping routine
+            k_gas(nwave,ng,ngas,npoints) :: K-distributions of the different gases
+            f(ngas,npoints) :: fraction of the different gases at each of the p-T points
+
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            k(nwave,ng,npoints) :: Combined k-distribution
+        
+        CALLING SEQUENCE:
+        
+            k = k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f)
+        
+        MODIFICATION HISTORY : Juan Alday (25/09/2019)
+        
+    """
+
+    from copy import copy
+
+    k = np.zeros([nwave,ng,npoints])
+
+    if ngas<=1:  #There are not enough gases to combine
+        k[:,:,:] = k_gas[:,:,0,:]
+    else:
+
+        for ip in range(npoints): #running for each p-T case
+
+            for igas in range(ngas-1):
+
+                print(ip,igas)
+
+                #getting first and second gases to combine
+                if igas==0:
+                    k_gas1 = np.zeros([nwave,ng])
+                    k_gas2 = np.zeros([nwave,ng])
+                    k_gas1[:,:] = copy(k_gas[:,:,ip,igas])
+                    k_gas2[:,:] = copy(k_gas[:,:,ip,igas+1])
+                    f1 = f[igas,ip]
+                    f2 = f[igas+1,ip]
+
+                    k_temp = np.zeros([nwave,ng])
+                else:
+                    k_gas1 = copy(k_temp)
+                    k_gas2[:,:] = copy(k_gas[:,:,ip,igas+1])
+                    f1 = f_temp
+                    f2 = f[igas+1,ip]
+
+                    k_temp = np.zeros([nwave,ng])
+
+                #abort if first abundance = 0.0
+                if ((f1==0.0) & (f2==0.0)):
+                    f_temp = f1 + f2
+                    continue
+
+                if ((f1==0.0) & (f2!=0.0)):
+                    k_temp[:,:]=k_gas2[:,:]*f2/(f1+f2)
+                    f_temp = f1 + f2
+                    continue
+                
+                if ((f1!=0.0) & (f2==0.0)):
+                    k_temp[:,:]=k_gas1[:,:]*f1/(f1+f2)
+                    f_temp = f1 + f2
+                    continue
+
+                #abort if first k-distribution = 0.0
+                iboth = np.where( (k_gas1[:,ng-1]==0.0) & (k_gas2[:,ng-1]==0.0))
+                iboth = iboth[0]
+
+                k_temp[iboth,:] = 0.0
+
+                i1 = np.where( (k_gas1[:,ng-1]==0.0) & (k_gas2[:,ng-1]!=0.0))
+                i1 = i1[0]
+
+                k_temp[i1,:] = k_gas2[i1,:]*f2/(f1+f2)
+
+                i2 = np.where( (k_gas2[:,ng-1]==0.0) & (k_gas1[:,ng-1]!=0.0))
+                i2 = i2[0]
+
+                k_temp[i2,:] = k_gas1[i2,:]*f1/(f1+f2)
+
+                #calculating weights and contributions
+                weight = np.zeros(ng*ng)
+                contrib = np.zeros([nwave,ng*ng])
+                iloop = 0
+                for i in range(ng):
+                    for j in range(ng):
+                        weight[iloop] = del_g[i] * del_g[j]
+                        contrib[:,iloop] = (k_gas1[:,i]*f1 + k_gas2[:,j]*f2)/(f1+f2)
+                        iloop = iloop + 1
+
+                #getting the cumulative g ordinate
+                g_ord = np.zeros(ng+1)
+                g_ord[0] = 1
+                for ig in range(ng):
+                    g_ord[ig+1] = g_ord[ig] + del_g[ig]
+
+                if g_ord[ng]<1.0:
+                    g_ord[ng] = 1.0
+                
+                isort = np.argsort(contrib,axis=1)
+
+                igood = np.where( (k_gas1[:,ng-1]!=0.0) & (k_gas2[:,ng-1]!=0.0))
+                igood = igood[0]
+                #for iwave1 in range(len(igood)):
+                for iwave1 in range(nwave):
+
+                    #iwave = igood[iwave1]
+                    iwave = iwave1
+
+                    #ranking contrib and weight arrays in ascending order of k (i.e. cont values)
+                    isort = np.argsort(contrib[iwave,:])
+                    contrib1 = contrib[iwave,isort]
+                    weight1 = weight[isort]
+
+                    #Now form new g(k) by summing over weight
+                    gdist = np.zeros(ng*ng)
+                    gdist[0] = 0.0
+                    for i in range(ng*ng-1):
+                        gdist[i+1] = weight[i+1] + gdist[i]
+
+                    ig = 0
+                    sum1 = 0.0
+                    kg = np.zeros(ng)
+                    for i in range(ng*ng):
+
+                        if ((gdist[i]<g_ord[ig+1]) & (ig<=ng-1)):
+                            kg[ig] = kg[ig] + contrib1[i] * weight1[i]
+                            sum1 = sum1 + weight1[i]
+                        else:
+                            frac = (g_ord[ig+1]-gdist[i-1])/(gdist[i]-gdist[i-1])
+                            kg[ig] = kg[ig] + frac * contrib1[i] * weight1[i]
+                            sum1 = sum1 + frac * weight1[i]
+                            kg[ig] = kg[ig] / sum1
+                            ig = ig + 1
+                            if(ig<=ng-1):
+                                sum1 = (1.-frac) * weight1[i]
+                                kg[ig] = kg[ig] + (1.-frac) * contrib1[i] * weight1[i]
+
+                    if(ig==ng-1):
+                        kg[ig] = kg[ig]/sum1
+
+                    k_temp[iwave,:] = kg[:]
+                    f_temp = f1 + f2
+
+            k[:,:,ip] = k_temp[:,:]
+
+    return k
+
+###############################################################################################
+
+@jit(nopython=True)
+def mix_two_gas_k(k_g1, k_g2, VMR1, VMR2, g_ord, del_g):
+    """
+    Adapted from chimera https://github.com/mrline/CHIMERA.
+    Mix the k-coefficients for two individual gases using the randomly
+    overlapping absorption line approximation. The "resort-rebin" procedure
+    is described in e.g. Goody et al. 1989, Lacis & Oinas 1991, Molliere et al.
+    2015 and Amundsen et al. 2017. Each pair of gases can be treated as a
+    new "hybrid" gas that can then be mixed again with another
+    gas.  This is all for a *single* wavenumber bin for a single pair of gases
+    at a particular pressure and temperature.
+    Parameters
+    ----------
+    k_g1 : ndarray
+        k-coeffs for gas 1 at a particular wave bin and temperature/pressure.
+        Has dimension Ng.
+    k_g2 : ndarray
+        k-coeffs for gas 2
+    VMR1 : ndarray
+        Volume mixing ratio of gas 1
+    VMR2 : ndarray
+        Volume mixing ratio for gas 2
+    g_ord : ndarray
+        g-ordinates, assumed same for both gases.
+    del_g : ndarray
+        Gauss quadrature weights for the g-ordinates, assumed same for both gases.
+    Returns
+    -------
+    k_g_combined
+        Mixed k-coefficients for the given pair of gases
+    VMR_combined
+        Volume mixing ratio of "mixed gas".
+    """
+    VMR_combined = VMR1+VMR2
+    Ng = len(g_ord)
+    k_g_combined = np.zeros(Ng)
+    cut_off = 1e-30
+    if k_g1[-1] * VMR1 < cut_off and k_g2[-1] * VMR2 < cut_off:
+        pass
+    elif k_g1[-1] * VMR1 < cut_off:
+        k_g_combined = k_g2*VMR2/VMR_combined
+    elif k_g2[-1] * VMR2 < cut_off:
+        k_g_combined = k_g1*VMR1/VMR_combined
+    else:
+        # Overlap Ng k-coeffs with Ng k-coeffs: Ng x Ng possible pairs
+        k_g_mix = np.zeros(Ng**2)
+        weight_mix = np.zeros(Ng**2)
+        # Mix k-coeffs of gases weighted by their relative VMR.
+        for i in range(Ng):
+            for j in range(Ng):
+                #equation 9 Amundsen 2017 (equation 20 Mollier 2015)
+                k_g_mix[i*Ng+j] = (k_g1[i]*VMR1+k_g2[j]*VMR2)/VMR_combined
+                 #equation 10 Amundsen 2017
+                weight_mix[i*Ng+j] = del_g[i]*del_g[j]
+
+        # Resort-rebin procedure: Sort new "mixed" k-coeff's from low to high
+        # see Amundsen et al. 2016 or section B.2.1 in Molliere et al. 2015
+        ascending_index = np.argsort(k_g_mix)
+        k_g_mix_sorted = k_g_mix[ascending_index]
+        weight_mix_sorted = weight_mix[ascending_index]
+        #combining w/weights--see description on Molliere et al. 2015
+        sum_weight = np.cumsum(weight_mix_sorted)
+        x = sum_weight/np.max(sum_weight)*2.-1
+        for i in range(Ng):
+            loc = np.where(x >=  g_ord[i])[0][0]
+            k_g_combined[i] = k_g_mix_sorted[loc]
+
+    return k_g_combined, VMR_combined
+
+###############################################################################################
+
+def k_overlap_v2(nwave,ng,g_ord,del_g,ngas,npoints,k_gas,f):
+    
+    """
+        
+        FUNCTION NAME : k_overlap()
+        
+        DESCRIPTION : This subroutine combines the absorption coefficient distributions of
+                      several overlapping gases. The overlap is implicitly assumed to be random
+                      and the k-distributions are assumed to have NG-1 mean values and NG-1
+                      weights. Correspondingly there are NG ordinates in total.
+        
+        INPUTS :
+        
+            nwave :: Number of wavelengths
+            ng :: Number of g-ordinates
+            del_g :: Intervals of g-ordinates
+            ngas :: Number of gases to combine
+            npoints :: Number of p-T points over to run the overlapping routine
+            k_gas(nwave,ng,ngas,npoints) :: K-distributions of the different gases
+            f(ngas,npoints) :: fraction of the different gases at each of the p-T points
+
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            k(nwave,ng,npoints) :: Combined k-distribution
+        
+        CALLING SEQUENCE:
+        
+            k = k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f)
+        
+        MODIFICATION HISTORY : Juan Alday (25/09/2019)
+        
+    """
+
+    k = np.zeros([nwave,ng,npoints])
+
+    if ngas<=1:  #There are not enough gases to combine
+        k[:,:,:] = k_gas[:,:,:,0]
+    else:
+
+        for ip in range(npoints): #running for each p-T case
+
+            for igas in range(ngas-1):
+
+                #getting first and second gases to combine
+                if igas==0:
+                    k_gas1 = np.zeros([nwave,ng])
+                    k_gas2 = np.zeros([nwave,ng])
+                    k_gas1[:,:] = copy(k_gas[:,:,ip,igas])
+                    k_gas2[:,:] = copy(k_gas[:,:,ip,igas+1])
+                    f1 = f[igas,ip]
+                    f2 = f[igas+1,ip]
+
+                    k_combined = np.zeros([nwave,ng])
+                else:
+                    k_gas1 = copy(k_combined)
+                    k_gas2[:,:] = copy(k_gas[:,:,ip,igas+1])
+                    f1 = f_combined
+                    f2 = f[igas+1,ip]
+
+                    k_combined = np.zeros([nwave,ng])
+
+                for iwave in range(nwave):
+
+                    k_g_combined, f_combined = mix_two_gas_k(k_gas1[iwave,:], k_gas2[iwave,:], f1, f2, g_ord, del_g)
+                    k_combined[iwave,:] = k_g_combined[:]
+
+            k[:,:,ip] = k_combined[:,:]
+
+    return k
 
 ###############################################################################################
 
@@ -751,9 +721,7 @@ def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
 
             yout[j] = yout[j]/ynor[j]
 
-
     return yout
-
 
 ###############################################################################################
 
@@ -884,7 +852,7 @@ def wavesetb(runname,nconv,vconv,fwhm):
 
 ###############################################################################################
 
-def wavesetc(runname,nconv,vconv,fwhm):
+def wavesetc_v2(runname,nconv,vconv,fwhm):
 
 
     """
@@ -913,6 +881,8 @@ def wavesetc(runname,nconv,vconv,fwhm):
     MODIFICATION HISTORY : Juan Alday (29/04/2019)
 
     """
+
+    #from NemesisPy.Files import read_lls,read_sha
 
     #Reading the .lls file to get the initial and end wavenumbers in the .lta files
     ngasact,strlta = read_lls(runname)
@@ -1012,9 +982,173 @@ def wavesetc(runname,nconv,vconv,fwhm):
 
     vwave = np.zeros(nwave)
     vwave[0:nwave] = vwave1[0:nwave]
-    vwave = np.round(vwave,3)
+    #vwave = np.round(vwave,3)
 
     return nwave,vwave
 
 
 ###############################################################################################
+
+def wavesetc(runname,nconv,vconv,fwhm):
+
+
+    """
+    FUNCTION NAME : wavesetc()
+
+    DESCRIPTION : Subroutine to calculate which 'calculation' wavelengths are needed to cover the required 'convolution wavelengths'.
+
+    INPUTS : 
+
+        runname :: Name of the Nemesis run
+        nconv :: NUmber of convolution wavelengths
+        vconv(nconv) :: Convolution wavelengths
+        fwhm :: Full width at half maximum of instrument line shape
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    nwave :: Number of calculation wavenumbers
+	    vwave(nave) :: Calculation wavenumbers
+ 
+    CALLING SEQUENCE:
+
+	    nwave,vwave = wavesetc(runname,nconv,vconv,fwhm)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/04/2019)
+
+    """
+
+    from NemesisPy.Files import read_lls,read_sha
+
+    #Reading the .lls file to get the initial and end wavenumbers in the .lta files
+    ngasact,strlta = read_lls(runname)
+    nwavelta = np.zeros([ngasact],dtype='int')
+    
+    for i in range(ngasact):
+        nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels = read_ltahead(strlta[i])
+        nwavelta[i] = nwave
+
+    if len(np.unique(nwavelta)) != 1:
+        sys.exit('error :: Number of wavenumbers in all .lta files must be the same')
+
+    vmax = vmin + delv*(nwavelta-1)
+    wavelta = np.linspace(vmin,vmax,nwavelta)
+    #wavelta = np.round(wavelta,3)
+
+
+    #Calculating the maximum and minimum wavenumbers
+    if fwhm>0.0:
+        ishape = read_sha(runname)
+        if ishape == 0:
+            dv = 0.5*fwhm
+        elif ishape == 1:
+            dv = fwhm
+        elif ishape == 2:
+            dv = 3.* 0.5 * fwhm / np.sqrt(np.log(2.0))
+        else:
+            dv = 3.*fwhm
+
+        wavemin = vconv[0] - dv
+        wavemax = vconv[nconv-1] + dv
+
+        if (wavemin<wavelta.min() or wavemax>wavelta.max()):
+            sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
+
+
+    elif fwhm<=0.0:
+        
+        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        if nconv != nconv1:
+            sys.exit('error :: convolution wavenumbers must be the same in .spx and .fil files')
+
+
+        for i in range(nconv1):
+            vcentral = vconv1[i]
+            wavemin = 1.0e6
+            wavemax = 0.0
+            for j in range(nconv):
+                dv = abs(vcentral-vconv[j])
+                if dv < 0.0001:
+                    vminx = vfil[0,i]
+                    vmaxx = vfil[nfil[i]-1,i]
+                    if vminx<wavemin:
+                        wavemin = vminx
+                    if vmaxx>wavemax:
+                        wavemax= vmaxx
+                else:
+                    print('warning from wavesetc :: Convolution wavenumbers in .spx and .fil do not coincide')
+
+        if (wavemin<wavelta.min() or wavemax>wavelta.max()):
+            sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
+
+
+    #Selecting the necessary wavenumbers
+    iwave = np.where( (wavelta>=wavemin) & (wavelta<=wavemax) )
+    iwave = iwave[0]
+    vwave = wavelta[iwave]
+    nwave = len(vwave)
+
+    return nwave,vwave
+
+###############################################################################################
+
+def planck(ispace,wave,temp,MakePlot=False):
+
+
+    """
+    FUNCTION NAME : planck()
+
+    DESCRIPTION : Function to calculate the blackbody radiation given by the Planck function
+
+    INPUTS : 
+
+        ispace :: Flag indicating the spectral units
+                  (0) Wavenumber (cm-1)
+                  (1) Wavelength (um)
+        wave(nwave) :: Wavelength or wavenumber array
+        temp :: Temperature of the blackbody (K)
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    bb(nwave) :: Planck function (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)
+ 
+    CALLING SEQUENCE:
+
+	    bb = planck(ispace,wave,temp)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/07/2021)
+
+    """
+
+    c1 = 1.1911e-12
+    c2 = 1.439
+    if ispace==0:
+        y = wave
+        a = c1 * (y**3.)
+    elif ispace==1:
+        y = 1.0e4/wave
+        a = c1 * (y**5.) / 1.0e4
+    else:
+        sys.exit('error in planck :: ISPACE must be either 0 or 1')
+
+    tmp = c2 * y / temp
+    b = np.exp(tmp) - 1
+    bb = a/b
+
+    if MakePlot==True:
+        fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+        ax1.plot(wave,bb)
+        if ispace==0:
+            ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+        else:
+            ax1.set_xlabel('Wavelength ($\mu$m)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+        ax1.grid()
+        plt.tight_layout()
+        plt.show()
+
+    return bb

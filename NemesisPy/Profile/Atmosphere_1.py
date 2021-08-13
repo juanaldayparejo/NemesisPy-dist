@@ -8,6 +8,7 @@ Created on Mon Mar 22 21:56:22 2021
 Cloudy Atmosphere Class.
 """
 import numpy as np
+import matplotlib.pyplot as plt
 from .Atmosphere_0 import Atmosphere_0
 
 class Atmosphere_1(Atmosphere_0):
@@ -144,6 +145,58 @@ class Atmosphere_1(Atmosphere_0):
                 'Need to input fractional cloud profile'
             assert isinstance(self.DUST, np.ndarray),\
                 'Need to input fractional cloud profile'
+
+
+    def read_aerosol(self,MakePlot=False):
+        """
+        Read the aerosol profiles from an aerosol.ref file
+        """
+
+        #Opening file
+        f = open('aerosol.ref','r')
+
+        #Reading header
+        s = f.readline().split()
+
+        #Reading first line
+        tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
+        npro = tmp[0]
+        naero = tmp[1]
+
+        #Reading data
+        height = np.zeros([npro])
+        aerodens = np.zeros([npro,naero])
+        for i in range(npro):
+            tmp = np.fromfile(f,sep=' ',count=naero+1,dtype='float')
+            height[i] = tmp[0]
+            for j in range(naero):
+                aerodens[i,j] = tmp[j+1]
+
+        #Storing the results into the atmospheric class
+        if self.NP==None:
+            self.NP = npro
+        else:
+            if self.NP!=npro:
+                sys.exit('Number of altitude points in aerosol.ref must be equal to NP')
+    
+        self.NP = npro
+        self.NDUST = naero
+        self.edit_H(height*1.0e3)   #m
+        self.edit_DUST(aerodens)    #UNITS??
+
+        #Make plot if keyword is specified
+        if MakePlot == True:
+            fig,ax1 = plt.subplots(1,1,figsize=(4,7))
+            ax1.set_xlabel('Aerosol density (part. per gram of air)')
+            ax1.set_ylabel('Altitude (km)')
+            for i in range(self.NDUST):
+                im = ax1.plot(self.DUST[:,i],self.H/1.0e3)
+            plt.grid()
+            plt.show()
+
+
+
+
 
 atm1 = Atmosphere_1()
 NP = 10
