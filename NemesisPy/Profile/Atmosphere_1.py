@@ -136,18 +136,7 @@ class Atmosphere_1(Atmosphere_0):
         f.close()
         # write floud.prf here
 
-    def check(self):
-        Atmosphere_0.check(self)
-        assert isinstance(self.DUST, np.ndarray),\
-            'Need to input aerosol profile'
-        if self.FLAGC:
-            assert isinstance(self.FRAC, np.ndarray),\
-                'Need to input fractional cloud profile'
-            assert isinstance(self.DUST, np.ndarray),\
-                'Need to input fractional cloud profile'
-
-
-    def read_aerosol(self,MakePlot=False):
+    def read_aerosol(self):
         """
         Read the aerosol profiles from an aerosol.ref file
         """
@@ -182,20 +171,39 @@ class Atmosphere_1(Atmosphere_0):
         self.NP = npro
         self.NDUST = naero
         self.edit_H(height*1.0e3)   #m
-        self.edit_DUST(aerodens)    #UNITS??
+        self.edit_DUST(aerodens)    #particles cm-3
 
-        #Make plot if keyword is specified
-        if MakePlot == True:
-            fig,ax1 = plt.subplots(1,1,figsize=(4,7))
-            ax1.set_xlabel('Aerosol density (part. per gram of air)')
-            ax1.set_ylabel('Altitude (km)')
-            for i in range(self.NDUST):
-                im = ax1.plot(self.DUST[:,i],self.H/1.0e3)
-            plt.grid()
-            plt.show()
+    def write_aerosol(self):
+        """
+        Write current aerosol profile to a aerosol.ref file in Nemesis format.
+        """
 
+        f = open('aerosol.ref','w')
+        f.write('#aerosol.ref\n')
+        f.write('{:<15} {:<15}'.format(self.NP, self.NDUST))
+        for i in range(self.NP):
+            f.write('\n{:<15.3f} '.format(self.H[i]*1e-3))
+            if self.NDUST >= 1:
+                for j in range(self.NDUST):
+                    f.write('{:<15.3E} '.format(self.DUST[i][j]))    #particles per cm-3
+            else:
+                f.write('{:<15.3E}'.format(self.DUST[i]))
+        f.close()
 
+    def plot_Dust(self):
+        """
+        Make a summary plot of the current dust profiles
+        """
 
+        fig,ax1 = plt.subplots(1,1,figsize=(3,4))
+
+        for i in range(self.NDUST):
+            ax1.plot(self.DUST[:,i],self.H/1.0e3)
+        ax1.grid()
+        ax1.set_xlabel('Aerosol density (particles cm$^{-3}$)')
+        ax1.set_ylabel('Altitude (km)')
+        plt.tight_layout()
+        plt.show()
 
 
 atm1 = Atmosphere_1()

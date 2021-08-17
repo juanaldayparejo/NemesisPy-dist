@@ -236,10 +236,23 @@ class Spectroscopy_0:
             Maximum wavenumber (cm-1) or wavelength (um)
         """
 
-        iwave1 = np.where( (self.WAVE>=wavemin) & (self.WAVE<=wavemax) )
-        iwave = iwave1[0]
-        self.NWAVE = len(iwave)
-        self.WAVE = self.WAVE[iwave1]
+        iwavel = np.where((self.WAVE<=wavemin))
+        iwavel = iwavel[0]
+        if len(iwavel)==0:
+            iwl = 0
+        else:
+            iwl = iwavel[len(iwavel)-1]
+
+        iwaveh = np.where((self.WAVE>=wavemax))
+        iwaveh = iwaveh[0]
+        if len(iwaveh)==0:
+            iwh = self.NWAVE-1
+        else:
+            iwh = iwaveh[0]
+
+        wave1 = self.WAVE[iwl:iwh+1]
+        self.NWAVE = len(wave1)
+        self.WAVE = wave1
 
         if self.ILBL==0: #K-tables
 
@@ -247,7 +260,7 @@ class Spectroscopy_0:
 
             kstore = np.zeros([self.NWAVE,self.NG,self.NP,self.NT,self.NGAS])
             for igas in range(self.NGAS):
-                gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(self.LOCATION[igas],wavemin,wavemax)
+                gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(self.LOCATION[igas],self.WAVE.min(),self.WAVE.max())
                 kstore[:,:,:,:,igas] = k_g[:,:,:,:]
             self.edit_K(kstore)
 
@@ -258,7 +271,7 @@ class Spectroscopy_0:
 
             kstore = np.zeros([self.NWAVE,self.NP,self.NT,self.NGAS])
             for igas in range(self.NGAS):
-                npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k = read_lbltable(self.LOCATION[igas],wavemin,wavemax)
+                npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k = read_lbltable(self.LOCATION[igas],self.WAVE.min(),self.WAVE.max())
                 kstore[:,:,:,igas] = k[:,:,:]
             self.edit_K(kstore)
 
@@ -266,7 +279,7 @@ class Spectroscopy_0:
             sys.exit('error in Spectroscopy :: ILBL must be either 0 (K-tables) or 2 (LBL-tables)')
 
 
-    def calc_klbl(self,npoints,press,temp,wavemin=0.,wavemax=1.0e10,MakePlot=False):
+    def calc_klbl(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
         """
         Calculate the absorption coefficient at a given pressure and temperature
         looking at pre-tabulated line-by-line tables (assumed to be already stored in this class)
@@ -289,6 +302,7 @@ class Spectroscopy_0:
         """
 
         from NemesisPy import find_nearest
+        from scipy import interpolate
 
         #Interpolating to the correct pressure and temperature
         ########################################################
@@ -620,7 +634,7 @@ def read_ktahead(filename):
     else:
         wavetot = np.zeros(nwave)
         wavetot[:] = np.fromfile(f,dtype='float32',count=nwave)
-    
+
     return nwave,wavetot,fwhm,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels
 
 

@@ -1,11 +1,10 @@
 #!/usr/bin/python
 #####################################################################################
 #####################################################################################
-#                                        nemesisSO
+#                                        nemesis
 #####################################################################################
 #####################################################################################
 
-# Version of Nemesis for doing retrievals in solar occultation observations
 
 #####################################################################################
 #####################################################################################
@@ -18,6 +17,7 @@ import time
 runname = input('run name: ')
  
 start = time.time()
+
 
 ######################################################
 ######################################################
@@ -37,7 +37,6 @@ Atm.read_ref(runname)
 #Read aerosol profiles
 Atm.read_aerosol()
 
-
 #Reading .set file and starting Scatter, Stellar, Surface and Layer Classes
 #############################################################################
 
@@ -49,17 +48,16 @@ Scatter,Stellar,Surface,Layer = read_set(runname,Layer=Layer)
 
 Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Scatter=Scatter)
 
-#Initialise Spectroscopy class and read file (.lls)
+
+#Reading Spectroscopy parameters from .lls or .kls files
 ##############################################################
 
-Spec = Spectroscopy_0(ILBL=2)
 if Spec.ILBL==0:
     Spec.read_kls(runname)
 elif Spec.ILBL==2:
     Spec.read_lls(runname)
 else:
     sys.exit('error :: ILBL has to be either 0 or 2')
-
 
 #Reading extinction and scattering cross sections
 #############################################################################
@@ -69,10 +67,11 @@ Scatter.read_xsc(runname)
 if Scatter.NDUST!=Atm.NDUST:
     sys.exit('error :: Number of aerosol populations must be the same in .xsc and aerosol.ref files')
 
+
 #Initialise Measurement class and read files (.spx, .sha)
 ##############################################################
 
-Measurement.read_spx_SO(runname)
+Measurement.read_spx(runname)
 
 #Reading .sha file if FWHM>0.0
 if Measurement.FWHM>0.0:
@@ -102,7 +101,6 @@ if( (Measurement.IFORM==1) or (Measurement.IFORM==2) or (Measurement.IFORM==3) o
 CIA = CIA_0()
 CIA.read_cia(runname)
 
-
 #Reading .fla file
 #############################################################################
 
@@ -111,7 +109,6 @@ inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla_nemesis(runname)
 CIA.INORMAL = inormal
 Scatter.IRAY = iray
 Scatter.IMIE = imie
-
 
 #Reading .apr file and Variables Class
 #################################################################
@@ -133,7 +130,7 @@ Variables.SX = copy(Variables.SA)
 IRET = 0    #(0) Optimal Estimation (1) Nested sampling
 if IRET==0:
     OptimalEstimation = coreretOE(runname,Variables,Measurement,Atm,Spec,Scatter,Stellar,Surface,CIA,Layer,\
-                                     NITER=8,PHILIMIT=0.1,nemesisSO=True)
+                                     NITER=NITER,PHILIMIT=PHILIMIT)
 else:
     sys.exit('error in nemesisSO :: Retrieval scheme has not been implemented yet')
 

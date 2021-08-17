@@ -166,15 +166,21 @@ def model0(atm,ipar,xprof,MakePlot=False):
     if ipar<atm.NVMR:  #Gas VMR
         jvmr = ipar
         x1 = np.exp(xprof)
-        atm.VMR[:,jvmr] = x1
+        vmr = np.zeros([atm.NP,atm.NVMR])
+        vmr[:,:] = atm.VMR
+        vmr[:,jvmr] = x1
+        atm.edit_VMR(vmr)
     elif ipar==atm.NVMR: #Temperature
         x1 = xprof
-        atm.T[:] = x1
+        atm.edit_T(x1)
     elif ipar>atm.NVMR:
         jtmp = ipar - (atm.NVMR+1)
         x1 = np.exp(xprof)
         if jtmp<atm.NDUST:
-            atm.DUST[:,jtmp] = x1 * 1.0e6
+            dust = np.zeros([atm.NP,atm.NDUST])
+            dust[:,:] = atm.DUST
+            dust[:,jtmp] = x1 * 1.0e6
+            atm.edit_DUST(dust)
         elif jtmp==atm.NDUST:
             atm.PARAH2 = x1
         elif jtmp==atm.NDUST+1:

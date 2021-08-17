@@ -223,6 +223,27 @@ class Atmosphere_0:
 
         return rho
 
+
+    def calc_radius(self):
+        """
+        Subroutine to calculate the radius of the planet at the required latitude
+        """  
+
+        #Getting the information about the planet
+        data = planet_info[str(self.IPLANET)]
+        xradius = data["radius"] * 1.0e5   #cm
+
+        #Calculating some values to account for the latitude dependence
+        lat = 2 * np.pi * self.LATITUDE/360.      #Latitude in rad
+        latc = np.arctan(np.tan(lat)/xellip**2.)   #Converts planetographic latitude to planetocentric
+        slatc = np.sin(latc)
+        clatc = np.cos(latc)
+        Rr = np.sqrt(clatc**2 + (xellip**2. * slatc**2.))  #ratio of radius at equator to radius at current latitude
+        r = (xradius+self.H*1.0e2)/Rr    #Radial distance of each altitude point to centre of planet (cm)
+        radius = (xradius/Rr)*1.0e-5     #Radius of the planet at the given distance (km)
+
+        self.RADIUS = radius * 1.0e3     #Metres
+
     def calc_grav(self):
         """
         Subroutine to calculate the gravity at each level following the method
@@ -310,19 +331,22 @@ class Atmosphere_0:
 
         sh =  0.5*(scale[ialt]+scale[ialt+1])
         delh = self.H[ialt+1]-htan 
-        self.P[ialt+1]=ptan*np.exp(-delh/sh)
+        p = np.zeros(self.NP)
+        p[ialt+1] = ptan*np.exp(-delh/sh)
         delh = self.H[ialt]-htan
-        self.P[ialt]=ptan*np.exp(-delh/sh)
+        p[ialt] = ptan*np.exp(-delh/sh)
 
         for i in range(ialt+2,self.NP):
             sh =  0.5*(scale[i-1]+scale[i])
             delh = self.H[i]-self.H[i-1]
-            self.P[i]=self.P[i-1]*np.exp(-delh/sh)
+            p[i] = p[i-1]*np.exp(-delh/sh)
 
         for i in range(ialt-1,-1,-1):
             sh =  0.5*(scale[i+1]+scale[i])
             delh = self.H[i]-self.H[i+1]
-            self.P[i]=self.P[i+1]*np.exp(-delh/sh)
+            p[i] = p[i+1]*np.exp(-delh/sh)
+
+        self.edit_P(p)
 
 
     def adjust_hydrostatH(self):
@@ -340,9 +364,13 @@ class Atmosphere_0:
         xdepth = 100.
         while xdepth>1:  
 
+            h = np.zeros(self.NP)
+            p = np.zeros(self.NP)
+            h[:] = self.H
+            p[:] = self.P
         
             #Calculating the atmospheric depth
-            atdepth = self.H[self.NP-1] - self.H[0]
+            atdepth = h[self.NP-1] - h[0]
 
             #Calculate the gravity at each altitude level
             self.calc_grav()
@@ -351,21 +379,27 @@ class Atmosphere_0:
             R = const["R"]
             scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
 
+            p[:] = self.P
             if ((ialt>0) & (ialt<self.NP-1)):
-                self.H[ialt] = 0.0
+                h[ialt] = 0.0
 
             nupper = self.NP - ialt - 1
             for i in range(ialt+1,self.NP):
                 sh = 0.5 * (scale[i-1] + scale[i])
-                self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
+                #self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
+                h[i] = h[i-1] - sh * np.log(p[i]/p[i-1])
 
             for i in range(ialt-1,-1,-1):
                 sh = 0.5 * (scale[i+1] + scale[i])
-                self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])  
+                #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])  
+                h[i] = h[i+1] - sh * np.log(p[i]/p[i+1]) 
 
-            atdepth1 = self.H[self.NP-1] - self.H[0]
+            #atdepth1 = self.H[self.NP-1] - self.H[0]
+            atdepth1 = h[self.NP-1] - h[0]
 
             xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
+
+            self.H = h[:]
 
             #Re-Calculate the gravity at each altitude level
             self.calc_grav()  
@@ -406,7 +440,7 @@ class Atmosphere_0:
         return True
 
 
-    def read_ref(self,runname,MakePlot=False):
+    def read_ref(self,runname):
         """
         Fills the parameters of the Atmospheric class by reading the .ref file
         """
@@ -415,18 +449,20 @@ class Atmosphere_0:
         f = open(runname+'.ref','r')
     
         #Reading first and second lines
+        
         tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
         amform = int(tmp[0])
         tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
     
         #Reading third line
-        tmp = np.fromfile(f,sep=' ',count=5,dtype='float')
+        tmp = f.readline().split()
         nplanet = int(tmp[0])
         xlat = float(tmp[1])
         npro = int(tmp[2])
         ngas = int(tmp[3])
-        molwt = float(tmp[4])
-    
+        if amform==0:
+            molwt = float(tmp[4])
+
         #Reading gases
         gasID = np.zeros(ngas,dtype='int')
         isoID = np.zeros(ngas,dtype='int')
@@ -472,26 +508,66 @@ class Atmosphere_0:
 
         self.calc_grav()
 
-        #Make plot if keyword is specified
-        if MakePlot == True:
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True,figsize=(10,4))
 
-            ax1.semilogx(self.P/101325.,self.H/1.0e3,c='black')
-            ax2.plot(self.T,self.H/1.0e3,c='black')
-            for i in range(self.NVMR):
-                label1 = gas_info[str(self.ID[i])]['name']
-                if self.ISO[i]!=0:
-                    label1 = label1+' ('+str(self.ISO[i])+')'
-                ax3.semilogx(self.VMR[:,i],self.H/1.0e3,label=label1)
-            ax1.set_xlabel('Pressure (atm)')
-            ax1.set_ylabel('Altitude (km)')
-            ax2.set_xlabel('Temperature (K)')
-            ax3.set_xlabel('Volume mixing ratio')
-            plt.subplots_adjust(left=0.08,bottom=0.12,right=0.88,top=0.96,wspace=0.16,hspace=0.20)
-            legend = ax3.legend(bbox_to_anchor=(1.01, 1.02))
-            ax1.grid()
-            ax2.grid()
-            ax3.grid()
+    def write_ref(self,runname):
+        """
+        Write the current atmospheric profiles into the .ref file
+        """
 
-            plt.show()
+        fref = open(runname+'.ref','w')
+        fref.write('\t %i \n' % (self.AMFORM)) 
+        nlat = 1    #Would need to be updated to include more latitudes
+        fref.write('\t %i \n' % (nlat))
+    
+        if self.AMFORM==0:
+            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR,self.MOLWT))
+        else:
+            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR))
 
+        gasname = [''] * self.NVMR
+        header = [''] * (3+self.NVMR)
+        header[0] = 'height(km)'
+        header[1] = 'press(atm)'
+        header[2] = 'temp(K)  '
+        str1 = header[0]+'\t'+header[1]+'\t'+header[2]
+        for i in range(self.NVMR):
+            fref.write('\t %i \t %i\n' % (self.ID[i],self.ISO[i]))
+            strgas = 'GAS'+str(i+1)+'_vmr'
+            str1 = str1+'\t'+strgas
+
+        fref.write(str1+'\n')
+
+        for i in range(npro):
+            str1 = str('{0:7.6f}'.format(self.H[i]/1.0e3))+'\t'+str('{0:7.6e}'.format(self.P[i]/101325.))+'\t'+str('{0:7.4f}'.format(self.T[i]))
+            for j in range(ngas):
+                str1 = str1+'\t'+str('{0:7.6e}'.format(self.VMR[i,j])) 
+            fref.write(str1+'\n')
+ 
+        fref.close()
+
+    def plot_Atm(self):
+
+        """
+        Makes a summary plot of the current atmospheric profiles
+        """
+
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True,figsize=(10,4))
+
+        ax1.semilogx(self.P/101325.,self.H/1.0e3,c='black')
+        ax2.plot(self.T,self.H/1.0e3,c='black')
+        for i in range(self.NVMR):
+            label1 = gas_info[str(self.ID[i])]['name']
+            if self.ISO[i]!=0:
+                label1 = label1+' ('+str(self.ISO[i])+')'
+            ax3.semilogx(self.VMR[:,i],self.H/1.0e3,label=label1)
+        ax1.set_xlabel('Pressure (atm)')
+        ax1.set_ylabel('Altitude (km)')
+        ax2.set_xlabel('Temperature (K)')
+        ax3.set_xlabel('Volume mixing ratio')
+        plt.subplots_adjust(left=0.08,bottom=0.12,right=0.88,top=0.96,wspace=0.16,hspace=0.20)
+        legend = ax3.legend(bbox_to_anchor=(1.01, 1.02))
+        ax1.grid()
+        ax2.grid()
+        ax3.grid()
+
+        plt.show()

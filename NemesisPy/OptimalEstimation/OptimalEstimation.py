@@ -19,10 +19,11 @@ import matplotlib.pyplot as plt
 from NemesisPy import *
 from copy import *
 
+
 ###############################################################################################
 
-def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,\
-                 NITER=10,PHILIMIT=0.1):
+def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,\
+                 NITER=10,PHILIMIT=0.1,nemesisSO=False):
 
 
     """
@@ -53,7 +54,9 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
             PHILIMIT :: Percentage convergence limit. If the percentage reduction of the cost function PHI
                         is less than philimit then the retrieval is deemed to have converged.
 
-        
+            nemesisSO :: If True, the retrieval uses the function jacobian_nemesisSO(), adapated specifically
+                         for solar occultation observations, rather than the more general jacobian_nemesis() function.
+
         OUTPUTS :
 
             OptimalEstimation :: Python class defining all the variables required as input or output
@@ -61,13 +64,14 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
  
         CALLING SEQUENCE:
         
-            OptimalEstimation = coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,Layer)
+            OptimalEstimation = coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,Layer)
  
         MODIFICATION HISTORY : Juan Alday (06/08/2021)
 
     """
 
     from NemesisPy import OptimalEstimation_0
+    from NemesisPy import jacobian_nemesisSO,jacobian_nemesis
 
     #Creating class and including inputs
     #############################################
@@ -95,8 +99,12 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
     #Calculate the first measurement vector and jacobian matrix
     #################################################################
 
-    print('nemesisSO :: Calculating Jacobian matrix KK')
-    YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+    if nemesisSO==True:
+        print('nemesisSO :: Calculating Jacobian matrix KK')
+        YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+    else:
+        print('nemesis :: Calculating Jacobian matrix KK')
+        YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
 
     OptimalEstimation.edit_YN(YN)
     OptimalEstimation.edit_KK(KK)
@@ -104,13 +112,13 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
     #Calculate gain matrix and average kernels
     #################################################################
 
-    print('nemesisSO :: Calculating gain matrix')
+    print('nemesis :: Calculating gain matrix')
     OptimalEstimation.calc_gain_matrix()
 
     #Calculate initial value of cost function phi
     #################################################################
 
-    print('nemesisSO :: Calculating cost function')
+    print('nemesis :: Calculating cost function')
     OptimalEstimation.calc_phiret()
 
     OPHI = OptimalEstimation.PHI
@@ -133,7 +141,7 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
 
     for it in range(OptimalEstimation.NITER):
 
-        print('nemesisSO :: Iteration '+str(it)+'/'+str(OptimalEstimation.NITER))
+        print('nemesis :: Iteration '+str(it)+'/'+str(OptimalEstimation.NITER))
 
         #Writing into .itr file
         ####################################
@@ -152,7 +160,7 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
         #Calculating next state vector
         #######################################
 
-        print('nemesisSO :: Calculating next iterated state vector')
+        print('nemesis :: Calculating next iterated state vector')
         X_OUT = OptimalEstimation.calc_next_xn()
         #  x_out(nx) is the next iterated value of xn using classical N-L
         #  optimal estimation. However, we want to apply a braking parameter
@@ -168,11 +176,11 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
                 #Check to see if log numbers have gone out of range
                 if Variables.LX[j]==1:
                     if((XN1[j]>85.) or (XN1[j]<-85.)):
-                        print('nemesisSO :: log(number gone out of range) --- increasing brake')
+                        print('nemesis :: log(number gone out of range) --- increasing brake')
                         alambda = alambda * 10.
                         IBRAKE = 0
                         if alambda>1.e30:
-                            sys.exit('error in nemesisSO :: Death spiral in braking parameters - stopping')
+                            sys.exit('error in nemesis :: Death spiral in braking parameters - stopping')
                         break
                     else:
                         IBRAKE = 1
@@ -203,7 +211,7 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
             
             iwhere = np.where(Atmosphere1.T<0.0)
             if(len(iwhere[0])>0):
-                print('nemesisSO :: Temperature has gone negative --- increasing brake')
+                print('nemesis :: Temperature has gone negative --- increasing brake')
                 alambda = alambda * 10.
                 IBRAKE = 0
                 continue
@@ -213,7 +221,12 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
         #Put output spectrum into temporary spectrum yn1 with
         #temporary kernel matrix kk1. Does it improve the fit? 
         Variables.edit_XN(XN1)
-        YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+        if nemesisSO==True:
+            print('nemesisSO :: Calculating Jacobian matrix KK')
+            YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+        else:
+            print('nemesis :: Calculating Jacobian matrix KK')
+            YN1,KK1 = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
 
         OptimalEstimation1 = copy(OptimalEstimation)
         OptimalEstimation1.edit_YN(YN1)
@@ -262,7 +275,7 @@ def coreretOE_SO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
         OptimalEstimation.ST = copy(OptimalEstimation.SA)
 
     #Closing .itr file
-    if OptimalEstimation.NITER<0:
+    if OptimalEstimation.NITER>0:
         fitr.close()
 
     return OptimalEstimation

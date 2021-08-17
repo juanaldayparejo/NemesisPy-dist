@@ -18,7 +18,7 @@ Scattering Class. Includes the absorption and scattering properties of aerosol p
 
 class Scatter_0:
 
-    def __init__(self, ISPACE=0, NMU=5, NF=2, NPHI=101, NDUST=1,SOL_ANG=0.0,EMISS_ANG=0.0,AZI_ANG=0.0):
+    def __init__(self, ISPACE=0, ISCAT=0, IRAY=0, IMIE=0, NMU=5, NF=2, NPHI=101, NDUST=1, SOL_ANG=0.0, EMISS_ANG=0.0, AZI_ANG=0.0):
 
         """
         Inputs
@@ -27,6 +27,23 @@ class Scatter_0:
             Flag indicating the spectral units
             (0) Wavenumber (cm-1)
             (1) Wavelength (um)
+        @param ISCAT: int,
+            Flag indicating the type of scattering calculation that must be performed 
+            (0) Thermal emission calculation (no scattering)
+            (1) Multiple scattering
+            (2) Internal scattered radiation field is calculated first (required for limb-scattering calculations)
+            (3) Single scattering in plane-parallel atmosphere
+            (4) Single scattering in spherical atmosphere
+        @param IRAY int,
+            Flag indicating the type of Rayleigh scattering to include in the calculations:
+            (0) Rayleigh scattering optical depth not included
+            (1) Rayleigh optical depths for gas giant atmosphere
+            (2) Rayleigh optical depth suitable for CO2-dominated atmosphere
+            (>2) Rayleigh optical depth suitable for a N2-O2 atmosphere
+        @param IMIE int,
+            Flag indicating how the aerosol phase function needs to be computed (only relevant for ISCAT>0):
+            (0) Phase function is computed from the associated Henyey-Greenstein parameters stored in G1,G2
+            (1) Phase function is computed from the Mie-Theory parameters stored in PHASE
         @param NDUST: int,
             Number of aerosol populations included in the atmosphere
         @param NMU: int,
@@ -73,6 +90,8 @@ class Scatter_0:
             Cosine of the zenith angles corresponding to the Gauss-Lobatto quadrature points
         @attribute WTMU: 1D array,
             Quadrature weights of the Gauss-Lobatto quadrature points
+        @attribute ALPHA: real,
+            Scattering angle (degrees) computed from the observing angles
 
         Methods
         -------
@@ -84,6 +103,14 @@ class Scatter_0:
         self.NMU = NMU
         self.NF = NF
         self.NPHI = NPHI
+        self.ISPACE = ISPACE
+        self.ISCAT = ISCAT
+        self.SOL_ANG = SOL_ANG
+        self.EMISS_ANG = EMISS_ANG
+        self.AZI_ANG = AZI_ANG
+        self.NDUST = NDUST
+        self.IRAY = IRAY
+        self.IMIE = IMIE
 
         # Input the following profiles using the edit_ methods.
         self.NWAVE = None
@@ -178,6 +205,27 @@ class Scatter_0:
             plt.tight_layout()
             plt.show()
 
+    def write_xsc(self,runname,MakePlot=False):
+        """
+        Write the aerosol scattering and absorving properties to the .xsc file
+        """
+
+        f = open(runname+'.xsc','w')
+        f.write('%i \n' % (self.NDUST))
+
+        for i in range(self.NWAVE):
+            str1 = str('{0:7.6f}'.format(self.WAVE[i]))
+            str2 = ''
+            for j in range(self.NDUST):
+                str1 = str1+'\t'+str('{0:7.6e}'.format(self.KEXT[i,j]))
+                str2 = str2+'\t'+str('{0:7.6f}'.format(self.SGLALB[i,j]))
+
+            f.write(str1+'\n')
+            f.write(str2+'\n')
+
+        f.close()
+
+
     def read_hgphase(self,MakePlot=False):
         """
         Read the Henyey-Greenstein phase function parameters stored in the hgphaseN.dat files
@@ -215,23 +263,25 @@ class Scatter_0:
         self.G2 = g2
         self.F = fr
 
-    def calc_hgphase(self,Theta=None,MakePlot=False):
+    def calc_hgphase(self,Theta):
         """
         Calculate the phase function at Theta angles given the double Henyey-Greenstein parameters
+        @param Theta: 1D array or real scalar
+            Scattering angle (degrees)
         """
 
-        if Theta[0]!=None:
-            self.NTHETA = len(Theta)
-            self.THETA = Theta
+        if np.isscalar(Theta)==True:
+            phase = np.zeros([self.NWAVE,self.NDUST])
+            phase[:,:] = t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Theta/180.*np.pi) + self.G1**2.)**1.5
+        elif np.isscalar(Theta)==False:
+            ntheta = len(Theta)
+            phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
+            for i in range(self.NTHETA):
+                t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(self.THETA[i]/180.*np.pi) + self.G1**2.)**1.5
+                t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(self.THETA[i]/180.*np.pi) + self.G2**2.)**1.5
+                phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
 
-        phase = np.zeros([self.NWAVE,self.NTHETA,self.NDUST])
-        for i in range(self.NTHETA):
-
-            t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(self.THETA[i]/180.*np.pi) + self.G1**2.)**1.5
-            t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(self.THETA[i]/180.*np.pi) + self.G2**2.)**1.5
-            phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
-
-        self.PHASE = phase
+        return phase
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
@@ -268,3 +318,67 @@ class Scatter_0:
                 TAUCLSCAT[:,j,i] = ksca * DUSTCOLDENS
 
         return TAUDUST,TAUCLSCAT
+
+    def calc_tau_rayleighj(self,ISPACE,WAVEC,Layer,MakePlot=False):
+        """
+        Function to calculate the Rayleigh scattering opacity in each atmospheric layer,
+        for Gas Giant atmospheres using data from Allen (1976) Astrophysical Quantities
+
+        @ISPACE: int
+            Flag indicating the spectral units (0) Wavenumber in cm-1 (1) Wavelegnth (um)
+        @param WAVEC: int
+            Wavenumber (cm-1) or wavelength array (um)
+        @param Layer: class
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+        """
+
+        AH2=13.58E-5
+        BH2 = 7.52E-3
+        AHe= 3.48E-5
+        BHe = 2.30E-3
+        fH2 = 0.864
+        k = 1.37971e-23
+        P0=1.01325e5
+        T0=273.15
+
+        if ISPACE==0:
+            LAMBDA = 1./WAVEC * 1.0e-2  #Wavelength in metres
+            x = 1.0/(LAMBDA*1.0e6)
+        else:
+            LAMBDA = WAVEC * 1.0e-6 #Wavelength in metres
+            x = 1.0/(LAMBDA*1.0e6)
+
+        nH2 = AH2*(1.0+BH2*x*x)
+        nHe = AHe*(1.0+BHe*x*x)
+
+        #calculate the Jupiter air's refractive index at STP (Actually n-1)
+        nAir = fH2*nH2 + (1-fH2)*nHe
+
+        #H2,He Seem pretty isotropic to me?...Hence delta = 0.
+        #Penndorf (1957) quotes delta=0.0221 for H2 and 0.025 for He.
+        #(From Amundsen's thesis. Amundsen assumes delta=0.02 for H2-He atmospheres
+        delta = 0.0
+        temp = 32*(np.pi**3.)*nAir**2.
+        N0 = P0/(k*T0)
+
+        x = N0*LAMBDA*LAMBDA
+        faniso = (6.0+3.0*delta)/(6.0 - 7.0*delta)
+
+        #Calculating the scattering cross sections in cm2
+        k_rayleighj = temp*1.0e4*faniso/(3.*(x**2)) #(NWAVE)
+
+        #Calculating the Rayleigh opacities in each layer
+        tau_ray = np.zeros([len(WAVEC),Layer.NLAY])
+        for ilay in range(Layer.NLAY):
+            tau_ray[:,ilay] = k_rayleighj[:] * Layer.TOTAM[ilay] * 1.0e-4 #(NWAVE,NLAY) 
+
+        if MakePlot==True:
+
+            fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+            for i in range(Layer.NLAY):
+                ax1.plot(WAVEC,tau_ray[:,i])
+            ax1.grid()
+            plt.tight_layout()
+            plt.show()
+
+        return tau_ray

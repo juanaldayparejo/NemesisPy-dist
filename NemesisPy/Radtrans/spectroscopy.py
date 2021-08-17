@@ -285,7 +285,7 @@ def calc_k(filename,wavemin,wavemax,npoints,press,temp,MakePlot=False):
 
 ###############################################################################################
 
-def k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f):
+def k_overlap_v3(nwave,ng,del_g,ngas,npoints,k_gas,f):
     
     """
         
@@ -454,78 +454,7 @@ def k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f):
 
 ###############################################################################################
 
-@jit(nopython=True)
-def mix_two_gas_k(k_g1, k_g2, VMR1, VMR2, g_ord, del_g):
-    """
-    Adapted from chimera https://github.com/mrline/CHIMERA.
-    Mix the k-coefficients for two individual gases using the randomly
-    overlapping absorption line approximation. The "resort-rebin" procedure
-    is described in e.g. Goody et al. 1989, Lacis & Oinas 1991, Molliere et al.
-    2015 and Amundsen et al. 2017. Each pair of gases can be treated as a
-    new "hybrid" gas that can then be mixed again with another
-    gas.  This is all for a *single* wavenumber bin for a single pair of gases
-    at a particular pressure and temperature.
-    Parameters
-    ----------
-    k_g1 : ndarray
-        k-coeffs for gas 1 at a particular wave bin and temperature/pressure.
-        Has dimension Ng.
-    k_g2 : ndarray
-        k-coeffs for gas 2
-    VMR1 : ndarray
-        Volume mixing ratio of gas 1
-    VMR2 : ndarray
-        Volume mixing ratio for gas 2
-    g_ord : ndarray
-        g-ordinates, assumed same for both gases.
-    del_g : ndarray
-        Gauss quadrature weights for the g-ordinates, assumed same for both gases.
-    Returns
-    -------
-    k_g_combined
-        Mixed k-coefficients for the given pair of gases
-    VMR_combined
-        Volume mixing ratio of "mixed gas".
-    """
-    VMR_combined = VMR1+VMR2
-    Ng = len(g_ord)
-    k_g_combined = np.zeros(Ng)
-    cut_off = 1e-30
-    if k_g1[-1] * VMR1 < cut_off and k_g2[-1] * VMR2 < cut_off:
-        pass
-    elif k_g1[-1] * VMR1 < cut_off:
-        k_g_combined = k_g2*VMR2/VMR_combined
-    elif k_g2[-1] * VMR2 < cut_off:
-        k_g_combined = k_g1*VMR1/VMR_combined
-    else:
-        # Overlap Ng k-coeffs with Ng k-coeffs: Ng x Ng possible pairs
-        k_g_mix = np.zeros(Ng**2)
-        weight_mix = np.zeros(Ng**2)
-        # Mix k-coeffs of gases weighted by their relative VMR.
-        for i in range(Ng):
-            for j in range(Ng):
-                #equation 9 Amundsen 2017 (equation 20 Mollier 2015)
-                k_g_mix[i*Ng+j] = (k_g1[i]*VMR1+k_g2[j]*VMR2)/VMR_combined
-                 #equation 10 Amundsen 2017
-                weight_mix[i*Ng+j] = del_g[i]*del_g[j]
-
-        # Resort-rebin procedure: Sort new "mixed" k-coeff's from low to high
-        # see Amundsen et al. 2016 or section B.2.1 in Molliere et al. 2015
-        ascending_index = np.argsort(k_g_mix)
-        k_g_mix_sorted = k_g_mix[ascending_index]
-        weight_mix_sorted = weight_mix[ascending_index]
-        #combining w/weights--see description on Molliere et al. 2015
-        sum_weight = np.cumsum(weight_mix_sorted)
-        x = sum_weight/np.max(sum_weight)*2.-1
-        for i in range(Ng):
-            loc = np.where(x >=  g_ord[i])[0][0]
-            k_g_combined[i] = k_g_mix_sorted[loc]
-
-    return k_g_combined, VMR_combined
-
-###############################################################################################
-
-def k_overlap_v2(nwave,ng,g_ord,del_g,ngas,npoints,k_gas,f):
+def k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f):
     
     """
         
@@ -591,13 +520,119 @@ def k_overlap_v2(nwave,ng,g_ord,del_g,ngas,npoints,k_gas,f):
 
                 for iwave in range(nwave):
 
-                    k_g_combined, f_combined = mix_two_gas_k(k_gas1[iwave,:], k_gas2[iwave,:], f1, f2, g_ord, del_g)
+                    k_g_combined, f_combined = k_overlap_two_gas(k_gas1[iwave,:], k_gas2[iwave,:], f1, f2, del_g)
                     k_combined[iwave,:] = k_g_combined[:]
 
             k[:,:,ip] = k_combined[:,:]
 
     return k
 
+
+###############################################################################################
+@jit(nopython=True)
+def k_overlap_two_gas(k_g1, k_g2, q1, q2, del_g):
+    
+    """
+        
+        FUNCTION NAME : mix_two_gas_k()
+        
+        DESCRIPTION : This subroutine combines the absorption coefficient distributions of
+                      two overlapping gases. The overlap is implicitly assumed to be random
+                      and the k-distributions are assumed to have NG-1 mean values and NG-1
+                      weights. Correspondingly there are NG ordinates in total.
+        
+        INPUTS :
+        
+            k_g1(ng) :: k-coefficients for gas 1 at a particular wave bin and temperature/pressure.
+            k_g2(ng) :: k-coefficients for gas 2 at a particular wave bin and temperature/pressure.
+            q1 :: Volume mixing ratio of gas 1
+            q2 :: Volume mixing ratio of gas 2
+            g_ord(ng) :: g-ordinates, assumed to be the same for both gases
+            del_g(ng) ::Gauss quadrature weights for the g-ordinates, assumed same for both gases.
+
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            k_g_combine(ng) :: Combined k-distribution of both gases
+            q_combined :: Combined Volume mixing ratio of both gases
+        
+        CALLING SEQUENCE:
+        
+            k_g_combined,VMR_combined = mix_two_gas_k(k_g1, k_g2, VMR1, VMR2, del_g)
+        
+        MODIFICATION HISTORY : Juan Alday (25/09/2019)
+        
+    """
+
+    ng = len(del_g)  #Number of g-ordinates
+    k_g = np.zeros(ng)
+    q_combined = q1 + q2
+
+    if((k_g1[ng-1]<=0.0) and (k_g2[ng-1]<=0.0)):
+        pass
+    elif( (q1<=0.0) and (q2<=0.0) ):
+        pass
+    elif((k_g1[ng-1]==0.0) or (q1==0.0)):
+        k_g[:] = k_g2[:] * q2/(q1+q2)
+    elif((k_g2[ng-1]==0.0) or (q2==0.0)):
+        k_g[:] = k_g1[:] * q1/(q1+q2)
+    else:
+
+        nloop = ng * ng
+        weight = np.zeros(nloop)
+        contri = np.zeros(nloop)
+        ix = 0
+        for i in range(ng):
+            for j in range(ng):
+                weight[ix] = del_g[i] * del_g[j]
+                contri[ix] = (k_g1[i]*q1 + k_g2[j]*q2)/(q1+q2)
+                ix = ix + 1
+
+        #getting the cumulative g ordinate
+        g_ord = np.zeros(ng+1)
+        g_ord[0] = 0.0
+        for ig in range(ng):
+            g_ord[ig+1] = g_ord[ig] + del_g[ig]
+
+        if g_ord[ng]<1.0:
+            g_ord[ng] = 1.0
+
+        #sorting contri array
+        isort = np.argsort(contri)
+        contrib1 = contri[isort]
+        weight1 = weight[isort]
+
+        #creating combined g-ordinate array
+        gdist = np.zeros(nloop)
+        gdist[0] = weight1[0]
+        for i in range(nloop-1):
+            ix = i + 1
+            gdist[ix] = weight1[ix] + gdist[i]
+
+        ig = 0
+        sum1 = 0.0
+        for i in range(nloop):
+            
+            if( (gdist[i]<g_ord[ig+1]) & (ig<=ng-1) ):
+                k_g[ig] = k_g[ig] + contrib1[i] * weight1[i]
+                sum1 = sum1 + weight1[i]
+            else:
+                frac = (g_ord[ig+1]-gdist[i-1])/(gdist[i]-gdist[i-1])
+                k_g[ig] = k_g[ig] + frac * contrib1[i] * weight1[i]
+                sum1 = sum1 + weight1[i]
+                k_g[ig] = k_g[ig] / sum1
+                ig = ig + 1
+                if(ig<=ng-1):
+                    sum1 = (1.-frac)*weight1[i]
+                    k_g[ig] = k_g[ig] + (1.-frac) * contrib1[i] * weight1[i]
+
+        if ig==ng-1:
+            k_g[ig] = k_g[ig] / sum1
+
+    return k_g, q_combined
+    
 ###############################################################################################
 
 def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):

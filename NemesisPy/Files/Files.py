@@ -162,74 +162,6 @@ def read_mre(runname,MakePlot=False):
 
 ###############################################################################################
 
-def read_inp(runname):
-    
-    """
-        FUNCTION NAME : read_inp()
-        
-        DESCRIPTION : Read the .inp file for a Nemesis run
-        
-        INPUTS :
-        
-            runname :: Name of the Nemesis run
-        
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS :
-        
-            ispace :: (0) Wavenumber in cm-1 (1) Wavelength in um
-            iscat :: (0) Thermal emission calculation
-                     (1) Multiple scattering required
-                     (2) Internal scattered radiation field is calculated first (required for limb-
-                         scattering calculations)
-                     (3) Single scattering plane-parallel atmosphere calculation
-                     (4) Single scattering spherical atmosphere calculation
-            ilbl :: (0) Pre-tabulated correlated-k calculation
-                    (1) Line by line calculation
-                    (2) Pre-tabulated line by line calculation
-            woff :: Wavenumber/wavelength calibration offset error to be added to the synthetic spectra
-            niter :: Number of iterations of the retrieval model required
-            philimit :: Percentage convergence limit. If the percentage reduction of the cost function phi
-                        is less than philimit then the retrieval is deemed to have converged.
-            nspec :: Number of retrievals to perform (for measurements contained in the .spx file)
-            ioff :: Index of the first spectrum to fit (in case that nspec > 1).
-            lin :: Integer indicating whether the results from previous retrievals are to be used to set any
-                    of the atmospheric profiles. (Look Nemesis manual)
-        
-        CALLING SEQUENCE:
-        
-            ispace,iscat,ilbl,woff,niter,philimit,nspec,ioff,lin = read_inp(runname)
-        
-        MODIFICATION HISTORY : Juan Alday (29/04/2019)
-        
-        """
-    
-    #Opening file
-    f = open(runname+'.inp','r')
-    tmp = f.readline().split()
-    ispace = int(tmp[0])
-    iscat = int(tmp[1])
-    ilbl = int(tmp[2])
-    
-    tmp = f.readline().split()
-    woff = float(tmp[0])
-    fmerrname = str(f.readline().split())
-    tmp = f.readline().split()
-    niter = int(tmp[0])
-    tmp = f.readline().split()
-    philimit = float(tmp[0])
-    
-    tmp = f.readline().split()
-    nspec = int(tmp[0])
-    ioff = int(tmp[1])
-    
-    tmp = f.readline().split()
-    lin = int(tmp[0])
-    
-    return  ispace,iscat,ilbl,woff,niter,philimit,nspec,ioff,lin
-
-###############################################################################################
-
 def write_fcloud(npro,naero,height,frac,icloud, MakePlot=False):
     
     """
@@ -1201,14 +1133,64 @@ def read_inp(runname,Measurement=None,Scatter=None,Spectroscopy=None):
         
         CALLING SEQUENCE:
         
-            ispace,iscat,ilbl,woff,niter,philimit,nspec,ioff,lin = read_inp_nemesis(runname)
+            Measurement,Scatter,Spectroscopy,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname)
         
         MODIFICATION HISTORY : Juan Alday (29/04/2019)
         
     """
-    dummy = 1
 
-    return dummy
+    from NemesisPy import file_lines
+
+    #Getting number of lines 
+    nlines = file_lines(runname+'.inp')
+    if nlines==7:
+        iiform=0
+    if nlines==8:
+        iiform=1
+
+    #Opening file
+    f = open(runname+'.inp','r')
+    tmp = f.readline().split()
+    ispace = int(tmp[0])
+    iscat = int(tmp[1])
+    ilbl = int(tmp[2])
+
+    
+    if Measurement==None:
+        Measurement = Measurement_0()
+    Measurement.ISPACE=ispace
+
+    if Scatter==None:
+        Scatter = Scatter_0
+    Scatter.ISCAT = iscat
+
+    if Spectroscopy==None:
+        Spectroscopy = Spectroscopy_0()
+    Spectroscopy.ILBL = ilbl
+    
+    tmp = f.readline().split()
+    WOFF = float(tmp[0])
+    fmerrname = str(f.readline().split())
+    tmp = f.readline().split()
+    NITER = int(tmp[0])
+    tmp = f.readline().split()
+    PHILIMIT = float(tmp[0])
+    
+    tmp = f.readline().split()
+    NSPEC = int(tmp[0])
+    IOFF = int(tmp[1])
+    
+    tmp = f.readline().split()
+    LIN = int(tmp[0])
+
+    if iiform==1:
+        tmp = f.readline().split()
+        iform = int(tmp[0])
+        Measurement.IFORM=iform
+    else:
+        Measurement.IFORM=0
+    
+    return  Measurement,Scatter,Spectroscopy,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN
 
 ###############################################################################################
 
@@ -1281,6 +1263,10 @@ def read_set(runname,Layer=None,Surface=None,Stellar=None,Scatter=None):
     #Creating or updating Scatter class
     if Scatter==None:
         Scatter = Scatter_0()
+        Scatter.NMU = nmu
+        Scatter.NF = nf
+        Scatter.NPHI = nphi
+    else:
         Scatter.NMU = nmu
         Scatter.NF = nf
         Scatter.NPHI = nphi
@@ -1416,3 +1402,68 @@ def plot_itr(runname):
 
         plt.tight_layout()
         plt.show()
+
+###############################################################################################
+
+def read_fla_nemesis(runname):
+    
+    """
+        FUNCTION NAME : read_fla_nemesis()
+        
+        DESCRIPTION : Read the .fla file
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            runname :: Name of the Nemesis run
+            inormal :: ortho/para-H2 ratio is in equilibrium (0) or normal 3:1 (1)
+            iray :: (0) Rayleigh scattering optical depth not included
+                    (1) Rayleigh optical depths for gas giant atmosphere
+                    (2) Rayleigh optical depth suitable for CO2-dominated atmosphere
+                    (>2) Rayleigh optical depth suitable for a N2-O2 atmosphere
+            ih2o :: Additional H2O continuum off (0) or on (1)
+            ich4 :: Additional CH4 continuum off (0) or on (1)
+            io3 :: Additional O3 continuum off (0) or on (1)
+            inh3 :: Additional NH3 continuum off (0) or on (1)
+            iptf :: Normal partition function calculation (0) or high-temperature partition
+                    function for CH4 for Hot Jupiters
+            imie :: Only relevant for scattering calculations. (0) Phase function is computed
+                    from the associated Henyey-Greenstein hgphase*.dat files. (1) Phase function
+                    computed from the Mie-Theory calculated PHASEN.DAT
+            iuv :: Additional flag for including UV cross sections off (0) or on (1)
+        
+        CALLING SEQUENCE:
+        
+            inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla_nemesis(runname)
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+        """
+    
+    #Opening file
+    f = open(runname+'.fla','r')
+    s = f.readline().split()
+    inormal = int(s[0])
+    s = f.readline().split()
+    iray = int(s[0])
+    s = f.readline().split()
+    ih2o = int(s[0])
+    s = f.readline().split()
+    ich4 = int(s[0])
+    s = f.readline().split()
+    io3 = int(s[0])
+    s = f.readline().split()
+    inh3 = int(s[0])
+    s = f.readline().split()
+    iptf = int(s[0])
+    s = f.readline().split()
+    imie = int(s[0])
+    s = f.readline().split()
+    iuv = int(s[0])
+   
+    return inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv

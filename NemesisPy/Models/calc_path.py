@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 ###############################################################################################
 
-def gsetpat(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Layer,flagh2p):
+def calc_path(Atmosphere,Scatter,Measurement,Layer):
 
     """
-    FUNCTION NAME : gsetpat()
+    FUNCTION NAME : calc_path()
 
     DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files), 
                   different parameters in the Path class are changed to perform correctly
@@ -17,27 +17,26 @@ def gsetpat(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Lay
 
     INPUTS :
     
-        runname :: Name of the Nemesis run
-        Variables :: Python class defining the parameterisations and state vector
-        Measurement :: Python class defining the measurements 
         Atmosphere :: Python class defining the reference atmosphere
         Scatter :: Python class defining the parameters required for scattering calculations
-        Stellar :: Python class defining the stellar spectrum
-        Surface :: Python class defining the surface
-        Layer :: Python class defining the layering scheme to be applied in the calculations
+        Measurement :: Python class defining the measurements and observations
+        Layer :: Python class defining the atmospheric layering scheme for the calculation
 
     OPTIONAL INPUTS: none
             
     OUTPUTS : 
 
+        Layer :: Python class after computing the layering scheme for the radiative transfer calculations
         Path :: Python class defining the calculation type and the path
 
     CALLING SEQUENCE:
 
-        Path = gsetpat(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Layer,Path)
+        Layer,Path = calc_path(Atmosphere,Scatter,Layer)
  
     MODIFICATION HISTORY : Juan Alday (15/03/2021)
     """
+
+    from NemesisPy.Layer import AtmCalc_0,Path_0
 
     #Based on the new reference atmosphere, we split the atmosphere into layers
     ################################################################################
@@ -52,7 +51,6 @@ def gsetpat(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Lay
 
     BASEH, BASEP, BASET, HEIGHT, PRESS, TEMP, TOTAM, AMOUNT, PP, CONT, LAYSF, DELH\
         = Layer.integrate(H=Atmosphere.H,P=Atmosphere.P,T=Atmosphere.T, LAYANG=LAYANG, ID=Atmosphere.ID,VMR=Atmosphere.VMR, DUST=Atmosphere.DUST)
-    
 
     #Setting the flags for the Path and calculation types
     ##############################################################################
@@ -77,10 +75,12 @@ def gsetpat(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Lay
     binbb = True
 
     if Scatter.EMISS_ANG>=0.0:
+        limb=False
         nadir=True
-        angle=EMISS_ANG
+        angle=Scatter.EMISS_ANG
         botlay=0
     else:
+        nadir=False
         limb=True
         angle=90.0
         botlay=0
@@ -112,11 +112,13 @@ def gsetpat(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Lay
     #Based on the atmospheric layering, we calculate each atmospheric path (at each tangent height)
     NCALC = 1    #Number of calculations (geometries) to be performed
     AtmCalc_List = []
-    for ICALC in range(NCALC):
-        iAtmCalc = AtmCalc_0(Layer,LIMB=limb,NADIR=nadir,BOTLAY=botlay,ANGLE=angle,IPZEN=ipzen,)
-        AtmCalc_List.append(iAtmCalc)
+    iAtmCalc = AtmCalc_0(Layer,LIMB=limb,NADIR=nadir,BOTLAY=botlay,ANGLE=angle,IPZEN=ipzen,\
+                         THERM=therm,WF=wf,NETFLUX=netflux,OUTFLUX=outflux,BOTFLUX=botflux,UPFLUX=upflux,\
+                         CG=cg,HEMISPHERE=hemisphere,NEARLIMB=nearlimb,SINGLE=single,SPHSINGLE=sphsingle,\
+                         SCATTER=scatter,BROAD=broad,ABSORB=absorb,BINBB=binbb)
+    AtmCalc_List.append(iAtmCalc)
 
     #We initialise the total Path class, indicating that the calculations can be combined
-    Path = Path_0(AtmCalc_List,COMBINE=False)
+    Path = Path_0(AtmCalc_List,COMBINE=True)
 
-    return Path
+    return Layer,Path
