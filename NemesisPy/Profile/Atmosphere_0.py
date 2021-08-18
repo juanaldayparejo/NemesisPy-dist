@@ -139,9 +139,9 @@ class Atmosphere_0:
         """
         P_array = np.array(P_array)
         assert len(P_array) == self.NP, 'P should have NP elements'
-        assert (P_array>0).all() == True, 'P should be positive'
-        assert ((P_array[1:]-P_array[:-1])<0).all(),\
-            'P should be strictly decreasing'
+        #assert (P_array>0).all() == True, 'P should be positive'
+        #assert ((P_array[1:]-P_array[:-1])<0).all(),\
+        #    'P should be strictly decreasing'
         self.P = P_array
 
     def edit_T(self, T_array):
@@ -184,6 +184,8 @@ class Atmosphere_0:
         jvmr1 = np.where(ISCALE==1)
         jvmr2 = np.where(ISCALE==0)
 
+        vmr = np.zeros([self.NP,self.NVMR])
+        vmr[:,:] = self.VMR
         for ipro in range(self.NP):
 
             sumtot = np.sum(self.VMR[ipro,:])
@@ -193,7 +195,10 @@ class Atmosphere_0:
                 #Need to adjust the VMRs of those gases that can be scaled to 
                 #bring the total sum to 1.0
                 xfac = (1.0-sum1)/(sumtot-sum1)
-                self.VMR[ipro,jvmr1] = self.VMR[ipro,jvmr1] * xfac
+                vmr[ipro,jvmr1] = self.VMR[ipro,jvmr1] * xfac
+                #self.VMR[ipro,jvmr1] = self.VMR[ipro,jvmr1] * xfac
+
+        self.edit_VMR(vmr)
 
     def calc_molwt(self):
         """
@@ -405,6 +410,65 @@ class Atmosphere_0:
             self.calc_grav()  
 
 
+    def add_gas(self,gasID,isoID,vmr):
+        """
+        Subroutine to add a gas into the reference atmosphere
+            gasID :: Radtran ID of the gas
+            isoID :: Radtran isotopologue ID of the gas
+            vmr(NP) :: Volume mixing ratio of the gas at each altitude level
+        """  
+
+        ngas = self.NVMR + 1
+        if len(vmr)!=self.NP:
+            sys.exit('error in Atmosphere.add_gas() :: Number of altitude levels in vmr must be the same as in Atmosphere')
+        else:
+            vmr1 = np.zeros([self.NP,ngas])
+            gasID1 = np.zeros(ngas,dtype='int32')
+            isoID1 = np.zeros(ngas,dtype='int32')
+            vmr1[:,0:self.NVMR] = self.VMR
+            vmr1[:,ngas-1] = vmr[:]
+            gasID1[0:self.NVMR] = self.ID
+            isoID1[0:self.NVMR] = self.ISO
+            gasID1[ngas-1] = gasID
+            isoID1[ngas-1] = isoID
+            self.NVMR = ngas
+            self.ID = gasID1
+            self.ISO = isoID1
+            self.edit_VMR(vmr1)
+
+
+    def remove_gas(self,gasID,isoID):
+        """
+        Subroutine to remove a gas from the reference atmosphere
+            gasID :: Radtran ID of the gas
+            isoID :: Radtran isotopologue ID of the gas
+        """  
+
+        igas = np.where( (self.ID==gasID) & (self.ISO==isoID) )
+        igas = igas[0]
+        if len(igas)==0:
+            sys.exit('error in Atmosphere.remove_gas() :: Gas ID and Iso ID not found in reference atmosphere')
+
+        ngas = self.NVMR - 1
+        vmr1 = np.zeros([self.NP,ngas])
+        gasID1 = np.zeros(ngas,dtype='int32')
+        isoID1 = np.zeros(ngas,dtype='int32')
+        ix = 0
+        for i in range(self.NVMR):
+            if i==igas:
+                pass
+            else:
+                vmr1[:,ix] = self.VMR[:,i]
+                gasID1[ix] = self.ID[i]
+                isoID1[ix] = self.ISO[i]
+                ix = ix + 1
+
+        self.NVMR = ngas
+        self.ID = gasID1
+        self.ISO = isoID1
+        self.edit_VMR(vmr1)
+
+
     def write_to_file(self):
         """
         Write the current profile to a runname.prf file in Nemesis format.
@@ -520,9 +584,9 @@ class Atmosphere_0:
         fref.write('\t %i \n' % (nlat))
     
         if self.AMFORM==0:
-            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR,self.MOLWT))
+            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR,self.MOLWT[0]))
         else:
-            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR))
+            fref.write('\t %i \t %7.4f \t %i \t %i \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR))
 
         gasname = [''] * self.NVMR
         header = [''] * (3+self.NVMR)
@@ -537,9 +601,9 @@ class Atmosphere_0:
 
         fref.write(str1+'\n')
 
-        for i in range(npro):
-            str1 = str('{0:7.6f}'.format(self.H[i]/1.0e3))+'\t'+str('{0:7.6e}'.format(self.P[i]/101325.))+'\t'+str('{0:7.4f}'.format(self.T[i]))
-            for j in range(ngas):
+        for i in range(self.NP):
+            str1 = str('{0:7.3f}'.format(self.H[i]/1.0e3))+'\t'+str('{0:7.6e}'.format(self.P[i]/101325.))+'\t'+str('{0:7.4f}'.format(self.T[i]))
+            for j in range(self.NVMR):
                 str1 = str1+'\t'+str('{0:7.6e}'.format(self.VMR[i,j])) 
             fref.write(str1+'\n')
  

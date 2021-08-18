@@ -23,6 +23,83 @@ import matplotlib as mpl
 from NemesisPy import *
 import ray
 
+
+###############################################################################################
+
+def calc_gascn(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,nemesisSO=True,Write_GCN=True):
+    
+    """
+        FUNCTION NAME : calc_gascn()
+        
+        DESCRIPTION : This function computes several forward models using only one radiatively active gas 
+                        at a time, in order to evaluate what the contribution from each gas is to the spectrum
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+            Variables :: Python class defining the parameterisations and state vector
+            Measurement :: Python class defining the measurements 
+            Atmosphere :: Python class defining the reference atmosphere
+            Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
+            Scatter :: Python class defining the parameters required for scattering calculations
+            Stellar :: Python class defining the stellar spectrum
+            Surface :: Python class defining the surface
+            CIA :: Python class defining the Collision-Induced-Absorption cross-sections
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+        
+        OPTIONAL INPUTS:
+
+            nemesisSO :: If True, then the calculation type is set to model a solar occultation observation
+            Write_GCN :: If True, a .gcn file is written with the results
+        
+        OUTPUTS :
+        
+            SPECMOD(NCONV,NGEOM,NGAS) :: Modelled spectra for each active gas
+        
+        CALLING SEQUENCE:
+        
+            calc_gascn(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+        
+        MODIFICATION HISTORY : Juan Alday (25/07/2021)
+        
+    """
+
+    from copy import copy
+    from NemesisPy import write_gcn
+
+    #Calling the forward model NGAS times to calculate the measurement vector for each case radiatively active gas
+
+    SPECMODGCN = np.zeros([Measurement.NCONV.max(),Measurement.NGEOM,Spectroscopy.NGAS])
+
+    for igas in range(Spectroscopy.NGAS):
+
+        print('calc_gascn :: Calculating forward model for active gas '+str(igas)+'/'+str(Spectroscopy.NGAS))
+
+        Spectroscopy1 = copy(Spectroscopy)
+        Spectroscopy1.NGAS = 1
+        Spectroscopy1.ID = [Spectroscopy.ID[igas]] ; Spectroscopy1.ISO = [Spectroscopy.ISO[igas]]
+        Spectroscopy1.LOCATION = [Spectroscopy.LOCATION[igas]]
+        if Spectroscopy1.ILBL==0:
+            k = np.zeros([Spectroscopy1.NWAVE,Spectroscopy1.NG,Spectroscopy1.NP,Spectroscopy1.NT,1])
+            k[:,:,:,:,0] = Spectroscopy.K[:,:,:,:,igas]
+            Spectroscopy1.edit_K(k)
+            del k  #Delete array to free memory
+        else:
+            k = np.zeros([Spectroscopy1.NWAVE,Spectroscopy1.NP,Spectroscopy1.NT,1])
+            k[:,:,:,0] = Spectroscopy.K[:,:,:,igas]
+            Spectroscopy1.edit_K(k)
+            del k  #Delete array to free memory
+
+        if nemesisSO==True:
+            SPECMOD1 = nemesisSOfm(runname,Variables,Measurement,Atmosphere,Spectroscopy1,Scatter,Stellar,Surface,CIA,Layer)
+        else:
+            sys.exit('error in calc_gascn() :: It has only been implemented yet for solar occultation observations')
+            
+        SPECMODGCN[:,:,igas] = SPECMOD1[:,:]
+
+    #Writing the .gcn file if required
+    write_gcn(runname,Spectroscopy.NGAS,Spectroscopy.ID,Spectroscopy.ISO,Measurement.NGEOM,Measurement.NCONV,Measurement.VCONV,SPECMODGCN)
+
 ###############################################################################################
 
 def nemesisSOfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer):
@@ -273,10 +350,10 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
     #################################################################################
 
     #Calling the forward model NXN times to calculate the measurement vector for each case
-    NPROC = 8  #Number of processes to run in parallel
+    NCORES = 4  #Number of processes to run in parallel
     YNtot = np.zeros([Measurement.NY,nxn])
-    if NPROC>1:
-        ray.init(num_cpus=NPROC)
+    if NCORES>1:
+        ray.init(num_cpus=NCORES)
         YNtot_ids = []
         SpectroscopyP = ray.put(Spectroscopy)
         for ix in range(nxn):
@@ -583,10 +660,10 @@ def jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatt
     #################################################################################
 
     #Calling the forward model NXN times to calculate the measurement vector for each case
-    NPROC = 4  #Number of processes to run in parallel
+    NCORES = 4  #Number of processes to run in parallel
     YNtot = np.zeros([Measurement.NY,nxn])
-    if NPROC>1:
-        ray.init(num_cpus=NPROC)
+    if NCORES>1:
+        ray.init(num_cpus=NCORES)
         YNtot_ids = []
         SpectroscopyP = ray.put(Spectroscopy)
         for ix in range(nxn):
@@ -886,6 +963,7 @@ def CIRSrad(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stella
 
         SPECOUT = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Path.NPATH])
 
+        #Defining the units of the output spectrum
         xfac = 1.
         if Measurement.IFORM==1:
             xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
@@ -893,9 +971,11 @@ def CIRSrad(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stella
             solpspec = f(Measurement.WAVE)  #Stellar power spectrum (W (cm-1)-1 or W um-1)
             xfac = xfac / solpspec
 
-
+        #Calculating spectrum
         for ipath in range(Path.NPATH):
 
+
+            #Calculating atmospheric contribution
             taud = np.zeros([Measurement.NWAVE,Spectroscopy.NG])
             trold = np.ones([Measurement.NWAVE,Spectroscopy.NG])
             specg = np.zeros([Measurement.NWAVE,Spectroscopy.NG])
@@ -910,6 +990,23 @@ def CIRSrad(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stella
                     specg[:,ig] = specg[:,ig] + (trold[:,ig]-tr[:,ig])*bb[:] * xfac
 
                 trold = copy(tr)
+
+
+
+            #Calculating surface contribution
+
+            p1 = Layer.PRESS[Path.LAYINC[int(Path.NLAYIN[ipath]/2)-1,ipath]]
+            p2 = Layer.PRESS[Path.LAYINC[int(Path.NLAYIN[ipath]-1),ipath]]
+
+            if p2>p1:  #If not limb path, we add the surface contribution
+
+                if Surface.TSURF<=0.0:
+                    radground = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[Path.NLAYIN[ipath]-1,ipath])
+                else:
+                    radground = 0.0
+
+                for ig in range(Spectroscopy.NG):
+                    specg[:,ig] = specg[:,ig] + trold[:,ig] * radground[:] * xfac
 
             SPECOUT[:,:,ipath] = specg[:,:]
 

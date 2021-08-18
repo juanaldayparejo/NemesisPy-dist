@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #####################################################################################
 #####################################################################################
 #                                        nemesisSO
@@ -106,7 +106,7 @@ CIA.read_cia(runname)
 #Reading .fla file
 #############################################################################
 
-inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla_nemesis(runname)
+inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla(runname)
 
 CIA.INORMAL = inormal
 Scatter.IRAY = iray
@@ -133,7 +133,7 @@ Variables.SX = copy(Variables.SA)
 IRET = 0    #(0) Optimal Estimation (1) Nested sampling
 if IRET==0:
     OptimalEstimation = coreretOE(runname,Variables,Measurement,Atm,Spec,Scatter,Stellar,Surface,CIA,Layer,\
-                                     NITER=8,PHILIMIT=0.1,nemesisSO=True)
+                                     NITER=NITER,PHILIMIT=PHILIMIT,nemesisSO=True)
 else:
     sys.exit('error in nemesisSO :: Retrieval scheme has not been implemented yet')
 

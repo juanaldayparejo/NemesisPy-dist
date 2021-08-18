@@ -241,6 +241,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
             OptimalEstimation.edit_XN(XN1)
             OptimalEstimation.edit_YN(YN1)
             OptimalEstimation.edit_KK(KK1)
+            Variables.edit_XN(XN1)
 
             #Now calculate the gain matrix and averaging kernels
             OptimalEstimation.calc_gain_matrix()
@@ -277,6 +278,10 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
     #Closing .itr file
     if OptimalEstimation.NITER>0:
         fitr.close()
+
+    #Writing the contribution of each gas to .gcn file
+    if nemesisSO==True:
+        calc_gascn(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
 
     return OptimalEstimation
 

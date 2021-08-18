@@ -1405,10 +1405,10 @@ def plot_itr(runname):
 
 ###############################################################################################
 
-def read_fla_nemesis(runname):
+def read_fla(runname):
     
     """
-        FUNCTION NAME : read_fla_nemesis()
+        FUNCTION NAME : read_fla()
         
         DESCRIPTION : Read the .fla file
         
@@ -1439,7 +1439,7 @@ def read_fla_nemesis(runname):
         
         CALLING SEQUENCE:
         
-            inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla_nemesis(runname)
+            inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla(runname)
         
         MODIFICATION HISTORY : Juan Alday (29/04/2019)
         
@@ -1467,3 +1467,374 @@ def read_fla_nemesis(runname):
     iuv = int(s[0])
    
     return inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv
+
+
+###############################################################################################
+
+def write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv):
+
+    """
+        FUNCTION NAME : write_fla()
+        
+        DESCRIPTION : Write the .fla file
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+            inormal :: ortho/para-H2 ratio is in equilibrium (0) or normal 3:1 (1)
+            iray :: (0) Rayleigh scattering optical depth not included
+                    (1) Rayleigh optical depths for gas giant atmosphere
+                    (2) Rayleigh optical depth suitable for CO2-dominated atmosphere
+                    (>2) Rayleigh optical depth suitable for a N2-O2 atmosphere
+            ih2o :: Additional H2O continuum off (0) or on (1)
+            ich4 :: Additional CH4 continuum off (0) or on (1)
+            io3 :: Additional O3 continuum off (0) or on (1)
+            inh3 :: Additional NH3 continuum off (0) or on (1)
+            iptf :: Normal partition function calculation (0) or high-temperature partition
+                    function for CH4 for Hot Jupiters
+            imie :: Only relevant for scattering calculations. (0) Phase function is computed
+                    from the associated Henyey-Greenstein hgphase*.dat files. (1) Phase function
+                    computed from the Mie-Theory calculated PHASEN.DAT
+            iuv :: Additional flag for including UV cross sections off (0) or on (1)
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Nemesis .fla file       
+ 
+        CALLING SEQUENCE:
+        
+            write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv)
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+    """
+
+    f = open(runname+'.fla','w')
+    f.write('%i \n' % (inormal))
+    f.write('%i \n' % (iray))
+    f.write('%i \n' % (ih2o))
+    f.write('%i \n' % (ich4))
+    f.write('%i \n' % (io3))
+    f.write('%i \n' % (inh3))
+    f.write('%i \n' % (iptf))
+    f.write('%i \n' % (imie))
+    f.write('%i \n' % (iuv))
+    f.close()
+
+###############################################################################################
+
+def write_set(runname,nmu,nf,nphi,isol,dist,lowbc,galb,tsurf,layht,nlayer,laytp,layint):
+
+    """
+        FUNCTION NAME : write_set()
+        
+        DESCRIPTION : Read the .set file
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+            nmu :: Number of zenith ordinates
+            nf :: Required number of Fourier components
+            nphi :: Number of azimuth angles
+            isol :: Sunlight on/off
+            dist :: Solar distance (AU)
+            lowbc :: Lower boundary condition (0 Thermal - 1 Lambertian)
+            galb :: Ground albedo
+            tsurf :: Surface temperature (if planet is not gasgiant)
+            layht :: Base height of lowest layer
+            nlayer :: Number of vertical levels to split the atmosphere into
+            laytp :: Flag to indicate how layering is perfomed (radtran)
+            layint :: Flag to indicate how layer amounts are calculated (radtran)
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Nemesis .set file
+
+        CALLING SEQUENCE:
+        
+            l = write_set(runname,nmu,nf,nphi,isol,dist,lowbc,galb,tsurf,layht,nlayer,laytp,layint)
+        
+        MODIFICATION HISTORY : Juan Alday (15/10/2019)
+        
+    """
+
+    #Calculating the Gauss-Lobatto quadtrature points
+    iScatter = Scatter_0(NMU=nmu)
+
+    #Writin the .set file
+    f = open(runname+'.set','w')
+    f.write('********************************************************* \n')
+    f.write('Number of zenith angles : '+str(nmu)+' \n')
+    for i in range(nmu):
+        f.write('\t %10.12f \t %10.12f \n' % (iScatter.MU[i],iScatter.WTMU[i]))
+    f.write('Number of Fourier components : '+str(nf)+' \n')
+    f.write('Number of azimuth angles for fourier analysis : '+str(nphi)+' \n')
+    f.write('Sunlight on(1) or off(0) : '+str(isol)+' \n')
+    f.write('Distance from Sun (AU) : '+str(dist)+' \n')
+    f.write('Lower boundary cond. Thermal(0) Lambert(1) : '+str(lowbc)+' \n')
+    f.write('Ground albedo : '+str(galb)+' \n')
+    f.write('Surface temperature : '+str(tsurf)+' \n')
+    f.write('********************************************************* \n')
+    f.write('Alt. at base of bot.layer (not limb) : '+str(layht)+' \n')
+    f.write('Number of atm layers : '+str(nlayer)+' \n')
+    f.write('Layer type : '+str(laytp)+' \n')
+    f.write('Layer integration : '+str(layint)+' \n')
+    f.write('********************************************************* \n')
+
+    f.close()
+
+###############################################################################################
+
+def write_inp(runname,ispace,iscat,ilbl,woff,niter,philimit,nspec,ioff,lin,IFORM=-1):
+
+    """
+        FUNCTION NAME : write_inp()
+        
+        DESCRIPTION : Write the .inp file for a Nemesis run
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+            ispace :: (0) Wavenumber in cm-1 (1) Wavelength in um
+            iscat :: (0) Thermal emission calculation
+                    (1) Multiple scattering required
+                    (2) Internal scattered radiation field is calculated first (required for limb-
+                        scattering calculations)
+                    (3) Single scattering plane-parallel atmosphere calculation
+                    (4) Single scattering spherical atmosphere calculation
+            ilbl :: (0) Pre-tabulated correlated-k calculation
+                    (1) Line by line calculation
+                    (2) Pre-tabulated line by line calculation
+            woff :: Wavenumber/wavelength calibration offset error to be added to the synthetic spectra
+            niter :: Number of iterations of the retrieval model required
+            philimit :: Percentage convergence limit. If the percentage reduction of the cost function phi
+                        is less than philimit then the retrieval is deemed to have converged.
+            nspec :: Number of retrievals to perform (for measurements contained in the .spx file)
+            ioff :: Index of the first spectrum to fit (in case that nspec > 1).
+            lin :: Integer indicating whether the results from previous retrievals are to be used to set any
+                    of the atmospheric profiles. (Look Nemesis manual)
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+        CALLING SEQUENCE:
+
+            write_inp(runname,ispace,iscat,ilbl,woff,niter,philimit,nspec,ioff,lin,IFORM=iform)
+         
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+    """
+
+    #Opening file
+    f = open(runname+'.inp','w')
+    f.write('%i \t %i \t %i \n' % (ispace,iscat,ilbl))
+    f.write('%10.5f \n' % (woff))
+    f.write(runname+'.err \n')
+    f.write('%i \n' % (niter))
+    f.write('%10.5f \n' % (philimit))
+    f.write('%i \t %i \n' % (nspec,ioff))
+    f.write('%i \n' % (lin))
+    if IFORM!=-1:
+        f.write('%i \n' % (IFORM))
+    f.close()
+
+###############################################################################################
+
+def write_err(runname,nwave,wave,fwerr):
+
+    """
+        FUNCTION NAME : write_err()
+        
+        DESCRIPTION : Write the .err file, including information about forward modelling error
+        
+        INPUTS :
+        
+            runname :: Name of Nemesis run
+            nwave :: Number of wavelengths at which the albedo is defined
+            wave(nwave) :: Wavenumber/Wavelength array
+            fwerr(nwave) :: Forward modelling error
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Nemeis .err file       
+ 
+        CALLING SEQUENCE:
+        
+            write_err(runname,nwave,wave,fwerr)
+         
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+    """
+
+    f = open(runname+'.err','w')
+    f.write('\t %i \n' % (nwave))
+    for i in range(nwave):
+        f.write('\t %10.5f \t %10.5f \n' % (wave[i],fwerr[i]))
+    f.close()
+
+###############################################################################################
+
+def write_sur(runname,nwave,wave,alb):
+
+    """
+        FUNCTION NAME : write_sur()
+        
+        DESCRIPTION : Write the .sur file 
+        
+        INPUTS :
+        
+            runname :: Name of Nemesis run
+            nwave :: Number of wavelengths at which the albedo is defined
+            wave(nwave) :: Wavenumber array
+            alb(nwave) :: Albedo
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Nemeis .sur file       
+ 
+        CALLING SEQUENCE:
+        
+            write_sur(runname,nwave,wave,alb)
+         
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+        
+    """
+
+    fsur = open(runname+'.sur','w')
+    fsur.write('\t %i \n' % (nwave))
+    for i in range(nwave):
+        fsur.write('\t %10.5f \t %10.5f \n' % (wave[i],alb[i]))
+    fsur.close()
+
+###############################################################################################
+
+def write_gcn(runname,NGAS,gasID,isoID,NGEOM,NCONV,VCONV,SPECMODGCN):
+    
+    """
+        FUNCTION NAME : write_gcn()
+        
+        DESCRIPTION : Write the .gcn file including information about the contribution of each active gas
+                      to each observation
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+            NGAS :: Number of active gases in the atmosphere
+            gasID(NGAS) :: Radtran ID for each gas
+            isoID(NGAS) :: Radtran isotopologue ID for each gas
+            NGEOM :: Number of geometries in observation
+            NCONV(NGEOM) :: Number of convolution wavelengths in each geometry
+            VCONV(NCONV,NGEOM) :: Wavelength/Wavenumber array
+            SPECMODGCN(NCONV,NGEOM,NGAS) :: Modelled spectrum in each geometry for each active gas alone
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Nemesis .gcn file
+        
+        CALLING SEQUENCE:
+        
+            write_gcn(runname,NGAS,gasID,isoID,NGEOM,NCONV,VCONV,SPECMODGCN)
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2021)
+        
+    """
+
+    f = open(runname+'.gcn','w')
+
+    f.write('\t %i \t %i \n' % (NGAS,NGEOM))
+
+    for i in range(NGAS):
+        f.write('\t %i \t %i \n' % (gasID[i],isoID[i]))
+
+    for i in range(NGEOM):
+        f.write('\t %i \n' % (NCONV[i]))
+        for j in range(NCONV[i]):
+            str1 = str('{0:7.6f}'.format(VCONV[j,i]))
+            for k in range(NGAS):
+                str1 = str1+'\t'+str('{0:7.6e}'.format(SPECMODGCN[j,i,k]))
+
+            f.write(str1+' \n')
+    
+    f.close()
+
+###############################################################################################
+
+def read_gcn(runname):
+    
+    """
+        FUNCTION NAME : write_gcn()
+        
+        DESCRIPTION : Write the .gcn file including information about the contribution of each active gas
+                      to each observation
+        
+        INPUTS :
+        
+            runname :: Name of the Nemesis run
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            NGAS :: Number of active gases in the atmosphere
+            gasID(NGAS) :: Radtran ID for each gas
+            isoID(NGAS) :: Radtran isotopologue ID for each gas
+            NGEOM :: Number of geometries in observation
+            NCONV(NGEOM) :: Number of convolution wavelengths in each geometry
+            VCONV(NCONV,NGEOM) :: Wavelength/Wavenumber array
+            SPECMODGCN(NCONV,NGEOM,NGAS) :: Modelled spectrum in each geometry for each active gas alone
+        
+        CALLING SEQUENCE:
+        
+            NGAS,gasID,isoID,NGEOM,NCONV,VCONV,SPECMODGCN = read_gcn(runname)
+        
+        MODIFICATION HISTORY : Juan Alday (29/04/2021)
+        
+    """
+
+    f = open(runname+'.gcn','r')
+
+    s = f.readline().split()
+    NGAS = int(s[0])
+    NGEOM = int(s[1])
+    gasID = np.zeros(NGAS,dtype='int32')
+    isoID = np.zeros(NGAS,dtype='int32')
+    NCONV = np.zeros(NGEOM,dtype='int32')
+    mconv = 3000
+
+    VCONV1 = np.zeros([mconv,NGEOM])
+    SPECMODGCN1 = np.zeros([mconv,NGEOM,NGAS])
+
+    for i in range(NGAS):
+        s = f.readline().split()
+        gasID[i] = int(s[0])
+        isoID[i] = int(s[1])
+    
+    for i in range(NGEOM):
+        s = f.readline().split()
+        NCONV[i] = int(s[0])
+        for j in range(NCONV[i]):
+            s = f.readline().split()
+            VCONV1[j,i] = float(s[0])
+            for k in range(NGAS):
+                SPECMODGCN1[j,i,k] = float(s[k+1])
+
+    f.close()
+
+    VCONV = np.zeros([NCONV.max(),NGEOM])
+    SPECMODGCN = np.zeros([NCONV.max(),NGEOM,NGAS])
+    for i in range(NGEOM):
+        VCONV[0:NCONV[i],i] = VCONV1[0:NCONV[i],i] 
+        SPECMODGCN[0:NCONV[i],i,:] = SPECMODGCN1[0:NCONV[i],i,:]
+
+    return NGAS,gasID,isoID,NGEOM,NCONV,VCONV,SPECMODGCN

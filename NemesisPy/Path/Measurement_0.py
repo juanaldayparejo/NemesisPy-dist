@@ -101,9 +101,9 @@ class Measurement_0:
         Measurement.edit_ERRMEAS
         Measurement.edit_FLAT
         Measurement.edit_FLON
-        Measurement.edit_SOLANG
-        Measurement.edit_EMISSANG
-        Measurement.edit_AZIANG
+        Measurement.edit_SOL_ANG
+        Measurement.edit_EMISS_ANG
+        Measurement.edit_AZI_ANG
         Measurement.edit_WGEOM
         Measurement.read_spx_SO
         Measurement.read_spx
@@ -194,7 +194,6 @@ class Measurement_0:
             the FOV (when NAV > 1)
         """
         FLAT_array = np.array(FLAT_array)
-        print(FLAT_array.shape)
         try:
             assert FLAT_array.shape == (self.NGEOM, self.NAV.max()),\
                 'FLAT should be NGEOM by NAV.'
@@ -631,6 +630,29 @@ class Measurement_0:
         
             plt.tight_layout()
             plt.show()
+
+    def write_fil(self,runname,MakePlot=False,IGEOM=0):
+    
+        """
+        Write the .fil file to see what the Instrument Lineshape for each convolution wavenumber 
+        (Only valid if FWHM<0.0)
+
+        @param runname: string
+            Name of the Nemesis run 
+        """
+
+        f = open(runname+'.fil','w')
+        f.write("%i \n" %  (self.NCONV[IGEOM]))
+
+        #Running for each spectral point
+        for i in range(self.NCONV[IGEOM]):
+            f.write("%10.7f\n" % self.VCONV[i,IGEOM])
+
+            f.write("%i \n" %  (self.NFIL[i]))
+            for j in range(self.NFIL[i]):
+                f.write("%10.10f %10.10e\n" % (self.VFIL[j,i], self.AFIL[j,i]) )
+        f.close()
+
 
 
     def wavesetc(self,Spectroscopy,IGEOM=0):

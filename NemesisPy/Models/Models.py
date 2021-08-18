@@ -580,9 +580,7 @@ def model887(Scatter,xsc,idust,MakePlot=False):
         INPUTS :
         
             Scatter :: Python class defining the spectral properties of aerosols in the atmosphere
-
             xsc :: New cross-section spectrum of aerosol IDUST
-
             idust :: Index of the aerosol to be changed (from 0 to NDUST-1)
         
         OPTIONAL INPUTS:
@@ -604,7 +602,10 @@ def model887(Scatter,xsc,idust,MakePlot=False):
     if len(xsc)!=Scatter.NWAVE:
         sys.exit('error in model 887 :: Cross-section array must be defined at the same wavelengths as in .xsc')
     else:
-        Scatter.KEXT[:,idust] = xsc[:]
+        kext = np.zeros([Scatter.NWAVE,Scatter.DUST])
+        kext[:,:] = Scatter.KEXT
+        kext[:,idust] = xsc[:]
+        Scatter.KEXT = kext
 
     if MakePlot==True:
         fig,ax1=plt.subplots(1,1,figsize=(10,3))

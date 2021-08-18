@@ -104,7 +104,7 @@ CIA.read_cia(runname)
 #Reading .fla file
 #############################################################################
 
-inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla_nemesis(runname)
+inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla(runname)
 
 CIA.INORMAL = inormal
 Scatter.IRAY = iray
