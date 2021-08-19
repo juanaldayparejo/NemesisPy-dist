@@ -52,7 +52,7 @@ Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp
 #Initialise Spectroscopy class and read file (.lls)
 ##############################################################
 
-Spec = Spectroscopy_0(ILBL=2)
+Spec = Spectroscopy_0()
 if Spec.ILBL==0:
     Spec.read_kls(runname)
 elif Spec.ILBL==2:
