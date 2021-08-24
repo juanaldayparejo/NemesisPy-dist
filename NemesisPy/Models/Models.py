@@ -185,9 +185,9 @@ def model0(atm,ipar,xprof,MakePlot=False):
             atm.PARAH2 = x1
         elif jtmp==atm.NDUST+1:
             atm.FRAC = x1
-    
+
     for j in range(npro):
-        xmap[0:npro,ipar,j] = x1[:]
+        xmap[j,ipar,j] = x1[j]
         
 
     if MakePlot==True:
@@ -566,10 +566,47 @@ def model229(Measurement,par1,par2,par3,par4,par5,par6,par7,MakePlot=False):
 
 ###############################################################################################
 
+def model667(Spectrum,xfactor,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model667()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 667 in NEMESIS.
+            In this model, the output spectrum is scaled using a dillusion factor to account
+            for strong temperature gradients in exoplanets
+        
+        INPUTS :
+        
+            Spectrum :: Modelled spectrum 
+            xfactor :: Dillusion factor
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            Spectrum :: Modelled spectrum scaled by the dillusion factor
+        
+        CALLING SEQUENCE:
+        
+            Spectrum = model667(Spectrum,xfactor)
+        
+        MODIFICATION HISTORY : Juan Alday (29/03/2021)
+        
+    """
+
+    Spectrum = Spectrum * xfactor
+
+    return Spectrum
+
+
+###############################################################################################
+
 def model887(Scatter,xsc,idust,MakePlot=False):
     
     """
-        FUNCTION NAME : model2()
+        FUNCTION NAME : model887()
         
         DESCRIPTION :
         

@@ -49,6 +49,16 @@ Scatter,Stellar,Surface,Layer = read_set(runname,Layer=Layer)
 Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Scatter=Scatter)
 
 
+#Reading .sur file if planet has surface
+#############################################################################
+
+isurf = planet_info[str(Atm.IPLANET)]["isurf"]
+if isurf==1:
+    Surface.GASGIANT=False
+    Surface.read_sur(runname)
+else:
+    Surface.GASGIANT=True
+
 #Reading Spectroscopy parameters from .lls or .kls files
 ##############################################################
 

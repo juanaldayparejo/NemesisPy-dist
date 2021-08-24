@@ -44,7 +44,7 @@ def subspecret(Measurement,Variables,SPECMOD,MakePlot=False):
 
         if Variables.VARIDENT[ivar,0]==231:
 #       Model 231. Continuum addition to transmission spectra using a linearly varying scaling factor
-#       ***************************************************************##################################
+#       ***********************************************************************************************
 
             for i in range(Measurement.NGEOM):
                 T0 = Variables.XN[ix]
@@ -54,6 +54,14 @@ def subspecret(Measurement,Variables,SPECMOD,MakePlot=False):
                 SPECMOD[:,i] = SPECMOD[:,i] * ( T0 + T1*(Measurement.WAVE-WAVE0) )
 
                 ix = ix + 2
+
+        elif Variables.VARIDENT[ivar,0]==667:
+#       Model 667. Spectrum scaled by dillusion factor to account for thermal gradients in planets
+#       **********************************************************************************************
+
+            xfactor = Variables.XN[ix]
+            SPECMOD = model667(SPECMOD,xfactor)
+            ix = ix + 1
 
         else:
             ix = ix + Variables.NXVAR[ivar]

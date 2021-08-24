@@ -7,7 +7,7 @@ from NemesisPy.Data import *
 
 k_B = 1.38065e-23
 
-def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
+def layer_averageg(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
                   LAYANG=0.0, LAYINT=0, LAYHT=0.0, NINT=101, AMFORM=1):
     """
     Calculates average layer properties.
@@ -77,6 +77,12 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
         Layer base temperature.
     @param LAYSF: 1D array
         Layer scaling factor.
+    @param DTE: 2D array
+        Matrix relating the temperature in each layer (TEMP) to the input temperature profile (T)
+    @param DAM: 2D array
+        Matrix relating the absorber amounts in each layer (AMOUNT) to the input VMR profile (VMR)
+    @param DCO: 2D array
+        Matrix relating the dust amounts in each layer (CONT) to the input dust profile (DUST)
     """
 
     # Calculate layer geometric properties
@@ -129,6 +135,12 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
     MOLWT  = np.zeros(NLAY)
     # CONT = no. of particles/area for each dust population (particles/m2)
     CONT = np.zeros((NLAY,NDUST))
+    #DTE = matrix to relate the temperature in each layer (TEMP) to the temperature in the input profiles (T)
+    DTE = np.zeros((NLAY, NPRO))
+    #DCO = matrix to relate the dust abundance in each layer (CONT) to the dust abundance in the input profiles (DUST)
+    DCO = np.zeros((NLAY, NPRO))
+    #DCO = matrix to relate the gaseous abundance in each layer (AMOUNT) to the gas VMR in the input profiles (VMR)
+    DAM = np.zeros((NLAY, NPRO))
 
     # Calculate average properties depending on intergration type
     if LAYINT == 0:
@@ -139,7 +151,11 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
         # Derive other properties from S
         HEIGHT = np.sqrt(S**2+z0**2+2*S*z0*cos) - RADIUS
         PRESS = interp(H,P,HEIGHT)
-        TEMP = interp(H,T,HEIGHT)
+        #TEMP = interp(H,T,HEIGHT)
+        TEMP,J,F = interpg(H,T,HEIGHT)
+        for ilay in range(NLAY):
+            DTE[ilay,J[ilay]] = DTE[ilay,J[ilay]] + (1.0-F[ilay])
+            DTE[ilay,J[ilay]+1] = DTE[ilay,J[ilay]+1] + (F[ilay])
 
         # Ideal gas law: N/(Area*Path_length) = P/(k_B*T)
         DUDS = PRESS/(k_B*TEMP)
@@ -148,11 +164,11 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
         if VMR.ndim > 1:
             AMOUNT = np.zeros((NLAY, NVMR))
             for J in range(NVMR):
-                AMOUNT[:,J] = interp(H, VMR[:,J], HEIGHT)
+                AMOUNT[:,J],JJ,F = interpg(H, VMR[:,J], HEIGHT)
             PP = (AMOUNT.T * PRESS).T
             AMOUNT = (AMOUNT.T * TOTAM).T
         else:
-            AMOUNT = interp(H, VMR, HEIGHT)
+            AMOUNT,JJ,F = interpg(H, VMR, HEIGHT)
             PP = AMOUNT * PRESS
             AMOUNT = AMOUNT * TOTAM
             if AMFORM==0:
@@ -161,15 +177,24 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
                 for I in range(NLAY):
                     MOLWT[I] = Calc_mmw(VMR[I], ID)
 
+        for ilay in range(NLAY):
+            DAM[ilay,JJ[ilay]] = DAM[ilay,JJ[ilay]] + (1.0-F[ilay])*TOTAM[ilay]
+            DAM[ilay,JJ[ilay]+1] = DAM[ilay,JJ[ilay]+1] + (F[ilay])*TOTAM[ilay]
+
         #Use the dust density information
         if DUST.ndim > 1:
             for J in range(NDUST):
-                DD = interp(H, DUST[:,J],HEIGHT)  
+                DD,JJ,F = interpg(H, DUST[:,J],HEIGHT)  
                 CONT[:,J] = DD * DELS
 
         else:
-            DD = interp(H, DUST,HEIGHT)  
+            #DD = interp(H, DUST,HEIGHT)  
+            DD,JJ,F = interpg(H, DUST,HEIGHT)
             CONT = DD * DELS
+
+        for ilay in range(NLAY):
+            DCO[ilay,JJ[ilay]] = DCO[ilay,JJ[ilay]] + (1.0-F[ilay])
+            DCO[ilay,JJ[ilay]+1] = DCO[ilay,JJ[ilay]+1] + (F[ilay])
 
     elif LAYINT == 1:
         # Curtis-Godson equivalent path for a gas with constant mixing ratio
@@ -183,7 +208,7 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
             S = np.linspace(S0, S1, NINT)
             h = np.sqrt(S**2+z0**2+2*S*z0*cos)-RADIUS
             p = interp(H,P,h)
-            temp = interp(H,T,h)
+            temp,JJ,F = interpg(H,T,h)
             duds = p/(k_B*temp)
 
             amount = np.zeros((NINT, NVMR))
@@ -193,11 +218,13 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
             HEIGHT[I]  = simps(h*duds,S)/TOTAM[I]
             PRESS[I] = simps(p*duds,S)/TOTAM[I]
             TEMP[I]  = simps(temp*duds,S)/TOTAM[I]
+            DTE[I,JJ[1]] = simps((1.-F)*duds,S)/TOTAM[I]
+            DTE[I,JJ[1]+1] = simps(F*duds,S)/TOTAM[I]
 
             if VMR.ndim > 1:
                 amount = np.zeros((NINT, NVMR))
                 for J in range(NVMR):
-                    amount[:,J] = interp(H, VMR[:,J], h)
+                    amount[:,J],JJ,F = interpg(H, VMR[:,J], h)
                     AMOUNT[I,J] = simps(amount[:,J]*duds,S)
                 pp = (amount.T * p).T     # gas partial pressures
                 for J in range(NVMR):
@@ -210,7 +237,7 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
                         molwt[K] = Calc_mmw(amount[K,:], ID)
                     MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
             else:
-                amount = interp(H, VMR, h)
+                amount,JJ,F = interpg(H, VMR, h)
                 pp = amount * p
                 AMOUNT[I] = simps(amount*duds,S)
                 PP[I] = simps(pp*duds,S)/TOTAM[I]
@@ -222,14 +249,20 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
                         molwt[K] = Calc_mmw(amount[K], ID)
                     MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
 
+            DAM[I,JJ[1]] = simps((1.-F)*duds,S)
+            DAM[I,JJ[1]+1] = simps(F*duds,S)
+
             if DUST.ndim > 1:
                 dd = np.zeros((NINT,NDUST))
                 for J in range(NDUST):
-                    dd[:,J] = interp(H, DUST[:,J], h)
+                    dd[:,J],JJ,F = interpg(H, DUST[:,J], h)
                     CONT[I,J] = simps(dd[:,J],S)
             else:
-                dd = interp(H, DUST, h) 
+                dd,JJ,F = interpg(H, DUST, h) 
                 CONT[I] = simps(dd,S)
+
+            DCO[I,JJ[1]] = simps((1.-F),S)
+            DCO[I,JJ[1]+1] = simps(F,S)
 
     # Scale back to vertical layers
     TOTAM = TOTAM / LAYSF
@@ -243,4 +276,8 @@ def layer_average(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
     else:
         CONT = CONT/LAYSF
 
-    return HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,CONT,DELH,BASET,LAYSF
+    for IPRO in range(NPRO):
+        DAM[:,IPRO] = DAM[:,IPRO] / LAYSF
+        DCO[:,IPRO] = DCO[:,IPRO] / LAYSF
+
+    return HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,CONT,DELH,BASET,LAYSF,DTE,DAM,DCO

@@ -75,7 +75,8 @@ def read_mre(runname,MakePlot=False):
     """
 
     #Opening .ref file for getting number of altitude levels
-    Atm = read_ref(runname)
+    Atmosphere = Atmosphere_1()
+    Atmosphere.read_ref(runname)
     
     #Opening file
     f = open(runname+'.mre','r')
@@ -113,9 +114,9 @@ def read_mre(runname,MakePlot=False):
 
     #Reading the retrieved state vector
     s = f.readline().split()
-    nvar = int(s[2])
+    nvar = int(s[1])
     nxvar = np.zeros([nvar],dtype='int')
-    Var = Variables()
+    Var = Variables_0()
     Var.NVAR = nvar
     aprprof1 = np.zeros([nx,nvar])
     aprerr1 = np.zeros([nx,nvar])
@@ -130,11 +131,11 @@ def read_mre(runname,MakePlot=False):
         tmp = np.fromfile(f,sep=' ',count=5,dtype='float')
         varparam[i,:] = tmp[:]
         s = f.readline().split()
-        Var1 = Variables()
+        Var1 = Variables_0()
         Var1.NVAR = 1
         Var1.edit_VARIDENT(varident[i,:])
         Var1.edit_VARPARAM(varparam[i,:])
-        Var1.calc_NXVAR(Atm.NP)
+        Var1.calc_NXVAR(Atmosphere.NP)
         for j in range(Var1.NXVAR[0]):
             tmp = np.fromfile(f,sep=' ',count=6,dtype='float')
             aprprof1[j,i] = float(tmp[2])
@@ -144,20 +145,19 @@ def read_mre(runname,MakePlot=False):
 
     Var.edit_VARIDENT(varident)
     Var.edit_VARPARAM(varparam)
-    Var.calc_NXVAR(Atm.NP)
+    Var.calc_NXVAR(Atmosphere.NP)
 
-    aprprof = np.zeros([nxvar.max(),nvar])
-    aprerr = np.zeros([nxvar.max(),nvar])
-    retprof = np.zeros([nxvar.max(),nvar])
-    reterr = np.zeros([nxvar.max(),nvar])
+    aprprof = np.zeros([Var.NXVAR.max(),nvar])
+    aprerr = np.zeros([Var.NXVAR.max(),nvar])
+    retprof = np.zeros([Var.NXVAR.max(),nvar])
+    reterr = np.zeros([Var.NXVAR.max(),nvar])
 
-    for i in range(nvar):
-        aprprof[0:nxvar[i],i] = aprprof1[0:nxvar[i],i]
-        aprerr[0:nxvar[i],i] = aprerr1[0:nxvar[i],i]
-        retprof[0:nxvar[i],i] = retprof1[0:nxvar[i],i]
-        reterr[0:nxvar[i],i] = reterr1[0:nxvar[i],i]
+    for i in range(Var.NVAR):
+        aprprof[0:Var.NXVAR[i],i] = aprprof1[0:Var.NXVAR[i],i]
+        aprerr[0:Var.NXVAR[i],i] = aprerr1[0:Var.NXVAR[i],i]
+        retprof[0:Var.NXVAR[i],i] = retprof1[0:Var.NXVAR[i],i]
+        reterr[0:Var.NXVAR[i],i] = reterr1[0:Var.NXVAR[i],i]
 
- 
     return lat,lon,ngeom,ny,wave,specret,specmeas,specerrmeas,nx,Var,aprprof,aprerr,retprof,reterr
 
 ###############################################################################################

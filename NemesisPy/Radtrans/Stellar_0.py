@@ -80,7 +80,7 @@ class Stellar_0:
         assert len(SOLSPEC_array) == self.NCONV, 'SOLSPEC should have NCONV elements'
         self.SOLSPEC = SOLSPEC_array
 
-    def read_sol(self, runname, MakePlot=False, datarchive='/Users/aldayparejo/radtrancode/raddata/'):
+    def read_sol(self, runname, MakePlot=False, datarchive='/Users/aldayparejo/Documents/Projects/PlanetaryScience/NemesisPy-dist/NemesisPy/Data/stellar/'):
         """
         Read the solar spectrum from the .sol file
         @param runname: str

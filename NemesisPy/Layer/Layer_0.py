@@ -3,6 +3,7 @@
 import numpy as np
 from .layer_split import layer_split
 from .layer_average import layer_average
+from .layer_averageg import layer_averageg
 """
 Object to store layering scheme settings and averaged properties of each layer.
 """
@@ -88,6 +89,11 @@ class Layer_0:
         # cloud
         self.CONT = None
 
+        #output for the gradients
+        self.DTE = None
+        self.DAM = None
+        self.DCO = None
+
 
     def integrate(self, H, P, T, LAYANG, ID, VMR, DUST):
         self.layer_split(H=H, P=P, T=T, LAYANG=LAYANG)
@@ -110,6 +116,29 @@ class Layer_0:
         return (self.BASEH, self.BASEP, self.BASET, self.HEIGHT, self.PRESS,
                 self.TEMP, self.TOTAM, self.AMOUNT, self.PP, self.CONT,
                 self.LAYSF, self.DELH)
+
+
+    def integrateg(self, H, P, T, LAYANG, ID, VMR, DUST):
+        self.layer_split(H=H, P=P, T=T, LAYANG=LAYANG)
+        self.layer_averageg(ID=ID, VMR=VMR, DUST=DUST)
+        """
+        @param H: 1D array
+            Input profile heights
+        @param P: 1D array
+            Input profile pressures
+        @param T: 1D array
+            Input profile temperatures
+        @param LAYANG: real
+            Zenith angle in degrees defined at LAYHT.
+        @param ID: 1D array
+            Gas identifiers.
+        @param VMR: 2D array
+            VMR[i,j] is Volume Mixing Ratio of gas j at vertical point i
+            the column j corresponds to the gas with RADTRANS ID ID[j].
+        """
+        return (self.BASEH, self.BASEP, self.BASET, self.HEIGHT, self.PRESS,
+                self.TEMP, self.TOTAM, self.AMOUNT, self.PP, self.CONT,
+                self.LAYSF, self.DELH, self.DTE, self.DAM, self.DCO)
 
     def layer_split(self, H, P, T, LAYANG):
         self.H = H
@@ -140,3 +169,24 @@ class Layer_0:
         self.DELH = DELH
         self.BASET = BASET
         self.LAYSF = LAYSF
+
+    def layer_averageg(self, ID, VMR, DUST):
+        # get averaged layer properties
+        HEIGHT,PRESS,TEMP,TOTAM,AMOUNT,PP,CONT,DELH,BASET,LAYSF,DTE,DAM,DCO\
+            = layer_averageg(RADIUS=self.RADIUS, H=self.H, P=self.P, T=self.T,
+                ID=ID, VMR=VMR, DUST=DUST, BASEH=self.BASEH, BASEP=self.BASEP,
+                LAYANG=self.LAYANG, LAYINT=self.LAYINT, LAYHT=self.LAYHT,
+                NINT=self.NINT)
+        self.HEIGHT = HEIGHT
+        self.PRESS = PRESS
+        self.TEMP = TEMP
+        self.TOTAM = TOTAM
+        self.AMOUNT = AMOUNT
+        self.PP = PP
+        self.CONT = CONT
+        self.DELH = DELH
+        self.BASET = BASET
+        self.LAYSF = LAYSF
+        self.DTE = DTE
+        self.DAM = DAM
+        self.DCO = DCO

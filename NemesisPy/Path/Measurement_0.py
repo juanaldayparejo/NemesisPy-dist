@@ -724,6 +724,17 @@ class Measurement_0:
 
         elif self.FWHM<0.0:
 
+            wavemin = 1.0e10
+            wavemax = 0.0
+            for i in range(self.NCONV[IGEOM]):
+                vminx = self.VFIL[0,i]
+                vmaxx = self.VFIL[self.NFIL[i]-1,i]
+                if vminx<wavemin:
+                    wavemin = vminx
+                if vmaxx>wavemax:
+                    wavemax= vmaxx
+
+            """
             #The ILS and FWHM are specified in the .fil file
             nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
             if self.NCONV[IGEOM] != nconv1:
@@ -744,6 +755,7 @@ class Measurement_0:
                             wavemax= vmaxx
                     else:
                         print('warning from wavesetb :: Convolution wavenumbers in .spx and .fil do not coincide')
+            """
 
             if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
                 sys.exit('error from wavesetc :: Channel wavelengths not covered by k-tables')
@@ -868,6 +880,111 @@ class Measurement_0:
 
         return yout
 
+    def lblconvg(self,ModSpec,ModGrad,IGEOM='All'):
+    
+        """
+        Subroutine to convolve the Modelled spectrum and the gradients with the Instrument Line Shape 
+
+        @param ModSpec: 1D or 2D array (NWAVE,NGEOM)
+            Modelled spectrum
+        @param ModGrad: 1D or 2D array (NWAVE,NGEOM,NX)
+            
+        @param IGEOM: int
+            If All, it is assumed all geometries cover exactly the same spetral range and ModSpec is expected to be (NWAVE,NGEOM)
+            If not, IGEOM should be an integer indicating the geometry it corresponds to in the Measurement class (or .spx file)
+        """
+
+        if IGEOM=='All':
+
+            #It is assumed all geometries cover the same spectral range
+            IG = 0 
+            NX = len(ModGrad[0,0,:])
+            yout = np.zeros((self.NCONV[IG],self.NGEOM))
+            ynor = np.zeros((self.NCONV[IG],self.NGEOM))
+            gradout = np.zeros((self.NCONV[IG],self.NGEOM,NX))
+            gradnorm = np.zeros((self.NCONV[IG],self.NGEOM,NX))
+
+            if self.FWHM>0.0:
+                #Set total width of Hamming/Hanning function window in terms of
+                #numbers of FWHMs for ISHAPE=3 and ISHAPE=4
+                nfw = 3.
+                for j in range(self.NCONV[IG]):
+                    yfwhm = self.FWHM
+                    vcen = self.VCONV[j,IG]
+                    if self.ISHAPE==0:
+                        v1 = vcen-0.5*yfwhm
+                        v2 = v1 + yfwhm
+                    elif self.ISHAPE==1:
+                        v1 = vcen-yfwhm
+                        v2 = vcen+yfwhm
+                    elif self.ISHAPE==2:
+                        sig = 0.5*yfwhm/np.sqrt( np.log(2.0)  )
+                        v1 = vcen - 3.*sig
+                        v2 = vcen + 3.*sig
+                    else:
+                        v1 = vcen - nfw*yfwhm
+                        v2 = vcen + nfw*yfwhm
+
+                    #Find relevant points in tabulated files
+                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
+                    inwave = inwave1[0]
+
+                    np1 = len(inwave)
+                    for i in range(np1):
+                        f1=0.0
+                        if self.ISHAPE==0:
+                            #Square instrument lineshape
+                            f1=1.0
+                        elif self.ISHAPE==1:
+                            #Triangular instrument shape
+                            f1=1.0 - abs(self.WAVE[inwave[i]] - vcen)/yfwhm
+                        elif self.ISHAPE==2:
+                            #Gaussian instrument shape
+                            f1 = np.exp(-((self.WAVE[inwave[i]]-vcen)/sig)**2.0)
+                        else:
+                            sys.exit('lblconv :: ishape not included yet in function')
+
+                        if f1>0.0:
+                            yout[j,:] = yout[j,:] + f1*ModSpec[inwave[i],:]
+                            ynor[j,:] = ynor[j,:] + f1
+                            gradout[j,:,:] = gradout[j,:,:] + f1*ModGrad[inwave[i],:,:]
+                            gradnorm[j,:,:] = gradnorm[j,:,:] + f1
+
+                    yout[j,:] = yout[j,:]/ynor[j,:]
+                    gradout[j,:,:] = gradout[j,:,:]/gradnorm[j,:,:]
+
+            elif self.FWHM<0.0:
+
+                #Line shape for each convolution number in each case is read from .fil file
+                for j in range(self.NCONV[IG]):
+                    v1 = self.VFIL[0,j]
+                    v2 = self.VFIL[self.NFIL[j]-1,j]
+                    #Find relevant points in tabulated files
+                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
+                    inwave = inwave1[0]
+
+                    np1 = len(inwave)
+                    xp = np.zeros([self.NFIL[j]])
+                    yp = np.zeros([self.NFIL[j]])
+                    xp[:] = self.VFIL[0:self.NFIL[j],j]
+                    yp[:] = self.AFIL[0:self.NFIL[j],j]
+
+                    for i in range(np1):
+                        #Interpolating (linear) for finding the lineshape at the calculation wavenumbers
+                        f1 = np.interp(self.WAVE[inwave[i]],xp,yp)
+                        if f1>0.0:
+                            yout[j,:] = yout[j,:] + f1*ModSpec[inwave[i],:]
+                            ynor[j,:] = ynor[j,:] + f1
+                            gradout[j,:,:] = gradout[j,:,:] + f1*ModGrad[inwave[i],:,:]
+                            gradnorm[j,:,:] = gradnorm[j,:,:] + f1
+
+                    yout[j,:] = yout[j,:]/ynor[j,:]
+                    gradout[j,:,:] = gradout[j,:,:]/gradnorm[j,:,:]
+
+        else:
+            sys.exit('error in lblconv :: Must implement the case IGEOM!=-1')
+
+        return yout,gradout
 
 
     def conv(self,ModSpec,IGEOM='All',FWHMEXIST=''):
@@ -897,6 +1014,7 @@ class Measurement_0:
         else:
 
             yout = np.zeros(self.NCONV[IGEOM])
+            ynor = np.zeros(self.NCONV[IGEOM])
 
             if self.FWHM>0.0:
 

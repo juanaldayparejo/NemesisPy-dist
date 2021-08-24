@@ -71,7 +71,7 @@ class Surface_0:
             'EMISSIVITY should have NEM elements'
         self.EMISSIVITY = EMISSIVITY_array  
 
-    def read_sur(self, runname):
+    def read_sur(self, runname,MakePlot=False):
         """
         Read the surface emissivity from the .sur file
         @param runname: str
@@ -91,7 +91,7 @@ class Surface_0:
 
         self.NEM = nem
         self.VEM = vem
-        self.EMISSIVITY = emissitivity
+        self.EMISSIVITY = emissivity
 
         if MakePlot==True:
             fig,ax1=plt.subplots(1,1,figsize=(8,3))

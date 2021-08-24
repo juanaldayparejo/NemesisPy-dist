@@ -468,6 +468,26 @@ class Atmosphere_0:
         self.ISO = isoID1
         self.edit_VMR(vmr1)
 
+    def update_gas(self,gasID,isoID,vmr):
+        """
+        Subroutine to update a gas into the reference atmosphere
+            gasID :: Radtran ID of the gas
+            isoID :: Radtran isotopologue ID of the gas
+            vmr(NP) :: Volume mixing ratio of the gas at each altitude level
+        """ 
+
+        igas = np.where( (self.ID==gasID) & (self.ISO==isoID) )
+        igas = igas[0]
+        if len(igas)==0:
+            sys.exit('error in Atmosphere.update_gas() :: Gas ID and Iso ID not found in reference atmosphere')
+
+        if len(vmr)!=self.NP:
+            sys.exit('error in Atmosphere.update_gas() :: Number of altitude levels in vmr must be the same as in Atmosphere')
+
+        vmr1 = np.zeros([self.NP,self.VMR])
+        vmr1[:,:] = self.VMR
+        vmr1[:,igas] = vmr[:]
+        self.edit_VMR(vmr1)
 
     def write_to_file(self):
         """

@@ -77,7 +77,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
     rho = Atmosphere.calc_rho() #kg/m3
     
     #Initialising xmap
-    xmap = np.zeros([Variables.NX,Atmosphere.NVMR+2+Atmosphere.NDUST,Atmosphere.NP])
+    xmap = np.zeros((Variables.NX,Atmosphere.NVMR+2+Atmosphere.NDUST,Atmosphere.NP))
 
     #Going through the different variables an updating the atmosphere accordingly
     ix = 0
@@ -197,6 +197,12 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]
 
+        elif Variables.VARIDENT[ivar,0]==667:
+#       Model 667. Retrieval of dillusion factor to account for thermal gradients in planets
+#       ***************************************************************
+            ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
+
         else:
             print('error in Variable ',Variables.VARIDENT[ivar,0],Variables.VARIDENT[ivar,1],Variables.VARIDENT[ivar,2])
             sys.exit('error :: Model parameterisation has not yet been included')
@@ -220,3 +226,5 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
 
     #Write out modified profiles to .prf file
     #Atmosphere.write_to_file()
+
+    return xmap

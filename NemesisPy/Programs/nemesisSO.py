@@ -121,8 +121,6 @@ Variables.read_apr(runname,Atm.NP)
 Variables.XN = copy(Variables.XA)
 Variables.SX = copy(Variables.SA)
 
-
-
 ######################################################
 ######################################################
 #      RUN THE RETRIEVAL USING ANY APPROACH

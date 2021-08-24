@@ -236,14 +236,14 @@ class Spectroscopy_0:
             Maximum wavenumber (cm-1) or wavelength (um)
         """
 
-        iwavel = np.where((self.WAVE<=wavemin))
+        iwavel = np.where((self.WAVE<wavemin))
         iwavel = iwavel[0]
         if len(iwavel)==0:
             iwl = 0
         else:
             iwl = iwavel[len(iwavel)-1]
 
-        iwaveh = np.where((self.WAVE>=wavemax))
+        iwaveh = np.where((self.WAVE>wavemax))
         iwaveh = iwaveh[0]
         if len(iwaveh)==0:
             iwh = self.NWAVE-1
@@ -279,6 +279,143 @@ class Spectroscopy_0:
             sys.exit('error in Spectroscopy :: ILBL must be either 0 (K-tables) or 2 (LBL-tables)')
 
 
+    def calc_klblg(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
+        """
+        Calculate the absorption coefficient at a given pressure and temperature
+        looking at pre-tabulated line-by-line tables (assumed to be already stored in this class)
+
+        Input parameters
+        -------------------
+        @param npoints: int
+            Number of p-T points at which to calculate the cross sections
+        @param press: 1D array
+            Pressure levels (atm)
+        @param temp: 1D array
+            Temperature levels (K)
+
+        Optional parameters 
+        ---------------------
+        @param wavemin: real
+            Minimum wavenumber (cm-1) or wavelength (um)
+        @param wavemax: real
+            Maximum wavenumber (cm-1) or wavelength (um)
+
+
+        Outputs
+        ---------
+
+        K(NWAVE,NPOINTS,NGAS) :: Absorption cross sections of each gas in each p-T point
+        dKdT(NWAVE,NPOINTS,NGAS) :: Rate of change of the absorption cross section with temperature for each gas in each p-T point
+
+        """
+
+        from NemesisPy import find_nearest
+        from scipy import interpolate
+
+        #Interpolating to the correct pressure and temperature
+        ########################################################
+    
+        #K (NWAVE,NP,NT,NGAS)
+
+        kgood = np.zeros([self.NWAVE,npoints,self.NGAS])
+        dkgooddT = np.zeros([self.NWAVE,npoints,self.NGAS])
+        for ipoint in range(npoints):
+
+            press1 = press[ipoint]
+            temp1 = temp[ipoint]
+        
+            #Getting the levels just above and below the desired points
+            lpress  = np.log(press1)
+            press0,ip = find_nearest(self.PRESS,press1)
+
+            if self.PRESS[ip]>=press1:
+                iphi = ip
+                if ip==0:
+                    lpress = np.log(self.PRESS[0])
+                    ipl = 0
+                    iphi = 1
+                else:
+                    ipl = ip - 1
+            elif self.PRESS[ip]<press1:
+                ipl = ip
+                if ip==self.NP-1:
+                    lpress = np.log(self.PRESS[self.NP-1])
+                    iphi = self.NP - 1
+                    ipl = self.NP - 2
+                else:
+                    iphi = ip + 1
+
+            temp0,it = find_nearest(self.TEMP,temp1)
+
+            if self.TEMP[it]>=temp1:
+                ithi = it
+                if it==0:
+                    temp1 = self.TEMP[0]
+                    itl = 0
+                    ithi = 1
+                else:
+                    itl = it - 1
+            elif self.TEMP[it]<temp1:
+                itl = it
+                if it==self.NT-1:
+                    temp1 = self.TEMP[self.NT-1]
+                    ithi = self.NT - 1
+                    itl = self.NT -2
+                else:
+                    ithi = it + 1
+
+            plo = np.log(self.PRESS[ipl])
+            phi = np.log(self.PRESS[iphi])
+            tlo = self.TEMP[itl]
+            thi = self.TEMP[ithi]
+            klo1 = np.zeros([self.NWAVE,self.NGAS])
+            klo2 = np.zeros([self.NWAVE,self.NGAS])
+            khi1 = np.zeros([self.NWAVE,self.NGAS])
+            khi2 = np.zeros([self.NWAVE,self.NGAS])
+            klo1[:] = self.K[:,ipl,itl,:]
+            klo2[:] = self.K[:,ipl,ithi,:]
+            khi1[:] = self.K[:,iphi,itl,:]
+            khi2[:] = self.K[:,iphi,ithi,:]
+
+            """
+            #Interpolating to get the absorption coefficient at desired p-T
+            v = (lpress-plo)/(phi-plo)
+            u = (temp1-tlo)/(thi-tlo)
+            dudt = 1./(thi-tlo)
+
+            for igas in range(self.NGAS):
+                igood = np.where((klo1[:,igas]>0.0) & (klo2[:,igas]>0.0) & (khi1[:,igas]>0.0) & (khi2[:,igas]>0.0))
+                igood = igood[0]
+                kgood[igood,ipoint,igas] = (1.0-v)*(1.0-u)*np.log(klo1[igood,igas]) + v*(1.0-u)*np.log(khi1[igood,igas]) + v*u*np.log(khi2[igood,igas]) + (1.0-v)*u*np.log(klo2[igood,igas])
+                kgood[igood,ipoint,igas] = np.exp(kgood[igood,ipoint,igas])
+                dxdt = (-np.log(klo1[igood,igas])*(1.0-v) - np.log(khi1[igood,igas])*v + np.log(khi2[igood,igas])*v + np.log(klo2[igood,igas])*(1.0-v))*dudt
+                dkgooddT[igood,ipoint,igas] = kgood[igood,ipoint,igas] * dxdt
+
+                ibad = np.where((klo1[:,igas]<=0.0) or (klo2[:,igas]<=0.0) or (khi1[:,igas]<=0.0) or (khi2[:,igas]<=0.0))
+                ibad = ibad[0]
+                kgood[ibad,ipoint,igas] = (1.0-v)*(1.0-u)*klo1[ibad,igas] + v*(1.0-u)*khi1[ibad,igas] + v*u*khi2[ibad,igas] + (1.0-v)*u*klo2[ibad,igas]
+                dxdt = (-klo1[ibad,igas]*(1.0-v) - khi1[ibad,igas]* v + khi2[ibad,igas]*v + klo2[ibad,igas]*(1.0-v))*dudt
+                dkgooddT[ibad,ipoint,igas] = dxdt
+            """
+
+            #Interpolating to get the k-coefficients at desired p-T
+            v = (lpress-plo)/(phi-plo)
+            u = (temp1-tlo)/(thi-tlo)
+            dudt = 1./(thi-tlo)
+
+            igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
+            kgood[igood[0],ipoint,igood[1]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1]]) + v*u*np.log(khi2[igood[0],igood[1]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1]])
+            kgood[igood[0],ipoint,igood[1]] = np.exp(kgood[igood[0],ipoint,igood[1]])
+            dxdt = -np.log(klo1[igood[0],igood[1]])*(1.0-v) - np.log(khi1[igood[0],igood[1]])*v + np.log(khi2[igood[0],igood[1]])*v + np.log(klo2[igood[0],igood[1]]) * (1.0-v)
+            dkgooddT[igood[0],ipoint,igood[1]] = kgood[igood[0],ipoint,igood[1]] * dxdt
+
+            ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
+            kgood[ibad[0],ipoint,ibad[1]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1]] + v*(1.0-u)*khi1[ibad[0],ibad[1]] + v*u*khi2[ibad[0],ibad[1]] + (1.0-v)*u*klo2[ibad[0],ibad[1]]
+            dxdt = -klo1[ibad[0],ibad[1]]*(1.0-v) - khi1[ibad[0],ibad[1]]*v + khi2[ibad[0],ibad[1]]*v + klo2[ibad[0],ibad[1]] * (1.0-v)
+            dkgooddT[ibad[0],ipoint,ibad[1]] = dxdt
+
+        return kgood,dkgooddT
+
     def calc_klbl(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
         """
         Calculate the absorption coefficient at a given pressure and temperature
@@ -299,6 +436,13 @@ class Spectroscopy_0:
             Minimum wavenumber (cm-1) or wavelength (um)
         @param wavemax: real
             Maximum wavenumber (cm-1) or wavelength (um)
+
+
+        Outputs
+        ---------
+
+        K(NWAVE,NPOINTS,NGAS) :: Absorption cross sections of each gas in each p-T point
+
         """
 
         from NemesisPy import find_nearest
@@ -309,7 +453,7 @@ class Spectroscopy_0:
     
         #K (NWAVE,NP,NT,NGAS)
 
-        kgood = np.zeros([self.NWAVE,npoints,self.NGAS])
+        kgood = np.zeros((self.NWAVE,npoints,self.NGAS))
         for ipoint in range(npoints):
 
             press1 = press[ipoint]
@@ -322,13 +466,17 @@ class Spectroscopy_0:
             if self.PRESS[ip]>=press1:
                 iphi = ip
                 if ip==0:
+                    lpress = np.log(self.PRESS[0])
                     ipl = 0
+                    iphi = 1
                 else:
                     ipl = ip - 1
             elif self.PRESS[ip]<press1:
                 ipl = ip
                 if ip==self.NP-1:
+                    lpress = np.log(self.PRESS[self.NP-1])
                     iphi = self.NP - 1
+                    ipl = self.NP - 2
                 else:
                     iphi = ip + 1
 
@@ -337,13 +485,17 @@ class Spectroscopy_0:
             if self.TEMP[it]>=temp1:
                 ithi = it
                 if it==0:
+                    temp1 = self.TEMP[0]
                     itl = 0
+                    ithi = 1
                 else:
                     itl = it - 1
             elif self.TEMP[it]<temp1:
                 itl = it
                 if it==self.NT-1:
+                    temp1 = self.TEMP[self.NT-1]
                     ithi = self.NT - 1
+                    itl = self.NT -2
                 else:
                     ithi = it + 1
 
@@ -351,31 +503,180 @@ class Spectroscopy_0:
             phi = np.log(self.PRESS[iphi])
             tlo = self.TEMP[itl]
             thi = self.TEMP[ithi]
-            klo1 = np.zeros([self.NWAVE,self.NGAS])
-            klo2 = np.zeros([self.NWAVE,self.NGAS])
-            khi1 = np.zeros([self.NWAVE,self.NGAS])
-            khi2 = np.zeros([self.NWAVE,self.NGAS])
+            klo1 = np.zeros((self.NWAVE,self.NGAS))
+            klo2 = np.zeros((self.NWAVE,self.NGAS))
+            khi1 = np.zeros((self.NWAVE,self.NGAS))
+            khi2 = np.zeros((self.NWAVE,self.NGAS))
             klo1[:] = self.K[:,ipl,itl,:]
             klo2[:] = self.K[:,ipl,ithi,:]
             khi1[:] = self.K[:,iphi,itl,:]
             khi2[:] = self.K[:,iphi,ithi,:]
 
-            #Interpolating to get the absorption coefficient at desired p-T
+            #Interpolating to get the k-coefficients at desired p-T
             v = (lpress-plo)/(phi-plo)
             u = (temp1-tlo)/(thi-tlo)
 
-            if(thi==tlo):
-                u = 0.0
-            if(phi==plo):
-                v = 0.0
+            igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
+            kgood[igood[0],ipoint,igood[1]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1]]) + v*u*np.log(khi2[igood[0],igood[1]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1]])
+            kgood[igood[0],ipoint,igood[1]] = np.exp(kgood[igood[0],ipoint,igood[1]])
 
-            for igas in range(self.NGAS):
-                igood = np.where((klo1[:,igas]>0.0) & (klo2[:,igas]>0.0) & (khi1[:,igas]>0.0) & (khi2[:,igas]>0.0))
-                igood = igood[0]
-                kgood[igood,ipoint,igas] = (1.0-v)*(1.0-u)*np.log(klo1[igood,igas]) + v*(1.0-u)*np.log(khi1[igood,igas]) + v*u*np.log(khi2[igood,igas]) + (1.0-v)*u*np.log(klo2[igood,igas])
-                kgood[igood,ipoint,igas] = np.exp(kgood[igood,ipoint,igas])
+            ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
+            kgood[ibad[0],ipoint,ibad[1]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1]] + v*(1.0-u)*khi1[ibad[0],ibad[1]] + v*u*khi2[ibad[0],ibad[1]] + (1.0-v)*u*klo2[ibad[0],ibad[1]]
 
         return kgood
+
+
+    def calc_kg(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
+        """
+        Calculate the k-coefficients at a given pressure and temperature
+        looking at pre-tabulated k-tables (assumed to be already stored in this class)
+
+        Input parameters
+        -------------------
+        @param npoints: int
+            Number of p-T points at which to calculate the cross sections
+        @param press: 1D array
+            Pressure levels (atm)
+        @param temp: 1D array
+            Temperature levels (K)
+
+        Optional parameters 
+        ---------------------
+        @param wavemin: real
+            Minimum wavenumber (cm-1) or wavelength (um)
+        @param wavemax: real
+            Maximum wavenumber (cm-1) or wavelength (um)
+        """
+
+        from NemesisPy.Utils import find_nearest
+        from scipy import interpolate
+
+        #Interpolating the k-coefficients to the correct pressure and temperature
+        #############################################################################
+
+        #K (NWAVE,NG,NP,NT,NGAS)
+
+        kgood = np.zeros([self.NWAVE,self.NG,npoints,self.NGAS])
+        dkgooddT = np.zeros([self.NWAVE,self.NG,npoints,self.NGAS])
+        for ipoint in range(npoints):
+            press1 = press[ipoint]
+            temp1 = temp[ipoint]
+
+            #Getting the levels just above and below the desired points
+            lpress  = np.log(press1)
+            press0,ip = find_nearest(self.PRESS,press1)
+
+            if self.PRESS[ip]>=press1:
+                iphi = ip
+                if ip==0:
+                    lpress = np.log(self.PRESS[0])
+                    ipl = 0
+                    iphi = 1
+                else:
+                    ipl = ip - 1
+            elif self.PRESS[ip]<press1:
+                ipl = ip
+                if ip==self.NP-1:
+                    lpress = np.log(self.PRESS[self.NP-1])
+                    iphi = self.NP - 1
+                    ipl = self.NP - 2
+                else:
+                    iphi = ip + 1
+
+            temp0,it = find_nearest(self.TEMP,temp1)
+
+            if self.TEMP[it]>=temp1:
+                ithi = it
+                if it==0:
+                    temp1 = self.TEMP[0]
+                    itl = 0
+                    ithi = 1
+                else:
+                    itl = it - 1
+            elif self.TEMP[it]<temp1:
+                itl = it
+                if it==self.NT-1:
+                    temp1 = self.TEMP[self.NT-1]
+                    ithi = self.NT - 1
+                    itl = self.NT -2
+                else:
+                    ithi = it + 1
+
+            plo = np.log(self.PRESS[ipl])
+            phi = np.log(self.PRESS[iphi])
+            tlo = self.TEMP[itl]
+            thi = self.TEMP[ithi]
+            klo1 = np.zeros([self.NWAVE,self.NG,self.NGAS])
+            klo2 = np.zeros([self.NWAVE,self.NG,self.NGAS])
+            khi1 = np.zeros([self.NWAVE,self.NG,self.NGAS])
+            khi2 = np.zeros([self.NWAVE,self.NG,self.NGAS])
+            klo1[:] = self.K[:,:,ipl,itl,:]
+            klo2[:] = self.K[:,:,ipl,ithi,:]
+            khi2[:] = self.K[:,:,iphi,ithi,:]
+            khi1[:] = self.K[:,:,iphi,itl,:]
+
+            #Interpolating to get the k-coefficients at desired p-T
+            v = (lpress-plo)/(phi-plo)
+            u = (temp1-tlo)/(thi-tlo)
+            dudt = 1./(thi-tlo)
+
+            igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
+            kgood[igood[0],igood[1],ipoint,igood[2]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1],igood[2]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1],igood[2]]) + v*u*np.log(khi2[igood[0],igood[1],igood[2]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1],igood[2]])
+            kgood[igood[0],igood[1],ipoint,igood[2]] = np.exp(kgood[igood[0],igood[1],ipoint,igood[2]])
+            dxdt = -np.log(klo1[igood[0],igood[1],igood[2]])*(1.0-v) - np.log(khi1[igood[0],igood[1],igood[2]])*v + np.log(khi2[igood[0],igood[1],igood[2]])*v + np.log(klo2[igood[0],igood[1],igood[2]]) * (1.0-v)
+            dkgooddT[igood[0],igood[1],ipoint,igood[2]] = kgood[igood[0],igood[1],ipoint,igood[2]] * dxdt
+
+            ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
+            kgood[ibad[0],ibad[1],ipoint,ibad[2]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1],ibad[2]] + v*(1.0-u)*khi1[ibad[0],ibad[1],ibad[2]] + v*u*khi2[ibad[0],ibad[1],ibad[2]] + (1.0-v)*u*klo2[ibad[0],ibad[1],ibad[2]]
+            dxdt = -klo1[ibad[0],ibad[1],ibad[2]]*(1.0-v) - khi1[ibad[0],ibad[1],ibad[2]]*v + khi2[ibad[0],ibad[1],ibad[2]]*v + klo2[ibad[0],ibad[1],ibad[2]] * (1.0-v)
+            dkgooddT[ibad[0],ibad[1],ipoint,ibad[2]] = dxdt
+
+        #Checking that the calculation wavenumbers coincide with the wavenumbers in the k-tables
+        ##########################################################################################
+
+        if WAVECALC[0]!=12345678.:
+
+            NWAVEC = len(WAVECALC)
+            kret = np.zeros([NWAVEC,self.NG,npoints,self.NGAS])
+            dkretdT = np.zeros([NWAVEC,self.NG,npoints,self.NGAS])
+
+            #Checking if k-tables are defined in irregularly spaced wavenumber grid
+            delv = 0.0
+            Irr = 0
+            for iv in range(self.NWAVE-1):
+                delv1 = self.WAVE[iv+1] - self.WAVE[iv]
+                if iv==0:
+                    delv = delv1
+                    pass
+
+                if abs((delv1-delv)/(delv))>0.001:
+                    Irr = 1
+                    break
+                else:
+                    delv = delv1
+                    continue
+
+            #If they are defined in a regular grid, we interpolate to the nearest value
+            if Irr==0:
+                for i in range(npoints):
+                    for j in range(self.NGAS):
+                        for k in range(self.NG):
+                            f = interpolate.interp1d(self.WAVE,kgood[:,k,i,j])
+                            kret[:,k,i,j] = f(WAVECALC)
+                            f = interpolate.interp1d(self.WAVE,dkgooddT[:,k,i,j])
+                            dkretdT[:,k,i,j] = f(WAVECALC)
+            else:
+                for i in range(NWAVEC):
+                    wave0,iv = find_nearest(self.WAVE,WAVECALC[i])
+                    kret[i,:,:,:] = kgood[iv,:,:,:]
+                    dkretdT[i,:,:,:] = dkgooddT[iv,:,:,:]
+        
+        else:
+
+            kret = kgood
+            dkretdT = dkgooddT
+
+        return kret,dkretdT
 
 
     def calc_k(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
@@ -420,13 +721,17 @@ class Spectroscopy_0:
             if self.PRESS[ip]>=press1:
                 iphi = ip
                 if ip==0:
+                    lpress = np.log(self.PRESS[0])
                     ipl = 0
+                    iphi = 1
                 else:
                     ipl = ip - 1
             elif self.PRESS[ip]<press1:
                 ipl = ip
                 if ip==self.NP-1:
+                    lpress = np.log(self.PRESS[self.NP-1])
                     iphi = self.NP - 1
+                    ipl = self.NP - 2
                 else:
                     iphi = ip + 1
 
@@ -435,13 +740,17 @@ class Spectroscopy_0:
             if self.TEMP[it]>=temp1:
                 ithi = it
                 if it==0:
+                    temp1 = self.TEMP[0]
                     itl = 0
+                    ithi = 1
                 else:
                     itl = it - 1
             elif self.TEMP[it]<temp1:
                 itl = it
                 if it==self.NT-1:
+                    temp1 = self.TEMP[self.NT-1]
                     ithi = self.NT - 1
+                    itl = self.NT -2
                 else:
                     ithi = it + 1
 
@@ -459,19 +768,16 @@ class Spectroscopy_0:
             khi1[:] = self.K[:,:,iphi,itl,:]
 
             #Interpolating to get the k-coefficients at desired p-T
-            if ipl==iphi:
-                v = 0.5
-            else:
-                v = (lpress-plo)/(phi-plo)
-        
-            if itl==ithi:
-                u = 0.5
-            else:
-                u = (temp1-tlo)/(thi-tlo)
+            v = (lpress-plo)/(phi-plo)
+            u = (temp1-tlo)/(thi-tlo)
+            dudt = 1./(thi-tlo)
 
             igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
-            kgood[igood[0],igood[1],ipoint,igood[2]] = np.exp((1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1],igood[2]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1],igood[2]]) + v*u*np.log(khi2[igood[0],igood[1],igood[2]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1],igood[2]]))
+            kgood[igood[0],igood[1],ipoint,igood[2]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1],igood[2]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1],igood[2]]) + v*u*np.log(khi2[igood[0],igood[1],igood[2]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1],igood[2]])
+            kgood[igood[0],igood[1],ipoint,igood[2]] = np.exp(kgood[igood[0],igood[1],ipoint,igood[2]])
 
+            ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
+            kgood[ibad[0],ibad[1],ipoint,ibad[2]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1],ibad[2]] + v*(1.0-u)*khi1[ibad[0],ibad[1],ibad[2]] + v*u*khi2[ibad[0],ibad[1],ibad[2]] + (1.0-v)*u*klo2[ibad[0],ibad[1],ibad[2]]
 
         #Checking that the calculation wavenumbers coincide with the wavenumbers in the k-tables
         ##########################################################################################
@@ -504,6 +810,7 @@ class Spectroscopy_0:
                         for k in range(self.NG):
                             f = interpolate.interp1d(self.WAVE,kgood[:,k,i,j])
                             kret[:,k,i,j] = f(WAVECALC)
+
             else:
                 for i in range(NWAVEC):
                     wave0,iv = find_nearest(self.WAVE,WAVECALC[i])
@@ -514,6 +821,7 @@ class Spectroscopy_0:
             kret = kgood
 
         return kret
+
 
 
 ###############################################################################################

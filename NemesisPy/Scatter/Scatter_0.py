@@ -285,12 +285,20 @@ class Scatter_0:
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
-        Calculate the CIA opacity in each atmospheric layer
+        Calculate the aerosol opacity in each atmospheric layer
 
         @param WAVEC: int
             Wavenumber (cm-1) or wavelength array (um)
         @param Layer: class
             Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        Outputs
+        ________
+
+        TAUDUST(NWAVE,NLAY,NDUST) :: Aerosol opacity for each aerosol type and each layer (from extinction coefficients)
+        TAUCLSCAT(NWAVE,NLAY,NDUST) :: Aerosol scattering opacity for each aerosol type and each layer
+        dTAUDUSTdq(NWAVE,NLAY,NDUST) :: Rate of change of the aerosol opacity with the dust abundance
+        dTAUCLSCATdq(NWAVE,NLAY,NDUST) :: Rate of change of the aerosol scattering opacity with dust abundance
         """
 
         from scipy import interpolate
@@ -303,6 +311,8 @@ class Scatter_0:
         NWAVEC = len(WAVEC)
         TAUDUST = np.zeros([NWAVEC,Layer.NLAY,self.NDUST])
         TAUCLSCAT = np.zeros([NWAVEC,Layer.NLAY,self.NDUST])
+        dTAUDUSTdq = np.zeros([NWAVEC,Layer.NLAY,self.NDUST])
+        dTAUCLSCATdq = np.zeros([NWAVEC,Layer.NLAY,self.NDUST])
         for i in range(self.NDUST):
 
             #Interpolating the cross sections to the correct grid
@@ -316,8 +326,10 @@ class Scatter_0:
                 DUSTCOLDENS = Layer.CONT[j,i] * 1.0e-4   #particles/cm2
                 TAUDUST[:,j,i] =  kext * DUSTCOLDENS
                 TAUCLSCAT[:,j,i] = ksca * DUSTCOLDENS
+                dTAUDUSTdq[:,j,i] = kext
+                dTAUCLSCATdq[:,j,i] = ksca
 
-        return TAUDUST,TAUCLSCAT
+        return TAUDUST,TAUCLSCAT,dTAUDUSTdq,dTAUCLSCATdq
 
     def calc_tau_rayleighj(self,ISPACE,WAVEC,Layer,MakePlot=False):
         """
@@ -330,6 +342,13 @@ class Scatter_0:
             Wavenumber (cm-1) or wavelength array (um)
         @param Layer: class
             Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        Outputs
+        ________
+
+        TAURAY(NWAVE,NLAY) :: Rayleigh scattering opacity in each layer
+        dTAURAY(NWAVE,NLAY) :: Rate of change of Rayleigh scattering opacity in each layer
+
         """
 
         AH2=13.58E-5
@@ -369,8 +388,10 @@ class Scatter_0:
 
         #Calculating the Rayleigh opacities in each layer
         tau_ray = np.zeros([len(WAVEC),Layer.NLAY])
+        dtau_ray = np.zeros([len(WAVEC),Layer.NLAY])
         for ilay in range(Layer.NLAY):
             tau_ray[:,ilay] = k_rayleighj[:] * Layer.TOTAM[ilay] * 1.0e-4 #(NWAVE,NLAY) 
+            dtau_ray[:,ilay] = k_rayleighj[:]
 
         if MakePlot==True:
 
@@ -381,4 +402,4 @@ class Scatter_0:
             plt.tight_layout()
             plt.show()
 
-        return tau_ray
+        return tau_ray,dtau_ray

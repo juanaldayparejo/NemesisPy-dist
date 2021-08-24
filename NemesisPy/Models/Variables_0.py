@@ -133,10 +133,16 @@ class Variables_0:
         """
 
         nxvar = np.zeros(self.NVAR,dtype='int32')
+
+        if self.NVAR==1:
+            imod = self.VARIDENT[2]
+            ipar = self.VARPARAM[0]
+
         for i in range(self.NVAR):
 
-            imod = self.VARIDENT[i,2]
-            ipar = self.VARPARAM[i,0]
+            if self.NVAR>1:
+                imod = self.VARIDENT[i,2]
+                ipar = self.VARPARAM[i,0]
 
             if imod == -1:
                 nxvar[i] = NPRO
@@ -209,6 +215,8 @@ class Variables_0:
             elif imod == 444:
                 nxvar[i] = 1 + 1 + int(ipar)
             elif imod == 666:
+                nxvar[i] = 1
+            elif imod == 667:
                 nxvar[i] = 1
             elif imod == 887:
                 nxvar[i] = int(ipar)
@@ -755,6 +763,15 @@ class Variables_0:
                     sx[ix,ix] = (ptanerr/ptan)**2.
                     jpre = ix
                 
+                    ix = ix + 1
+
+                elif varident[i,2] == 667:
+#               ******** dillusion factor to account for thermal gradients thorughout exoplanet
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    xfac = float(tmp[0])
+                    xfacerr = float(tmp[1])
+                    x0[ix] = xfac
+                    sx[ix,ix] = xfacerr**2.
                     ix = ix + 1
 
                 elif varident[i,2] == 887:
