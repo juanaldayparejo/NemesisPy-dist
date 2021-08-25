@@ -1130,14 +1130,18 @@ class Measurement_0:
                     v1 = self.VFIL[0,ICONV]
                     v2 = self.VFIL[self.NFIL[ICONV]-1,ICONV]
                     #Find relevant points in tabulated files
-                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
-                    inwave = inwave1[0]
-
+                    iwavelox = np.where( (self.WAVE<v1) )
+                    iwavelox = iwavelox[0]
+                    iwavehix = np.where( (self.WAVE>v2) )
+                    iwavehix = iwavehix[0]
+                    inwave = np.linspace(iwavelox[len(iwavelox)-1],iwavehix[0],iwavehix[0]-iwavelox[len(iwavelox)-1]+1,dtype='int32')
+                    
                     np1 = len(inwave)
                     xp = np.zeros([self.NFIL[ICONV]])
                     yp = np.zeros([self.NFIL[ICONV]])
                     xp[:] = self.VFIL[0:self.NFIL[ICONV],ICONV]
                     yp[:] = self.AFIL[0:self.NFIL[ICONV],ICONV]
+
 
                     for i in range(np1):
                         #Interpolating (linear) for finding the lineshape at the calculation wavenumbers

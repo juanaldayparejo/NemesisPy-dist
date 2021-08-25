@@ -198,7 +198,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
             ix = ix + Variables.NXVAR[ivar]
 
         elif Variables.VARIDENT[ivar,0]==667:
-#       Model 667. Retrieval of dillusion factor to account for thermal gradients in planets
+#       Model 667. Retrieval of dilution factor to account for thermal gradients in planets
 #       ***************************************************************
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]

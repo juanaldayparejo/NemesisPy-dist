@@ -766,7 +766,7 @@ class Variables_0:
                     ix = ix + 1
 
                 elif varident[i,2] == 667:
-#               ******** dillusion factor to account for thermal gradients thorughout exoplanet
+#               ******** dilution factor to account for thermal gradients thorughout exoplanet
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
                     xfac = float(tmp[0])
                     xfacerr = float(tmp[1])

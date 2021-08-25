@@ -590,6 +590,85 @@ class OptimalEstimation_0:
         if Variables==None:
             Variables=Variables_0()
         
-        f = open(runname+'.cov')
+        f = open(runname+'.cov','r')
+
+        #Reading variables that were retrieved
+        tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
+        npro = int(tmp[0])
+        nvar = int(tmp[1])
+
+        varident = np.zeros([nvar,3],dtype='int')
+        varparam = np.zeros([nvar,5],dtype='int')
+        for i in range(nvar):
+            tmp = np.fromfile(f,sep=' ',count=3,dtype='int')
+            varident[i,:] = tmp[:]
+
+            tmp = np.fromfile(f,sep=' ',count=5,dtype='float')
+            varparam[i,:] = tmp[:] 
+
+        Variables.NVAR = nvar
+        Variables.VARIDENT = varident
+        Variables.VARPARAM = varparam
+        Variables.calc_NXVAR(npro)
+
+        #Reading optimal estimation matrices
+        tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
+        nx = int(tmp[0])
+        ny = int(tmp[1])
+
+        sa = np.zeros([nx,nx])
+        sm = np.zeros([nx,nx])
+        sn = np.zeros([nx,nx])
+        st = np.zeros([nx,nx])
+        aa = np.zeros([nx,nx])
+        dd = np.zeros([nx,ny])
+        kk = np.zeros([ny,nx])
+        se = np.zeros([ny,ny])
+        for i in range(nx):
+            for j in range(nx):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                sa[i,j] = tmp[0]
+            for j in range(nx):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                sm[i,j] = tmp[0]
+            for j in range(nx):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                sn[i,j] = tmp[0]
+            for j in range(nx):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                st[i,j] = tmp[0]
+
+
+        for i in range(nx):
+            for j in range(nx):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                aa[i,j] = tmp[0]
+
+
+        for i in range(nx):
+            for j in range(ny):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                dd[i,j] = tmp[0]
+
+
+        for i in range(ny):
+            for j in range(nx):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                kk[i,j] = tmp[0]
+
+        for i in range(ny):
+            tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+            se[i,i] = tmp[0]
 
         f.close()
+
+        self.NX = nx
+        self.NY = ny
+        self.edit_SA(sa)
+        self.edit_SE(se)
+        self.SM = sm
+        self.SN = sn
+        self.ST = st
+        self.DD = dd
+        self.AA = aa
+        self.edit_KK(kk)

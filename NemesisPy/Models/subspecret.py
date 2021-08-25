@@ -56,7 +56,7 @@ def subspecret(Measurement,Variables,SPECMOD,MakePlot=False):
                 ix = ix + 2
 
         elif Variables.VARIDENT[ivar,0]==667:
-#       Model 667. Spectrum scaled by dillusion factor to account for thermal gradients in planets
+#       Model 667. Spectrum scaled by dilution factor to account for thermal gradients in planets
 #       **********************************************************************************************
 
             xfactor = Variables.XN[ix]
