@@ -323,11 +323,11 @@ class Scatter_0:
 
             #Calculating the opacity at each layer
             for j in range(Layer.NLAY):
-                DUSTCOLDENS = Layer.CONT[j,i] * 1.0e-4   #particles/cm2
-                TAUDUST[:,j,i] =  kext * DUSTCOLDENS
-                TAUCLSCAT[:,j,i] = ksca * DUSTCOLDENS
-                dTAUDUSTdq[:,j,i] = kext
-                dTAUCLSCATdq[:,j,i] = ksca
+                DUSTCOLDENS = Layer.CONT[j,i]  #particles/m2
+                TAUDUST[:,j,i] =  kext * 1.0e-4 * DUSTCOLDENS
+                TAUCLSCAT[:,j,i] = ksca * 1.0e-4 * DUSTCOLDENS
+                dTAUDUSTdq[:,j,i] = kext * 1.0e-4 #dtau/dq (m2)
+                dTAUCLSCATdq[:,j,i] = ksca * 1.0e-4 #dtau/dq (m2)
 
         return TAUDUST,TAUCLSCAT,dTAUDUSTdq,dTAUCLSCATdq
 
@@ -383,15 +383,15 @@ class Scatter_0:
         x = N0*LAMBDA*LAMBDA
         faniso = (6.0+3.0*delta)/(6.0 - 7.0*delta)
 
-        #Calculating the scattering cross sections in cm2
-        k_rayleighj = temp*1.0e4*faniso/(3.*(x**2)) #(NWAVE)
+        #Calculating the scattering cross sections in m2
+        k_rayleighj = temp*faniso/(3.*(x**2)) #(NWAVE)
 
         #Calculating the Rayleigh opacities in each layer
         tau_ray = np.zeros([len(WAVEC),Layer.NLAY])
         dtau_ray = np.zeros([len(WAVEC),Layer.NLAY])
         for ilay in range(Layer.NLAY):
-            tau_ray[:,ilay] = k_rayleighj[:] * Layer.TOTAM[ilay] * 1.0e-4 #(NWAVE,NLAY) 
-            dtau_ray[:,ilay] = k_rayleighj[:]
+            tau_ray[:,ilay] = k_rayleighj[:] * Layer.TOTAM[ilay] #(NWAVE,NLAY) 
+            dtau_ray[:,ilay] = k_rayleighj[:] 
 
         if MakePlot==True:
 

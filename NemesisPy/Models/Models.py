@@ -176,10 +176,10 @@ def model0(atm,ipar,xprof,MakePlot=False):
     elif ipar>atm.NVMR:
         jtmp = ipar - (atm.NVMR+1)
         x1 = np.exp(xprof)
-        if jtmp<atm.NDUST:
+        if jtmp<atm.NDUST: #Dust in cm-3
             dust = np.zeros([atm.NP,atm.NDUST])
             dust[:,:] = atm.DUST
-            dust[:,jtmp] = x1 * 1.0e6
+            dust[:,jtmp] = x1
             atm.edit_DUST(dust)
         elif jtmp==atm.NDUST:
             atm.PARAH2 = x1

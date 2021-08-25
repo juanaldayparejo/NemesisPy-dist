@@ -576,3 +576,20 @@ class OptimalEstimation_0:
             f.write("%10.8e\n" % (self.SE[i,i]))
 
         f.close() 
+
+    def read_cov(self,runname,Variables=None):
+        """
+        Write information about the Optimal Estimation matrices into the .cov file
+
+        @param runname: str
+            Name of the NEMESIS run
+        @param Variables: class
+            Python class describing the different parameterisations retrieved
+        """
+
+        if Variables==None:
+            Variables=Variables_0()
+        
+        f = open(runname+'.cov')
+
+        f.close()

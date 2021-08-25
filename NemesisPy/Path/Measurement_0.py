@@ -714,6 +714,8 @@ class Measurement_0:
             Spectroscopy class indicating the grid of calculation wavelengths 
         """
 
+        from NemesisPy import find_nearest
+
         #if (vkstep < 0.0 or fwhm == 0.0):
         if self.FWHM==0:
 
@@ -757,12 +759,21 @@ class Measurement_0:
                         print('warning from wavesetb :: Convolution wavenumbers in .spx and .fil do not coincide')
             """
 
+
             if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
                 sys.exit('error from wavesetc :: Channel wavelengths not covered by k-tables')
 
             #Selecting the necessary wavenumbers
-            iwave = np.where( (Spectroscopy.WAVE>=wavemin) & (Spectroscopy.WAVE<=wavemax) )
-            iwave = iwave[0]
+            wave0min,iwavemin = find_nearest(Spectroscopy.WAVE,wavemin)
+            wave0max,iwavemax = find_nearest(Spectroscopy.WAVE,wavemax)
+
+            if wave0min>wavemin:
+                iwavemin = iwavemin - 1
+            if wave0max<wavemax:
+                iwavemax = iwavemax + 1
+
+            iwave = np.linspace(iwavemin,iwavemax,iwavemax-iwavemin+1,dtype='int32')
+
             self.WAVE = Spectroscopy.WAVE[iwave]
             self.NWAVE = len(self.WAVE)
 

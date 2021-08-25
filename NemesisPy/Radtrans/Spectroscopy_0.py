@@ -236,14 +236,14 @@ class Spectroscopy_0:
             Maximum wavenumber (cm-1) or wavelength (um)
         """
 
-        iwavel = np.where((self.WAVE<wavemin))
+        iwavel = np.where((self.WAVE<=wavemin))
         iwavel = iwavel[0]
         if len(iwavel)==0:
             iwl = 0
         else:
             iwl = iwavel[len(iwavel)-1]
 
-        iwaveh = np.where((self.WAVE>wavemax))
+        iwaveh = np.where((self.WAVE>=wavemax))
         iwaveh = iwaveh[0]
         if len(iwaveh)==0:
             iwh = self.NWAVE-1

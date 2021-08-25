@@ -188,19 +188,6 @@ def nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
     print('Mapping gradients from Profile to State Vector')
     dSPECOUT1 = map2pro(dSPECOUT2,Measurement1.NWAVE,Atmosphere1.NVMR,Atmosphere1.NDUST,Atmosphere1.NP,Path1.NPATH,Path1.NLAYIN,Path1.LAYINC,Layer1.DTE,Layer1.DAM,Layer1.DCO)
 
-    """
-    for i in range(Atmosphere1.NP):
-        fig,ax1 = plt.subplots(1,1,figsize=(10,3))
-        NY = Measurement1.NWAVE * Path1.NPATH
-        xx = np.linspace(0,NY-1,NY)
-        ll = 0
-        for ip in range(Path1.NPATH):
-            ax1.plot(xx[ll:ll+Measurement1.NWAVE],dSPECOUT1[0:Measurement1.NWAVE,0,i,ip])
-            ll = ll + Measurement1.NWAVE
-        plt.tight_layout()
-        plt.show()
-    """
-
     #Mapping the gradients from Profile properties to elements in state vector
     dSPECOUT = map2xvec(dSPECOUT1,Measurement1.NWAVE,Atmosphere1.NVMR,Atmosphere1.NDUST,Atmosphere1.NP,Path1.NPATH,Variables1.NX,xmap)
 
@@ -547,6 +534,7 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
     YN = np.zeros(Measurement.NY)
     YN[:] = YNtot[:,0]
 
+    """
     for ix in range(Variables.NX):
         fig,ax1=plt.subplots(1,1,figsize=(10,3))
         ax1.plot(range(Measurement.NY),KK[:,ix])
@@ -555,6 +543,7 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
         plt.show()    
 
     sys.exit()
+    """
 
     #################################################################################
     # Making summary plot if required
@@ -1049,7 +1038,7 @@ def CIRSradg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stell
 
             #Calculating vertical opacity for each gas in each layer
             TAUGAS[:,0,:,i] = k[:,:,i] * VLOSDENS
-            dTAUGAS[:,0,IGAS[0],:] = k[:,:,i] * 1.0e-4 * 1.0e-20  #dk/dq
+            dTAUGAS[:,0,IGAS[0],:] = k[:,:,i] * 1.0e-4 * 1.0e-20  #dk/dq (m2)
             dTAUGAS[:,0,Atmosphere.NVMR,:] = dTAUGAS[:,0,Atmosphere.NVMR,:] + dkdT[:,:,i] * VLOSDENS #dk/dT
 
         #Combining the gaseous opacity in each layer
