@@ -62,8 +62,11 @@ def interpg(X_data, Y_data, X):
     for IX in range(NX):
 
         j = 0
-        while X_data[j]<X[IX]:
+        while X_data[j]<=X[IX]:
             j = j + 1
+            if j==len(X_data):
+                j = len(X_data) - 1
+                break
         
         if j==0:
             j = 1

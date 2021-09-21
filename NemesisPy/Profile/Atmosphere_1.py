@@ -171,7 +171,7 @@ class Atmosphere_1(Atmosphere_0):
         self.NP = npro
         self.NDUST = naero
         self.edit_H(height*1.0e3)   #m
-        self.edit_DUST(aerodens)    #particles cm-3
+        self.edit_DUST(aerodens)    #particles m-3
 
     def write_aerosol(self):
         """
@@ -200,7 +200,7 @@ class Atmosphere_1(Atmosphere_0):
         for i in range(self.NDUST):
             ax1.plot(self.DUST[:,i],self.H/1.0e3)
         ax1.grid()
-        ax1.set_xlabel('Aerosol density (particles cm$^{-3}$)')
+        ax1.set_xlabel('Aerosol density (particles m$^{-3}$)')
         ax1.set_ylabel('Altitude (km)')
         plt.tight_layout()
         plt.show()

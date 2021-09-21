@@ -1838,3 +1838,44 @@ def read_gcn(runname):
         SPECMODGCN[0:NCONV[i],i,:] = SPECMODGCN1[0:NCONV[i],i,:]
 
     return NGAS,gasID,isoID,NGEOM,NCONV,VCONV,SPECMODGCN
+
+###############################################################################################
+
+
+def write_hlay(nlayer,heightlay):
+
+
+    """
+        FUNCTION NAME : write_hlay()
+        
+        DESCRIPTION : 
+
+            Writes the height.lay file with the input required by Nemesis. This file specifies the
+            base altitude of each layer in the atmosphere, which is read by the code when the Layer type is 5
+ 
+        INPUTS :
+      
+            nlayer :: Number of layers in atmosphere
+            heightlay(nlayer) :: Base altitude of each layer (km)
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            Nemesis height.lay file
+
+        CALLING SEQUENCE:
+        
+            write_hlay(nlayer,heightlay)
+ 
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+
+    """
+
+    f = open('height.lay','w')
+    header = 'Nemesis simulation - base altitude of atmospheric layers'
+    f.write(header+"\n")
+    f.write('\t %i \n' % (nlayer))
+    for i in range(nlayer):
+        f.write('\t %7.3f \n' % (heightlay[i]))
+    f.close()

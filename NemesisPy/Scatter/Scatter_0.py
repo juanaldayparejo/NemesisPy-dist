@@ -324,10 +324,10 @@ class Scatter_0:
             #Calculating the opacity at each layer
             for j in range(Layer.NLAY):
                 DUSTCOLDENS = Layer.CONT[j,i]  #particles/m2
-                TAUDUST[:,j,i] =  kext * 1.0e-4 * DUSTCOLDENS
+                TAUDUST[:,j,i] =  kext * 1.0e-4 * DUSTCOLDENS 
                 TAUCLSCAT[:,j,i] = ksca * 1.0e-4 * DUSTCOLDENS
-                dTAUDUSTdq[:,j,i] = kext * 1.0e-4 #dtau/dq (m2)
-                dTAUCLSCATdq[:,j,i] = ksca * 1.0e-4 #dtau/dq (m2)
+                dTAUDUSTdq[:,j,i] = kext * 1.0e-4 #dtau/dAMOUNT (m2)
+                dTAUCLSCATdq[:,j,i] = ksca * 1.0e-4 #dtau/dAMOUNT (m2)
 
         return TAUDUST,TAUCLSCAT,dTAUDUSTdq,dTAUCLSCATdq
 
@@ -391,7 +391,7 @@ class Scatter_0:
         dtau_ray = np.zeros([len(WAVEC),Layer.NLAY])
         for ilay in range(Layer.NLAY):
             tau_ray[:,ilay] = k_rayleighj[:] * Layer.TOTAM[ilay] #(NWAVE,NLAY) 
-            dtau_ray[:,ilay] = k_rayleighj[:] 
+            dtau_ray[:,ilay] = k_rayleighj[:] #dTAURAY/dTOTAM (m2)
 
         if MakePlot==True:
 

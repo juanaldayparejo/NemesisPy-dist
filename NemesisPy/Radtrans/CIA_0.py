@@ -237,17 +237,11 @@ class CIA_0:
                 inwave1 = np.where( (WAVEN>=self.WAVEN.min()) & (WAVEN<=self.WAVEN.max()) )
                 inwave1 = inwave1[0]
 
-                #fig,(ax1,ax2) = plt.subplots(2,1,figsize=(10,6))
-                #labels = ['H2-H2 (eqm)','H2-He (eqm)','H2-H2 (normal)','H2-He (normal)','H2-N2','H2-CH4','N2-N2','CH4-CH4','H2-CH4)']
                 for ipair in range(self.NPAIR):
-                    #ax1.plot(self.WAVEN,kt[ipair,:],label=labels[ipair])
                     f = interpolate.interp1d(self.WAVEN,kt[ipair,:])
                     k_cia[inwave1,ipair] = f(WAVEN[inwave1])
                     f = interpolate.interp1d(self.WAVEN,dktdT[ipair,:])
                     dkdT_cia[inwave1,ipair] = f(WAVEN[inwave1])
-                    #ax2.plot(WAVEN,k_cia[:,ipair])
-                #plt.tight_layout()
-                #plt.show()
 
                 #Combining the CIA absorption of the different pairs (included in .cia file)
                 sum1 = np.zeros(NWAVEC)

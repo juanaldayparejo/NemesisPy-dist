@@ -154,6 +154,20 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
 
             ix = ix + Variables.NXVAR[ivar]
 
+        elif Variables.VARIDENT[ivar,2]==9:
+#       Model 9. Simple cloud represented by base height, fractional scale height
+#                and the total integrated cloud density
+#       ***************************************************************
+
+            tau = np.exp(Variables.XN[ix])  #Integrated dust column-density
+            fsh = np.exp(Variables.XN[ix+1]) #Fractional scale height
+            href = Variables.XN[ix+2] #Base height (km)
+
+            Atmosphere,xmap1 = model9(Atmosphere,ipar,href,fsh,tau)
+            xmap[ix:ix+Variables.NXVAR[ivar],:,0:Atmosphere.NP] = xmap1[:,:,:]
+
+            ix = ix + Variables.NXVAR[ivar]
+
         elif Variables.VARIDENT[ivar,0]==228:
 #       Model 228. Retrieval of instrument line shape for ACS-MIR (v1)
 #       ***************************************************************
@@ -176,6 +190,29 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
 
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==230:
+#       Model 230. Retrieval of multiple instrument line shapes for ACS-MIR
+#       ***************************************************************
+
+            nwindows = int(Variables.VARPARAM[ivar,0])
+            liml = np.zeros(nwindows)
+            limh = np.zeros(nwindows)
+            i0 = 1
+            for iwin in range(nwindows):
+                liml[iwin] = Variables.VARPARAM[ivar,i0]
+                limh[iwin] = Variables.VARPARAM[ivar,i0+1]
+                i0 = i0 + 2
+
+            par1 = np.zeros((7,nwindows))
+            for iwin in range(nwindows):
+                for jwin in range(7):
+                    par1[jwin,iwin] = Variables.XN[ix]
+                    ix = ix + 1
+
+            Measurement = model230(Measurement,nwindows,liml,limh,par1)
+
+            ipar = -1
 
         elif Variables.VARIDENT[ivar,0]==231:
 #       Model 231. Continuum addition to transmission spectra using a linearly varying scaling factor
@@ -200,6 +237,16 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
         elif Variables.VARIDENT[ivar,0]==667:
 #       Model 667. Retrieval of dilution factor to account for thermal gradients in planets
 #       ***************************************************************
+            ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==999:
+#       Model 999. Retrieval of surface temperature
+#       ***************************************************************
+
+            tsurf = Variables.XN[ix]
+            Surface.TSURF = tsurf
+
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]
 

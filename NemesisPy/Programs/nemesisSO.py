@@ -52,7 +52,6 @@ Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp
 #Initialise Spectroscopy class and read file (.lls)
 ##############################################################
 
-Spec = Spectroscopy_0()
 if Spec.ILBL==0:
     Spec.read_kls(runname)
 elif Spec.ILBL==2:
@@ -143,7 +142,7 @@ else:
 ######################################################
 
 if IRET==0:
-    OptimalEstimation.write_cov(runname,Variables)
+    OptimalEstimation.write_cov(runname,Variables,pickle=True)
     OptimalEstimation.write_mre(runname,Variables,Measurement)
 
 #Finishing pogram

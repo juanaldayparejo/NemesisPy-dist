@@ -554,7 +554,7 @@ class Spectroscopy_0:
         #Interpolating the k-coefficients to the correct pressure and temperature
         #############################################################################
 
-        #K (NWAVE,NG,NP,NT,NGAS)
+        #K (NWAVE,NG,NPOINTS,NGAS)
 
         kgood = np.zeros([self.NWAVE,self.NG,npoints,self.NGAS])
         dkgooddT = np.zeros([self.NWAVE,self.NG,npoints,self.NGAS])
@@ -623,13 +623,14 @@ class Spectroscopy_0:
             igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
             kgood[igood[0],igood[1],ipoint,igood[2]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1],igood[2]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1],igood[2]]) + v*u*np.log(khi2[igood[0],igood[1],igood[2]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1],igood[2]])
             kgood[igood[0],igood[1],ipoint,igood[2]] = np.exp(kgood[igood[0],igood[1],ipoint,igood[2]])
-            dxdt = -np.log(klo1[igood[0],igood[1],igood[2]])*(1.0-v) - np.log(khi1[igood[0],igood[1],igood[2]])*v + np.log(khi2[igood[0],igood[1],igood[2]])*v + np.log(klo2[igood[0],igood[1],igood[2]]) * (1.0-v)
+            dxdt = (-np.log(klo1[igood[0],igood[1],igood[2]])*(1.0-v) - np.log(khi1[igood[0],igood[1],igood[2]])*v + np.log(khi2[igood[0],igood[1],igood[2]])*v + np.log(klo2[igood[0],igood[1],igood[2]]) * (1.0-v))*dudt
             dkgooddT[igood[0],igood[1],ipoint,igood[2]] = kgood[igood[0],igood[1],ipoint,igood[2]] * dxdt
 
             ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
             kgood[ibad[0],ibad[1],ipoint,ibad[2]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1],ibad[2]] + v*(1.0-u)*khi1[ibad[0],ibad[1],ibad[2]] + v*u*khi2[ibad[0],ibad[1],ibad[2]] + (1.0-v)*u*klo2[ibad[0],ibad[1],ibad[2]]
-            dxdt = -klo1[ibad[0],ibad[1],ibad[2]]*(1.0-v) - khi1[ibad[0],ibad[1],ibad[2]]*v + khi2[ibad[0],ibad[1],ibad[2]]*v + klo2[ibad[0],ibad[1],ibad[2]] * (1.0-v)
+            dxdt = (-klo1[ibad[0],ibad[1],ibad[2]]*(1.0-v) - khi1[ibad[0],ibad[1],ibad[2]]*v + khi2[ibad[0],ibad[1],ibad[2]]*v + klo2[ibad[0],ibad[1],ibad[2]] * (1.0-v))*dudt
             dkgooddT[ibad[0],ibad[1],ipoint,ibad[2]] = dxdt
+
 
         #Checking that the calculation wavenumbers coincide with the wavenumbers in the k-tables
         ##########################################################################################

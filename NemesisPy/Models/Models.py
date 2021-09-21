@@ -170,25 +170,31 @@ def model0(atm,ipar,xprof,MakePlot=False):
         vmr[:,:] = atm.VMR
         vmr[:,jvmr] = x1
         atm.edit_VMR(vmr)
+        for j in range(npro):
+            xmap[j,ipar,j] = x1[j]
     elif ipar==atm.NVMR: #Temperature
         x1 = xprof
         atm.edit_T(x1)
+        for j in range(npro):
+            xmap[j,ipar,j] = 1.
     elif ipar>atm.NVMR:
         jtmp = ipar - (atm.NVMR+1)
         x1 = np.exp(xprof)
-        if jtmp<atm.NDUST: #Dust in cm-3
+        if jtmp<atm.NDUST: #Dust in m-3
             dust = np.zeros([atm.NP,atm.NDUST])
             dust[:,:] = atm.DUST
             dust[:,jtmp] = x1
             atm.edit_DUST(dust)
+            for j in range(npro):
+                xmap[j,ipar,j] = x1[j]
         elif jtmp==atm.NDUST:
             atm.PARAH2 = x1
+            for j in range(npro):
+                xmap[j,ipar,j] = x1[j]
         elif jtmp==atm.NDUST+1:
             atm.FRAC = x1
-
-    for j in range(npro):
-        xmap[j,ipar,j] = x1[j]
-        
+            for j in range(npro):
+                xmap[j,ipar,j] = x1[j]
 
     if MakePlot==True:
         fig,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(10,5))
@@ -396,6 +402,140 @@ def model3(atm,ipar,scf,MakePlot=False):
 
     return atm,xmap
 
+
+###############################################################################################
+
+def model9(atm,ipar,href,fsh,tau,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model9()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 9 in NEMESIS.
+            In this model, the profile (cloud profile) is represented by a value
+            at a certain height, plus a fractional scale height. Below the reference height 
+            the profile is set to zero, while above it the profile decays exponentially with
+            altitude given by the fractional scale height. In addition, this model scales
+            the profile to give the requested integrated cloud optical depth.
+        
+        INPUTS :
+        
+            atm :: Python class defining the atmosphere
+
+            href :: Base height of cloud profile (km)
+
+            fsh :: Fractional scale height (km)
+
+            tau :: Total integrated column density of the cloud (m-2)
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            atm :: Updated atmospheric class
+            xmap(1,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
+                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,xmap = model9(atm,ipar,href,fsh,tau)
+        
+        MODIFICATION HISTORY : Juan Alday (29/03/2021)
+        
+    """
+
+    from scipy.integrate import simpson
+
+    #Checking that profile is for aerosols
+    if(ipar<=atm.NVMR):
+        sys.exit('error in model 9 :: This model is defined for aerosol profiles only')
+
+    if(ipar>atm.NVMR+atm.NDUST):
+        sys.exit('error in model 9 :: This model is defined for aerosol profiles only')
+    
+
+    #Calculating the actual atmospheric scale height in each level
+    R = const["R"]
+    scale = R * atm.T / (atm.MOLWT * atm.GRAV)   #scale height (m)
+
+    #This gradient is calcualted numerically (in this function) as it is too hard otherwise
+    xprof = np.zeros(atm.NP)
+    npar = atm.NVMR+2+atm.NDUST
+    xmap = np.zeros([3,npar,atm.NP])
+    for itest in range(4):
+
+        xdeep = tau
+        xfsh = fsh
+        hknee = href
+
+        if itest==0:
+            dummy = 1
+        elif itest==1: #For calculating the gradient wrt tau
+            dx = 0.05 * np.log(tau)  #In the state vector this variable is passed in log-scale
+            if dx==0.0:
+                dx = 0.1
+            xdeep = np.exp( np.log(tau) + dx )
+        elif itest==2: #For calculating the gradient wrt fsh
+            dx = 0.05 * np.log(fsh)  #In the state vector this variable is passed in log-scale
+            if dx==0.0:
+                dx = 0.1
+            xfsh = np.exp( np.log(fsh) + dx )
+        elif itest==3: #For calculating the gradient wrt href
+            dx = 0.05 * href
+            if dx==0.0:
+                dx = 0.1
+            hknee = href + dx
+
+        #Initialising some arrays
+        ND = np.zeros(atm.NP)   #Dust density (m-3)
+
+        #Calculating the density in each level
+        jfsh = -1
+        if atm.H[0]/1.0e3>=hknee:
+            jfsh = 1
+            ND[0] = 1.
+
+        for jx in range(atm.NP-1):
+            j = jx + 1
+            delh = atm.H[j] - atm.H[j-1]
+            xfac = scale[j] * xfsh
+
+            if atm.H[j]/1.0e3>=hknee:
+                
+                if jfsh<0:
+                    ND[j]=1.0
+                    jfsh = 1
+                else:
+                    ND[j]=ND[j-1]*np.exp(-delh/xfac)
+
+
+        for j in range(atm.NP):
+            if(atm.H[j]/1.0e3<hknee):
+                if(atm.H[j+1]/1.0e3>=hknee):
+                    ND[j] = ND[j] * (1.0 - (hknee*1.0e3-atm.H[j])/(atm.H[j+1]-atm.H[j]))
+                else:
+                    ND[j] = 0.0
+
+        #Calculating column density (m-2) by integrating the number density (m-3) over column (m)
+        #Note that when doing the layering, the total column density in the atmosphere might not be
+        #exactly the same as in xdeep due to misalignments at the boundaries of the cloud
+        totcol = simpson(ND,x=atm.H)
+        ND = ND / totcol * xdeep
+
+        if itest==0:
+            xprof[:] = ND[:]
+        else:
+            xmap[itest-1,ipar,:] = (ND[:]-xprof[:])/dx
+
+    icont = ipar - (atm.NVMR+1)
+    atm.DUST[0:atm.NP,icont] = xprof
+
+    return atm,xmap
+
+
 ###############################################################################################
 
 def model229(Measurement,par1,par2,par3,par4,par5,par6,par7,MakePlot=False):
@@ -563,6 +703,211 @@ def model229(Measurement,par1,par2,par3,par4,par5,par6,par7,MakePlot=False):
 
     return Measurement
 
+
+###############################################################################################
+
+def model230(Measurement,nwindows,liml,limh,par,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model2()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 229 in NEMESIS.
+            In this model, the ILS of the measurement is defined from every convolution wavenumber
+            using the double-Gaussian parameterisation created for analysing ACS MIR spectra
+        
+        INPUTS :
+        
+            Measurement :: Python class defining the Measurement
+            nwindows :: Number of spectral windows in which to fit the ILS
+            liml(nwindows) :: Low wavenumber limit of each spectral window
+            limh(nwindows) :: High wavenumber limit of each spectral window
+            par(0,nwindows) :: Wavenumber offset of main at lowest wavenumber for each window
+            par(1,nwindows) :: Wavenumber offset of main at wavenumber in the middle for each window
+            par(2,nwindows) :: Wavenumber offset of main at highest wavenumber for each window
+            par(3,nwindows) :: Offset of the second gaussian with respect to the first one (assumed spectrally constant) for each window
+            par(4,nwindows) :: FWHM of the main gaussian at lowest wavenumber (assumed to be constat in wavelength units) for each window
+            par(5,nwindows) :: Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber for each window
+            par(6,nwindows) :: Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (linear var) for each window
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Updated Measurement class
+        
+        CALLING SEQUENCE:
+        
+            Measurement = model230(Measurement,nwindows,liml,limh,par)
+        
+        MODIFICATION HISTORY : Juan Alday (29/03/2021)
+        
+    """
+
+    from NemesisPy import ngauss
+
+    #Calculating the parameters for each spectral point
+    nconv = Measurement.NCONV[0]
+    vconv2 = Measurement.VCONV[0:nconv,0]
+    ng = 2
+
+    
+    nfil2 = np.zeros(nconv,dtype='int32')
+    mfil2 = 200
+    vfil2 = np.zeros([mfil2,nconv])
+    afil2 = np.zeros([mfil2,nconv])
+
+    ivtot = 0
+    for iwindow in range(nwindows):
+
+        #Calculating the wavenumbers at which each spectral window applies
+        ivwin = np.where( (vconv2>=liml[iwindow]) & (vconv2<=limh[iwindow]) )
+        ivwin = ivwin[0]
+
+        vconv1 = vconv2[ivwin]
+        nconv1 = len(ivwin)
+        
+
+        par1 = par[0,iwindow]
+        par2 = par[1,iwindow]
+        par3 = par[2,iwindow]
+        par4 = par[3,iwindow]
+        par5 = par[4,iwindow]
+        par6 = par[5,iwindow]
+        par7 = par[6,iwindow]
+
+        # 1. Wavenumber offset of the two gaussians
+        #    We divide it in two sections with linear polynomials     
+        iconvmid = int(nconv1/2.)
+        wavemax = vconv1[nconv1-1]
+        wavemin = vconv1[0]
+        wavemid = vconv1[iconvmid]
+        offgrad1 = (par2 - par1)/(wavemid-wavemin)
+        offgrad2 = (par2 - par3)/(wavemid-wavemax)
+        offset = np.zeros([nconv,ng])
+        for i in range(iconvmid):
+            offset[i,0] = (vconv1[i] - wavemin) * offgrad1 + par1
+            offset[i,1] = offset[i,0] + par4
+        for i in range(nconv1-iconvmid):
+            offset[i+iconvmid,0] = (vconv1[i+iconvmid] - wavemax) * offgrad2 + par3
+            offset[i+iconvmid,1] = offset[i+iconvmid,0] + par4
+
+        # 2. FWHM for the two gaussians (assumed to be constant in wavelength, not in wavenumber)
+        fwhm = np.zeros([nconv1,ng])
+        fwhml = par5 / wavemin**2.0
+        for i in range(nconv1):
+            fwhm[i,0] = fwhml * (vconv1[i])**2.
+            fwhm[i,1] = fwhm[i,0]
+
+        # 3. Amplitde of the second gaussian with respect to the main one
+        amp = np.zeros([nconv1,ng])
+        ampgrad = (par7 - par6)/(wavemax-wavemin)
+        for i in range(nconv1):
+            amp[i,0] = 1.0
+            amp[i,1] = (vconv1[i] - wavemin) * ampgrad + par6
+
+
+        #Running for each spectral point
+        nfil = np.zeros(nconv1,dtype='int32')
+        mfil1 = 200
+        vfil1 = np.zeros([mfil1,nconv1])
+        afil1 = np.zeros([mfil1,nconv1])
+        for i in range(nconv1):
+
+            #determining the lowest and highest wavenumbers to calculate
+            xlim = 0.0
+            xdist = 5.0 
+            for j in range(ng):
+                xcen = offset[i,j]
+                xmin = abs(xcen - xdist*fwhm[i,j]/2.)
+                if xmin > xlim:
+                    xlim = xmin
+                xmax = abs(xcen + xdist*fwhm[i,j]/2.)
+                if xmax > xlim:
+                    xlim = xmax
+
+            #determining the wavenumber spacing we need to sample properly the gaussians
+            xsamp = 7.0   #number of points we require to sample one HWHM 
+            xhwhm = 10000.0
+            for j in range(ng):
+                xhwhmx = fwhm[i,j]/2. 
+                if xhwhmx < xhwhm:
+                    xhwhm = xhwhmx
+            deltawave = xhwhm/xsamp
+            np1 = 2.0 * xlim / deltawave
+            npx = int(np1) + 1
+
+            #Calculating the ILS in this spectral point
+            iamp = np.zeros([ng])
+            imean = np.zeros([ng])
+            ifwhm = np.zeros([ng])
+            fun = np.zeros([npx])
+            xwave = np.linspace(vconv1[i]-deltawave*(npx-1)/2.,vconv1[i]+deltawave*(npx-1)/2.,npx)        
+            for j in range(ng):
+                iamp[j] = amp[i,j]
+                imean[j] = offset[i,j] + vconv1[i]
+                ifwhm[j] = fwhm[i,j]
+
+            fun = ngauss(npx,xwave,ng,iamp,imean,ifwhm)  
+            nfil[i] = npx
+            vfil1[0:nfil[i],i] = xwave[:]
+            afil1[0:nfil[i],i] = fun[:]
+
+        
+
+        nfil2[ivtot:ivtot+nconv1] = nfil[:]
+        vfil2[0:mfil1,ivtot:ivtot+nconv1] = vfil1[0:mfil1,:]
+        afil2[0:mfil1,ivtot:ivtot+nconv1] = afil1[0:mfil1,:]
+
+        ivtot = ivtot + nconv1
+
+    if ivtot!=nconv:
+        sys.exit('error in model 230 :: The spectral windows must cover the whole measured spectral range')
+
+    mfil = nfil2.max()
+    vfil = np.zeros([mfil,nconv])
+    afil = np.zeros([mfil,nconv])
+    for i in range(nconv):
+        vfil[0:nfil2[i],i] = vfil2[0:nfil2[i],i]
+        afil[0:nfil2[i],i] = afil2[0:nfil2[i],i]
+    
+    Measurement.NFIL = nfil2
+    Measurement.VFIL = vfil
+    Measurement.AFIL = afil
+
+    if MakePlot==True:
+
+        fig, ([ax1,ax2,ax3]) = plt.subplots(1,3,figsize=(12,4))
+        
+        ix = 0  #First wavenumber
+        ax1.plot(vfil[0:nfil2[ix],ix],afil[0:nfil2[ix],ix],linewidth=2.)
+        ax1.set_xlabel(r'Wavenumber $\nu$ (cm$^{-1}$)')
+        ax1.set_ylabel(r'f($\nu$)')
+        ax1.set_xlim([vfil[0:nfil2[ix],ix].min(),vfil[0:nfil2[ix],ix].max()])
+        ax1.ticklabel_format(useOffset=False)
+        ax1.grid()
+        
+        ix = int(nconv/2)-1  #Centre wavenumber
+        ax2.plot(vfil[0:nfil2[ix],ix],afil[0:nfil2[ix],ix],linewidth=2.)
+        ax2.set_xlabel(r'Wavenumber $\nu$ (cm$^{-1}$)')
+        ax2.set_ylabel(r'f($\nu$)')
+        ax2.set_xlim([vfil[0:nfil2[ix],ix].min(),vfil[0:nfil2[ix],ix].max()])
+        ax2.ticklabel_format(useOffset=False)
+        ax2.grid()
+        
+        ix = nconv-1  #Last wavenumber
+        ax3.plot(vfil[0:nfil2[ix],ix],afil[0:nfil2[ix],ix],linewidth=2.)
+        ax3.set_xlabel(r'Wavenumber $\nu$ (cm$^{-1}$)')
+        ax3.set_ylabel(r'f($\nu$)')
+        ax3.set_xlim([vfil[0:nfil2[ix],ix].min(),vfil[0:nfil2[ix],ix].max()])
+        ax3.ticklabel_format(useOffset=False)
+        ax3.grid()
+        
+        plt.tight_layout()
+        plt.show()
+
+    return Measurement
 
 ###############################################################################################
 

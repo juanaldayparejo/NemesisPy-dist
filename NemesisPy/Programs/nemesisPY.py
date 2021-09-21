@@ -152,7 +152,7 @@ else:
 ######################################################
 
 if IRET==0:
-    OptimalEstimation.write_cov(runname,Variables)
+    OptimalEstimation.write_cov(runname,Variables,pickle=True)
     OptimalEstimation.write_mre(runname,Variables,Measurement)
 
 #Finishing pogram
