@@ -48,7 +48,6 @@ Scatter,Stellar,Surface,Layer = read_set(runname,Layer=Layer)
 
 Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Scatter=Scatter)
 
-
 #Reading .sur file if planet has surface
 #############################################################################
 

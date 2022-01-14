@@ -126,14 +126,12 @@ Variables.SX = copy(Variables.SA)
 ######################################################
 ######################################################
 
-
 IRET = 0    #(0) Optimal Estimation (1) Nested sampling
 if IRET==0:
     OptimalEstimation = coreretOE(runname,Variables,Measurement,Atm,Spec,Scatter,Stellar,Surface,CIA,Layer,\
                                      NITER=NITER,PHILIMIT=PHILIMIT,nemesisSO=True)
 else:
     sys.exit('error in nemesisSO :: Retrieval scheme has not been implemented yet')
-
 
 ######################################################
 ######################################################

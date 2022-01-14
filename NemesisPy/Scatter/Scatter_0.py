@@ -2,6 +2,7 @@ from NemesisPy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import os,sys
+import miepython
 
 #!/usr/local/bin/python3
 # -*- coding: utf-8 -*-
@@ -18,7 +19,7 @@ Scattering Class. Includes the absorption and scattering properties of aerosol p
 
 class Scatter_0:
 
-    def __init__(self, ISPACE=0, ISCAT=0, IRAY=0, IMIE=0, NMU=5, NF=2, NPHI=101, NDUST=1, SOL_ANG=0.0, EMISS_ANG=0.0, AZI_ANG=0.0):
+    def __init__(self, ISPACE=0, ISCAT=0, IRAY=0, IMIE=0, NMU=5, NF=2, NPHI=101, NDUST=1, SOL_ANG=0.0, EMISS_ANG=0.0, AZI_ANG=0.0, NTHETA=91, THETA=np.linspace(0.,180.,91)):
 
         """
         Inputs
@@ -96,7 +97,17 @@ class Scatter_0:
         Methods
         -------
         Scatter_0.calc_GAUSS_LOBATTO()
-        Scatter_0.fit_hg()
+        Scatter_0.read_xsc()
+        Scatter_0.write_xsc()
+        Scatter_0.read_hgphase()
+        Scatter_0.calc_hgphase()
+        Scatter_0.calc_tau_dust()
+        Scatter_0.calc_tau_rayleighj()
+        Scatter_0.read_refind_file()
+        Scatter_0.read_refind()
+        Scatter_0.miescat()
+        Scatter_0.miescat_k()
+
         """
 
         #Input parameters
@@ -114,13 +125,13 @@ class Scatter_0:
 
         # Input the following profiles using the edit_ methods.
         self.NWAVE = None
-        self.NTHETA = None
+        self.NTHETA = NTHETA
         self.WAVE = None #np.zeros(NWAVE)
         self.KEXT = None #np.zeros(NWAVE,NDUST)
         self.KABS = None #np.zeros(NWAVE,NDUST)
         self.KSCA = None #np.zeros(NWAVE,NDUST)
         self.SGLALB = None #np.zeros(NWAVE,NDUST)
-        self.THETA = None #np.zeros(NTHETA)
+        self.THETA = THETA
         self.PHASE = None #np.zeros(NWAVE,NTHETA,NDUST)
 
         self.MU = None # np.zeros(NCONV)
@@ -130,6 +141,12 @@ class Scatter_0:
         self.G1 = None  #np.zeros(NWAVE,NDUST)
         self.G2 = None #np.zeros(NWAVE,NDUST)
         self.F = None #np.zeros(NWAVE,NDUST)
+
+        #Refractive index of a given aerosol population
+        self.NWAVER = None 
+        self.WAVER = None #np.zeros(NWAVER)
+        self.REFIND_REAL = None #np.zeros(NWAVER)
+        self.REFIND_IM = None #np.zeros(NWAVER)
 
         self.calc_GAUSS_LOBATTO()
 
@@ -184,6 +201,7 @@ class Scatter_0:
         self.SGLALB = sglalb
         self.KSCA = self.SGLALB * self.KEXT
         self.KABS = self.KEXT - self.KSCA
+        self.PHASE = np.zeros((self.NWAVE,self.NTHETA,self.NDUST))
 
         if MakePlot==True:
 
@@ -403,3 +421,476 @@ class Scatter_0:
             plt.show()
 
         return tau_ray,dtau_ray
+
+    def read_refind(self,aeroID):
+        """
+        Read a file of the refractive index from the NEMESIS aerosol database 
+
+        @aeroID: str
+            ID of the aerosol type
+
+        Outputs
+        ________
+
+        @ISPACE: int
+            Flag indicating whether the refractive index is expressed in Wavenumber (0) of Wavelength (1)
+        @NWAVER: int
+            Number of spectral point
+        @WAVER: 1D array
+            Wavenumber (cm-1) / Wavelength (um) array
+        @REFIND_REAL: 1D array
+            Real part of the refractive index
+        @REFIND_IM: 1D array
+            Imaginary part of the refractive index
+        """
+
+        from NemesisPy import aerosol_info
+
+        wave_aero = aerosol_info[str(aeroID)]["wave"]
+        refind_real_aero1 = aerosol_info[str(aeroID)]["refind_real"]
+        refind_im_aero1 = aerosol_info[str(aeroID)]["refind_im"]
+
+        self.NWAVER = len(wave_aero)
+        self.WAVER = wave_aero
+        self.REFIND_REAL = refind_real_aero1
+        self.REFIND_IM = refind_im_aero1
+
+
+    def read_refind_file(self,filename,MakePlot=False):
+        """
+        Read a file of the refractive index using the format required by NEMESIS
+
+        @filename: str
+            Name of the file where the data is stored
+
+        Outputs
+        ________
+
+        @ISPACE: int
+            Flag indicating whether the refractive index is expressed in Wavenumber (0) of Wavelength (1)
+        @NWAVER: int
+            Number of spectral point
+        @WAVER: 1D array
+            Wavenumber (cm-1) / Wavelength (um) array
+        @REFIND_REAL: 1D array
+            Real part of the refractive index
+        @REFIND_IM: 1D array
+            Imaginary part of the refractive index
+        """
+
+        from NemesisPy import file_lines
+
+        nlines = file_lines(filename)
+
+        #Reading buffer
+        ibuff = 0
+        with open(filename,'r') as fsol:
+            for curline in fsol:
+                if curline.startswith("#"):
+                    ibuff = ibuff + 1
+                else:
+                    break
+
+        #Reading buffer
+        f = open(filename,'r')
+        for i in range(ibuff):
+            s = f.readline().split()
+
+        #Reading file
+        s = f.readline().split()
+        nwave = int(s[0])
+        s = f.readline().split()
+        ispace = int(s[0])
+
+        wave = np.zeros(nwave)
+        refind_real = np.zeros(nwave)
+        refind_im = np.zeros(nwave)
+        for i in range(nwave):
+            s = f.readline().split()
+            wave[i] = float(s[0])
+            refind_real[i] = float(s[1])
+            refind_im[i] = float(s[2])
+
+        f.close()
+
+        return ispace,nwave,wave,refind_real,refind_im
+
+    def miescat(self,IDUST,psdist,pardist,MakePlot=False,rdist=None,Ndist=None,WaveNorm=None):
+
+        """
+        Function to calculate the extinction coefficient, single scattering albedo and phase functions
+        for different aerosol populations using Mie Theory.
+
+        Inputs
+        ________
+
+        @param IDUST: int
+            Integer indicating to which aerosol population this calculation corresponds to (from 0 to NDUST-1)
+        @param psdist: int
+            Flag indicating the particle size distribution
+                0 :: Single particle size
+                1 :: Log-normal distribution
+                -1 :: Other input particle size distribution (using optional inputs)
+        @param pardist: int
+            Particle size distribution parameters
+                psdist == 0 :: pardist(0) == particle size in microns
+                psdist == 1 :: pardist(0) == mu
+                               pardist(1) == sigma
+
+        Optional inputs
+        ________________
+
+        rdist :: Array of particle sizes (to be used if pardist==-1)
+        Ndist :: Density of particles of each particle size (to be used if pardist==-1)
+        WaveNorm :: Wavelength/Wavenumber at which the cross sections will be normalised
+
+        Outputs
+        ________
+
+        Updated KEXT,KABS,KSCA,PHASE in the Scatter_0 class
+
+        """
+
+        from scipy.integrate import simpson
+        from scipy.stats import lognorm
+        from scipy import interpolate
+        from NemesisPy import lognormal_dist,find_nearest
+        from copy import copy
+
+        iNorm = 0
+        if WaveNorm!=None:
+
+            if self.WAVE.min()>WaveNorm:
+                sys.exit('error in miescat :: WaveNorm must be within WAVE.min() and WAVE.max()')
+            if self.WAVE.max()<WaveNorm:
+                sys.exit('error in miescat :: WaveNorm must be within WAVE.min() and WAVE.max()')
+
+            iNorm = 1
+
+        #First we determine the number of particle sizes to later perform the integration
+        ######################################################################################
+
+        if psdist==0:   #Single particle size
+            nr = 1
+            rd = np.zeros(nr)   #Array of particle sizes
+            Nd = np.zeros(nr)   #Weight (tipycally density) of each particle size for the integration
+            rd[0] = pardist[0]
+            Nd[0] = 1.0
+        elif psdist==1: #Log-normal distribution
+            mu = pardist[0]
+            sigma = pardist[1]
+            r0 = lognorm.ppf(0.0001, sigma, 0.0, mu)
+            r1 = lognorm.ppf(0.9999, sigma, 0.0, mu)
+            rmax = np.exp( np.log(mu) - sigma**2.)
+            delr = (rmax-r0)/10.
+            nr = int((r1-r0)/delr) + 1
+            rd = np.linspace(r0,r1,nr) #Array of particle sizes
+            Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
+        elif psdist==2: #Standard gamma distribution
+            sys.exit('error in miescat :: Standard gamma distribution has not yet been implemented')
+        elif psdist==-1:
+            if rdist[0]==None:
+                sys.exit('error in miescat :: If psdist=-1 rdist and Ndist must be filled')
+            if Ndist[0]==None:
+                sys.exit('error in miescat :: If psdist=-1 rdist and Ndist must be filled')
+            nr = len(rdist)
+            rd = np.zeros(nr)   #Array of particle sizes
+            Nd = np.zeros(nr)   #Weight (tipycally density) of each particle size for the integration
+            rd[:] = rdist
+            Nd[:] = Ndist
+        else:
+            sys.exit('error in miescat :: Type of distribution not yet implemented')
+
+        #Interpolating the refractive index to the correct wavelength/wavenumber grid
+        #####################################################################################
+
+        refind_real = np.zeros(self.NWAVE)
+        refind_im = np.zeros(self.NWAVE)
+
+        f = interpolate.interp1d(self.WAVER,self.REFIND_REAL)
+        refind_real[:] = f(self.WAVE)
+
+        f = interpolate.interp1d(self.WAVER,self.REFIND_IM)
+        refind_im[:] = f(self.WAVE)
+
+        #Second we change the units of the spectral points if they are in wavenumbers
+        ######################################################################################
+
+        if self.ISPACE==0:  #Wavenumber
+            wave1 = copy(self.WAVE)
+            wave = 1.0e4/wave1
+            isort = np.argsort(wave)
+            wave = wave[isort]
+            refind_real1 = refind_real[isort]
+            refind_im1 = refind_im[isort]
+            refind = refind_real1 - 1.0j * refind_im1
+        elif self.ISPACE==1:  #Wavelength
+            refind = refind_real - 1.0j * refind_im
+        else:
+            sys.exit('error in miescat :: ISPACE must be either 0 or 1')
+
+        #We calculate the scattering and absorption properties of each particle size in the distribution
+        ######################################################################################################
+
+        kext = np.zeros([self.NWAVE,nr])
+        ksca = np.zeros([self.NWAVE,nr])
+        phase = np.zeros([self.NWAVE,self.NTHETA,nr])
+        for ir in range(nr):
+
+            r0 = rd[ir]
+            x = np.zeros(self.NWAVE)
+            x[:] = 2.*np.pi*r0/(self.WAVE)
+            qext, qsca, qback, g = miepython.mie(refind,x)
+
+            ksca[:,ir] = qsca * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+            kext[:,ir] = qext * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+
+            mu = np.cos(self.THETA/180.*np.pi)
+            for iwave in range(self.NWAVE):
+                unpolar = miepython.i_unpolarized(refind[iwave],x[iwave],mu)
+                phase[iwave,:,ir] = unpolar
+
+        #Now integrating over particle size to find the mean scattering and absorption properties
+        ###########################################################################################
+
+        if nr>1:
+            kext1 = np.zeros([self.NWAVE,nr])
+            ksca1 = np.zeros([self.NWAVE,nr])
+            phase1 = np.zeros([self.NWAVE,self.NTHETA,nr])
+            for ir in range(nr):
+                kext1[:,ir] = kext[:,ir] * Nd[ir]
+                ksca1[:,ir] = ksca[:,ir] * Nd[ir]
+                phase1[:,:,ir] = phase[:,:,ir] * Nd[ir]
+
+            #Integrating the arrays
+            kextout = simpson(kext1,x=rd,axis=1)
+            kscaout = simpson(ksca1,x=rd,axis=1)
+            phaseout = simpson(phase1,x=rd,axis=2)
+
+            #Integrating the particle size distribution
+            pnorm = simpson(Nd,x=rd)
+
+            #Calculating the mean properties
+            xext = np.zeros(self.NWAVE)
+            xsca = np.zeros(self.NWAVE)
+            xabs = np.zeros(self.NWAVE)
+            xext[:] = kextout/pnorm
+            xsca[:] = kscaout/pnorm
+            xabs = xext - xsca
+            xphase = np.zeros([self.NWAVE,self.NTHETA])
+            xphase[:,:] = phaseout/pnorm
+
+        else:
+            xext = np.zeros(self.NWAVE)
+            xsca = np.zeros(self.NWAVE)
+            xabs = np.zeros(self.NWAVE)
+            xext[:] = kext[:,0]  
+            xsca[:] = ksca[:,0]
+            xabs = xext - xsca
+            xphase = np.zeros([self.NWAVE,self.NTHETA])
+            xphase = phase[:,:,0]
+
+        #Sorting again the arrays if ispace=0
+        if self.ISPACE==0:  #Wavenumber
+            wave = 1.0e4/wave
+            isort = np.argsort(wave)
+            wave = wave[isort]
+            xext = xext[isort]
+            xsca = xsca[isort]
+            xabs = xabs[isort]
+            xphase[:,:] = xphase[isort,:]
+
+        if iNorm==1:
+            wave0,iwave = find_nearest(self.WAVE,WaveNorm)
+            xext = xext / xext[iwave]
+            xabs = xabs / xext[iwave]
+            xsca = xsca / xext[iwave]
+
+        self.KEXT[:,IDUST] = xext
+        self.KABS[:,IDUST] = xabs
+        self.KSCA[:,IDUST] = xsca
+        self.SGLALB[:,IDUST] = xsca/xext
+        self.PHASE[:,:,IDUST] = xphase
+
+
+    def miescat_k(self,IDUST,psdist,pardist,MakePlot=False,rdist=None,Ndist=None,WaveNorm=None):
+
+        """
+        Function to calculate the extinction coefficient, single scattering albedo and phase functions
+        for different aerosol populations using Mie Theory.
+
+        Inputs
+        ________
+
+        @param IDUST: int
+            Integer indicating to which aerosol population this calculation corresponds to (from 0 to NDUST-1)
+        @param psdist: int
+            Flag indicating the particle size distribution
+                0 :: Single particle size
+                1 :: Log-normal distribution
+                -1 :: Other input particle size distribution (using optional inputs)
+        @param pardist: int
+            Particle size distribution parameters
+                psdist == 0 :: pardist(0) == particle size in microns
+                psdist == 1 :: pardist(0) == mu
+                               pardist(1) == sigma
+
+        Optional inputs
+        ________________
+
+        rdist :: Array of particle sizes (to be used if pardist==-1)
+        Ndist :: Density of particles of each particle size (to be used if pardist==-1)
+        WaveNorm :: Wavelength/Wavenumber at which the cross sections will be normalised
+
+        Outputs
+        ________
+
+        Updated KEXT,KABS,KSCA,PHASE in the Scatter_0 class
+
+        """
+
+        from scipy.integrate import simpson
+        from scipy.stats import lognorm
+        from scipy import interpolate
+        from NemesisPy import lognormal_dist,find_nearest
+        from copy import copy
+
+        iNorm = 0
+        if WaveNorm!=None:
+
+            if self.WAVE.min()>WaveNorm:
+                sys.exit('error in miescat :: WaveNorm must be within WAVE.min() and WAVE.max()')
+            if self.WAVE.max()<WaveNorm:
+                sys.exit('error in miescat :: WaveNorm must be within WAVE.min() and WAVE.max()')
+
+            iNorm = 1
+
+        #First we determine the number of particle sizes to later perform the integration
+        ######################################################################################
+
+        if psdist==0:   #Single particle size
+            nr = 1
+            rd = np.zeros(nr)   #Array of particle sizes
+            Nd = np.zeros(nr)   #Weight (tipycally density) of each particle size for the integration
+            rd[0] = pardist[0]
+            Nd[0] = 1.0
+        elif psdist==1: #Log-normal distribution
+            mu = pardist[0]
+            sigma = pardist[1]
+            r0 = lognorm.ppf(0.0001, sigma, 0.0, mu)
+            r1 = lognorm.ppf(0.9999, sigma, 0.0, mu)
+            rmax = np.exp( np.log(mu) - sigma**2.)
+            delr = (rmax-r0)/10.
+            nr = int((r1-r0)/delr) + 1
+            rd = np.linspace(r0,r1,nr) #Array of particle sizes
+            Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
+        elif psdist==2: #Standard gamma distribution
+            sys.exit('error in miescat :: Standard gamma distribution has not yet been implemented')
+        elif psdist==-1:
+            if rdist[0]==None:
+                sys.exit('error in miescat :: If psdist=-1 rdist and Ndist must be filled')
+            if Ndist[0]==None:
+                sys.exit('error in miescat :: If psdist=-1 rdist and Ndist must be filled')
+            nr = len(rdist)
+            rd = np.zeros(nr)   #Array of particle sizes
+            Nd = np.zeros(nr)   #Weight (tipycally density) of each particle size for the integration
+            rd[:] = rdist
+            Nd[:] = Ndist
+        else:
+            sys.exit('error in miescat :: Type of distribution not yet implemented')
+
+        #Interpolating the refractive index to the correct wavelength/wavenumber grid
+        #####################################################################################
+
+        refind_real = np.zeros(self.NWAVE)
+        refind_im = np.zeros(self.NWAVE)
+
+        f = interpolate.interp1d(self.WAVER,self.REFIND_REAL)
+        refind_real[:] = f(self.WAVE)
+
+        f = interpolate.interp1d(self.WAVER,self.REFIND_IM)
+        refind_im[:] = f(self.WAVE)
+
+        #Second we change the units of the spectral points if they are in wavenumbers
+        ######################################################################################
+
+        if self.ISPACE==0:  #Wavenumber
+            wave1 = copy(self.WAVE)
+            wave = 1.0e4/wave1
+            isort = np.argsort(wave)
+            wave = wave[isort]
+            refind_real1 = refind_real[isort]
+            refind_im1 = refind_im[isort]
+            refind = refind_real1 - 1.0j * refind_im1
+        elif self.ISPACE==1:  #Wavelength
+            refind = refind_real - 1.0j * refind_im
+        else:
+            sys.exit('error in miescat :: ISPACE must be either 0 or 1')
+
+        #We calculate the scattering and absorption coefficients of each particle size in the distribution
+        ######################################################################################################
+
+        kext = np.zeros([self.NWAVE,nr])
+        ksca = np.zeros([self.NWAVE,nr])
+        for ir in range(nr):
+
+            r0 = rd[ir]
+            x = np.zeros(self.NWAVE)
+            x[:] = 2.*np.pi*r0/(self.WAVE)
+            qext, qsca, qback, g = miepython.mie(refind,x)
+
+            ksca[:,ir] = qsca * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+            kext[:,ir] = qext * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+
+        #Now integrating over particle size to find the mean scattering and absorption properties
+        ###########################################################################################
+
+        if nr>1:
+            kext1 = np.zeros([self.NWAVE,nr])
+            ksca1 = np.zeros([self.NWAVE,nr])
+            for ir in range(nr):
+                kext1[:,ir] = kext[:,ir] * Nd[ir]
+                ksca1[:,ir] = ksca[:,ir] * Nd[ir]
+
+            #Integrating the arrays
+            kextout = simpson(kext1,x=rd,axis=1)
+            kscaout = simpson(ksca1,x=rd,axis=1)
+
+            #Integrating the particle size distribution
+            pnorm = simpson(Nd,x=rd)
+
+            #Calculating the mean properties
+            xext = np.zeros(self.NWAVE)
+            xsca = np.zeros(self.NWAVE)
+            xabs = np.zeros(self.NWAVE)
+            xext[:] = kextout/pnorm
+            xsca[:] = kscaout/pnorm
+            xabs = xext - xsca
+
+        else:
+            xext = np.zeros(self.NWAVE)
+            xsca = np.zeros(self.NWAVE)
+            xabs = np.zeros(self.NWAVE)
+            xext[:] = kext[:,0]  
+            xsca[:] = ksca[:,0]
+            xabs = xext - xsca
+
+        #Sorting again the arrays if ispace=0
+        if self.ISPACE==0:  #Wavenumber
+            wave = 1.0e4/wave
+            isort = np.argsort(wave)
+            wave = wave[isort]
+            xext = xext[isort]
+            xsca = xsca[isort]
+            xabs = xabs[isort]
+
+        if iNorm==1:
+            wave0,iwave = find_nearest(self.WAVE,WaveNorm)
+            xext = xext / xext[iwave]
+            xabs = xabs / xext[iwave]
+            xsca = xsca / xext[iwave]
+
+        self.KEXT[:,IDUST] = xext
+        self.KABS[:,IDUST] = xabs
+        self.KSCA[:,IDUST] = xsca
+        self.SGLALB[:,IDUST] = xsca/xext

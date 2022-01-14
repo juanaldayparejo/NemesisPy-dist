@@ -19,7 +19,7 @@ State Vector Class.
 
 class Spectroscopy_0:
 
-    def __init__(self, ISPACE=0, ILBL=2, NGAS=2, ID=[1,2], ISO=[0,0], LOCATION=['',''], NWAVE=2, WAVE=[0.,100.], \
+    def __init__(self, RUNNAME='wasp121', ISPACE=0, ILBL=2, NGAS=2, ID=[1,2], ISO=[0,0], LOCATION=['',''], NWAVE=2, WAVE=[0.,100.], \
                  NP=2, NT=2, PRESS=[1.0e2,1.0e-10], TEMP=[30.,300.], NG=1, G_ORD=[0.], DELG=[1.], FWHM=0.0):
 
         """
@@ -69,6 +69,7 @@ class Spectroscopy_0:
         """
 
         #Input parameters
+        self.RUNNAME = RUNNAME
         self.ISPACE = ISPACE
         self.ILBL = ILBL
         self.NGAS = NGAS

@@ -1060,6 +1060,7 @@ def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
         
     """
 
+    from NemesisPy import read_fil
 
     yout = np.zeros([nconv])
     ynor = np.zeros([nconv])
@@ -1114,7 +1115,7 @@ def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
 
     if fwhm<0.0:
         #Line shape for each convolution number in each case is read from .fil file
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
 
         if nconv1 != nconv:
             sys.exit('lblconv :: Convolution wavenumbers must be the same in .spx and .fil files')
@@ -1199,7 +1200,7 @@ def wavesetb(runname,nconv,vconv,fwhm):
             save[i] = vconv[i]
 
     if fwhm < 0.0:
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
         if nconv != nconv1:
             sys.exit('error :: onvolution wavenumbers must be the same in .spx and .fil files')
 
@@ -1323,7 +1324,7 @@ def wavesetc_v2(runname,nconv,vconv,fwhm):
     save = np.zeros([savemax])
     ico = 0
     if fwhm < 0.0:
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
         if nconv != nconv1:
             sys.exit('error :: convolution wavenumbers must be the same in .spx and .fil files')
 
@@ -1477,7 +1478,7 @@ def wavesetc(runname,nconv,vconv,fwhm):
 
     elif fwhm<=0.0:
         
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
         if nconv != nconv1:
             sys.exit('error :: convolution wavenumbers must be the same in .spx and .fil files')
 

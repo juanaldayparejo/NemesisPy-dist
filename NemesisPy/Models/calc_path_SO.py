@@ -52,7 +52,6 @@ def calc_path_SO(Atmosphere,Scatter,Measurement,Layer):
     BASEH, BASEP, BASET, HEIGHT, PRESS, TEMP, TOTAM, AMOUNT, PP, CONT, LAYSF, DELH\
         = Layer.integrate(H=Atmosphere.H,P=Atmosphere.P,T=Atmosphere.T, LAYANG=LAYANG, ID=Atmosphere.ID,VMR=Atmosphere.VMR, DUST=Atmosphere.DUST)
 
-
     #Based on the atmospheric layerinc, we calculate each required atmospheric path to model the measurements
     #############################################################################################################
 

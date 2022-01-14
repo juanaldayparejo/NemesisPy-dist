@@ -1162,10 +1162,11 @@ def read_inp(runname,Measurement=None,Scatter=None,Spectroscopy=None):
 
     if Scatter==None:
         Scatter = Scatter_0
+    Scatter.ISPACE = ispace
     Scatter.ISCAT = iscat
 
     if Spectroscopy==None:
-        Spectroscopy = Spectroscopy_0()
+        Spectroscopy = Spectroscopy_0(RUNNAME=runname)
     Spectroscopy.ILBL = ilbl
     
     tmp = f.readline().split()

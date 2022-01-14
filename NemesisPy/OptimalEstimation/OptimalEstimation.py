@@ -172,7 +172,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
     
             for j in range(OptimalEstimation.NX):
                 XN1[j] = OptimalEstimation.XN[j] + (X_OUT[j]-OptimalEstimation.XN[j])/(1.0+alambda)
-            
+                
                 #Check to see if log numbers have gone out of range
                 if Variables.LX[j]==1:
                     if((XN1[j]>85.) or (XN1[j]<-85.)):
@@ -199,9 +199,10 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
             Scatter1 = copy(Scatter)
             Stellar1 = copy(Stellar)
             Surface1 = copy(Surface)
+            Spectroscopy1 = copy(Spectroscopy)
             Layer1 = copy(Layer)
             flagh2p = False
-            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
 
             #if(len(np.where(Atmosphere1.VMR<0.0))>0):
             #    print('nemesisSO :: VMR has gone negative --- increasing brake')

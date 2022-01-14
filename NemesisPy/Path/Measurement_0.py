@@ -111,6 +111,7 @@ class Measurement_0:
         Measurement.read_fil
         Measurement.wavesetc     
         Measurement.wavesetb
+        Measurement.remove_geometry
         """
 
         #Input parameters
@@ -317,6 +318,37 @@ class Measurement_0:
 
         self.SE = se
 
+
+    def remove_geometry(self,IGEOM):
+        """
+        Remove one spectrum from the Measurement class
+
+        @param IGEOM: int
+            Integer indicating the geometry to be erased (from 0 to NGEOM)
+        """
+
+        if IGEOM>self.NGEOM-1:
+            sys.exit('error in remove_geometry :: IGEOM must be between 0 and NGEOM')
+
+        self.NGEOM = self.NGEOM - 1
+        self.NCONV = np.delete(self.NCONV,IGEOM,axis=0)
+
+        self.VCONV = np.delete(self.VCONV,IGEOM,axis=1)
+        self.MEAS = np.delete(self.MEAS,IGEOM,axis=1)
+        self.ERRMEAS = np.delete(self.ERRMEAS,IGEOM,axis=1)
+        self.FLAT = np.delete(self.FLAT,IGEOM,axis=0)
+        self.FLON = np.delete(self.FLON,IGEOM,axis=0)
+
+        if isinstance(self.TANHE,np.ndarray)==True:
+            self.TANHE = np.delete(self.TANHE,IGEOM,axis=0)
+        if isinstance(self.SOL_ANG,np.ndarray)==True:
+            self.SOL_ANG = np.delete(self.SOL_ANG,IGEOM,axis=0)
+        if isinstance(self.EMISS_ANG,np.ndarray)==True:
+            self.EMISS_ANG = np.delete(self.EMISS_ANG,IGEOM,axis=0)
+        if isinstance(self.AZI_ANG,np.ndarray)==True:
+            self.AZI_ANG = np.delete(self.AZI_ANG,IGEOM,axis=0)
+        if isinstance(self.WGEOM,np.ndarray)==True!=None:
+            self.WGEOM = np.delete(self.WGEOM,IGEOM,axis=0)
 
     def read_spx_SO(self,runname,MakePlot=False):
     
@@ -910,7 +942,82 @@ class Measurement_0:
                     yout[j,:] = yout[j,:]/ynor[j,:]
 
         else:
-            sys.exit('error in lblconv :: Must implement the case IGEOM!=-1')
+            
+            #It is assumed all geometries cover the same spectral range
+            IG = IGEOM
+            yout = np.zeros(self.NCONV[IG])
+            ynor = np.zeros(self.NCONV[IG])
+
+            if self.FWHM>0.0:
+                #Set total width of Hamming/Hanning function window in terms of
+                #numbers of FWHMs for ISHAPE=3 and ISHAPE=4
+                nfw = 3.
+                for j in range(self.NCONV[IG]):
+                    yfwhm = self.FWHM
+                    vcen = self.VCONV[j,IG]
+                    if self.ISHAPE==0:
+                        v1 = vcen-0.5*yfwhm
+                        v2 = v1 + yfwhm
+                    elif self.ISHAPE==1:
+                        v1 = vcen-yfwhm
+                        v2 = vcen+yfwhm
+                    elif self.ISHAPE==2:
+                        sig = 0.5*yfwhm/np.sqrt( np.log(2.0)  )
+                        v1 = vcen - 3.*sig
+                        v2 = vcen + 3.*sig
+                    else:
+                        v1 = vcen - nfw*yfwhm
+                        v2 = vcen + nfw*yfwhm
+
+                    #Find relevant points in tabulated files
+                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
+                    inwave = inwave1[0]
+
+                    np1 = len(inwave)
+                    for i in range(np1):
+                        f1=0.0
+                        if self.ISHAPE==0:
+                            #Square instrument lineshape
+                            f1=1.0
+                        elif self.ISHAPE==1:
+                            #Triangular instrument shape
+                            f1=1.0 - abs(self.WAVE[inwave[i]] - vcen)/yfwhm
+                        elif self.ISHAPE==2:
+                            #Gaussian instrument shape
+                            f1 = np.exp(-((self.WAVE[inwave[i]]-vcen)/sig)**2.0)
+                        else:
+                            sys.exit('lblconv :: ishape not included yet in function')
+
+                        if f1>0.0:
+                            yout[j] = yout[j] + f1*ModSpec[inwave[i]]
+                            ynor[j] = ynor[j] + f1
+
+                    yout[j] = yout[j]/ynor[j]
+
+            elif self.FWHM<0.0:
+
+                #Line shape for each convolution number in each case is read from .fil file
+                for j in range(self.NCONV[IG]):
+                    v1 = self.VFIL[0,j]
+                    v2 = self.VFIL[self.NFIL[j]-1,j]
+                    #Find relevant points in tabulated files
+                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
+                    inwave = inwave1[0]
+
+                    np1 = len(inwave)
+                    xp = np.zeros([self.NFIL[j]])
+                    yp = np.zeros([self.NFIL[j]])
+                    xp[:] = self.VFIL[0:self.NFIL[j],j]
+                    yp[:] = self.AFIL[0:self.NFIL[j],j]
+
+                    for i in range(np1):
+                        #Interpolating (linear) for finding the lineshape at the calculation wavenumbers
+                        f1 = np.interp(self.WAVE[inwave[i]],xp,yp)
+                        if f1>0.0:
+                            yout[j] = yout[j] + f1*ModSpec[inwave[i]]
+                            ynor[j] = ynor[j] + f1
+
+                    yout[j] = yout[j]/ynor[j]
 
         return yout
 
@@ -1403,3 +1510,5 @@ class Measurement_0:
                     gradout[ICONV,:] = gradout[ICONV,:]/gradnorm[ICONV,:]
                 
         return yout,gradout
+
+

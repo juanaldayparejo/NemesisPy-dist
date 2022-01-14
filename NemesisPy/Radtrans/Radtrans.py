@@ -98,8 +98,11 @@ def calc_gascn(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Ste
             
         SPECMODGCN[:,:,igas] = SPECMOD1[:,:]
 
-    #Writing the .gcn file if required
-    write_gcn(runname,Spectroscopy.NGAS,Spectroscopy.ID,Spectroscopy.ISO,Measurement.NGEOM,Measurement.NCONV,Measurement.VCONV,SPECMODGCN)
+        if Write_GCN==True:
+            #Writing the .gcn file if required
+            write_gcn(runname,Spectroscopy.NGAS,Spectroscopy.ID,Spectroscopy.ISO,Measurement.NGEOM,Measurement.NCONV,Measurement.VCONV,SPECMODGCN)
+
+    return SPECMODGCN
 
 ###############################################################################################
 
@@ -160,7 +163,7 @@ def nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
     CIA1 = copy(CIA)
     flagh2p = False
 
-    xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+    xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
 
     """
     #Based on the new reference atmosphere, we split the atmosphere into layers
@@ -209,13 +212,13 @@ def nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
     del dSPECOUT1
 
     #Interpolating the spectra to the correct altitudes defined in Measurement
-    SPECMOD = np.zeros([Measurement.NWAVE,Measurement.NGEOM])
-    dSPECMOD = np.zeros([Measurement.NWAVE,Measurement.NGEOM,Variables.NX])
+    SPECMOD = np.zeros([Measurement1.NWAVE,Measurement1.NGEOM])
+    dSPECMOD = np.zeros([Measurement1.NWAVE,Measurement1.NGEOM,Variables.NX])
     for i in range(Measurement.NGEOM):
 
         #Find altitudes above and below the actual tangent height
-        base0,ibase = find_nearest(BASEH_TANHE,Measurement.TANHE[i])
-        if base0<=Measurement.TANHE[i]:
+        base0,ibase = find_nearest(BASEH_TANHE,Measurement1.TANHE[i])
+        if base0<=Measurement1.TANHE[i]:
             ibasel = ibase
             ibaseh = ibase + 1
         else:
@@ -226,11 +229,12 @@ def nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
             SPECMOD[:,i] = SPECOUT[:,ibasel]
             dSPECMOD[:,i,:] = dSPECOUT[:,ibasel,:]
         else:
-            fhl = (Measurement.TANHE[i]-BASEH_TANHE[ibasel])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
-            fhh = (BASEH_TANHE[ibaseh]-Measurement.TANHE[i])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
+            fhl = (Measurement1.TANHE[i]-BASEH_TANHE[ibasel])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
+            fhh = (BASEH_TANHE[ibaseh]-Measurement1.TANHE[i])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
 
             SPECMOD[:,i] = SPECOUT[:,ibasel]*(1.-fhl) + SPECOUT[:,ibaseh]*(1.-fhh)
             dSPECMOD[:,i,:] = dSPECOUT[:,ibasel,:]*(1.-fhl) + dSPECOUT[:,ibaseh,:]*(1.-fhh)
+
 
     """
     NP = Measurement.NWAVE * Atmosphere1.NP
@@ -341,7 +345,7 @@ def nemesisSOfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
     CIA1 = copy(CIA)
     flagh2p = False
 
-    xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+    xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
 
     Layer1,Path1 = calc_path_SO(Atmosphere1,Scatter1,Measurement1,Layer1)
     BASEH_TANHE = np.zeros(Path1.NPATH)
@@ -353,13 +357,13 @@ def nemesisSOfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
     
 
     #Interpolating the spectra to the correct altitudes defined in Measurement
-    SPECMOD = np.zeros([Measurement.NWAVE,Measurement.NGEOM])
-    dSPECMOD = np.zeros([Measurement.NWAVE,Measurement.NGEOM,Variables.NX])
+    SPECMOD = np.zeros([Measurement1.NWAVE,Measurement1.NGEOM])
+    dSPECMOD = np.zeros([Measurement1.NWAVE,Measurement1.NGEOM,Variables.NX])
     for i in range(Measurement.NGEOM):
 
         #Find altitudes above and below the actual tangent height
-        base0,ibase = find_nearest(BASEH_TANHE,Measurement.TANHE[i])
-        if base0<=Measurement.TANHE[i]:
+        base0,ibase = find_nearest(BASEH_TANHE,Measurement1.TANHE[i])
+        if base0<=Measurement1.TANHE[i]:
             ibasel = ibase
             ibaseh = ibase + 1
         else:
@@ -369,8 +373,8 @@ def nemesisSOfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
         if ibaseh>Path1.NPATH-1:
             SPECMOD[:,i] = SPECOUT[:,ibasel]
         else:
-            fhl = (Measurement.TANHE[i]-BASEH_TANHE[ibasel])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
-            fhh = (BASEH_TANHE[ibaseh]-Measurement.TANHE[i])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
+            fhl = (Measurement1.TANHE[i]-BASEH_TANHE[ibasel])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
+            fhh = (BASEH_TANHE[ibaseh]-Measurement1.TANHE[i])/(BASEH_TANHE[ibaseh]-BASEH_TANHE[ibasel])
 
             SPECMOD[:,i] = SPECOUT[:,ibasel]*(1.-fhl) + SPECOUT[:,ibaseh]*(1.-fhh)
 
@@ -484,9 +488,6 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
     from NemesisPy import nemesisSOfm_parallel
     from copy import copy
 
-    #import multiprocessing
-    #from functools import partial
-    #from shutil import copyfile
 
     #################################################################################
     # Making some calculations for storing all the arrays
@@ -495,6 +496,8 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
     nproc = Variables.NX+1 #Number of times we need to run the forward model
 
     #Constructing state vector after perturbation of each of the elements and storing in matrix
+
+    Variables.calc_DSTEP() #Calculating the step size for the perturbation of each element
     nxn = Variables.NX+1
     xnx = np.zeros([Variables.NX,nxn])
     for i in range(Variables.NX+1):
@@ -502,9 +505,12 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
             xnx[0:Variables.NX,i] = Variables.XN[0:Variables.NX]
         else:      #Perturbation of each element
             xnx[0:Variables.NX,i] = Variables.XN[0:Variables.NX]
-            xnx[i-1,i] = Variables.XN[i-1]*1.01
+            #xnx[i-1,i] = Variables.XN[i-1]*1.05
+            xnx[i-1,i] = Variables.XN[i-1] + Variables.DSTEP[i-1]
             if Variables.XN[i-1]==0.0:
                 xnx[i-1,i] = 0.05
+
+
 
     #Because of the parallelisation, the parameters that are kept fixed need to be located at the end of the 
     #state vector, otherwise the code crashes
@@ -562,7 +568,7 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
 
 
     #Calling the forward model nfm times to calculate the measurement vector for each case
-    NCORES = 4  #Number of processes to run in parallel
+    NCORES = 1  #Number of processes to run in parallel
     YNtot = np.zeros([Measurement.NY,nfm])
 
     print('Calculating numerical part of the Jacobian :: running '+str(nfm)+' forward models ')
@@ -603,7 +609,7 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
         else:
             ifm = i
 
-        xn1 = Variables.XN[inum[i]] * 1.01
+        xn1 = Variables.XN[inum[i]] * 1.05
         if xn1==0.0:
             xn1=0.05
         if Variables.FIX[i] == 0:
@@ -736,7 +742,7 @@ def nemesisfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
                 Measurement1.wavesetc(Spectroscopy,IGEOM=IGEOM)
 
             #Changing the different classes taking into account the parameterisations in the state vector
-            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
 
             #Calling gsetpat to split the new reference atmosphere and calculate the path
             Layer1,Path1 = calc_path(Atmosphere1,Scatter1,Measurement1,Layer1)
@@ -861,7 +867,7 @@ def nemesisfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Ste
                 Measurement1.wavesetc(Spectroscopy,IGEOM=IGEOM)
 
             #Changing the different classes taking into account the parameterisations in the state vector
-            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
 
             #Calling gsetpat to split the new reference atmosphere and calculate the path
             Layer1,Path1 = calc_pathg(Atmosphere1,Scatter1,Measurement1,Layer1)

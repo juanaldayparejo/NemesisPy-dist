@@ -538,6 +538,161 @@ def model9(atm,ipar,href,fsh,tau,MakePlot=False):
 
 ###############################################################################################
 
+def model228(Measurement,Spectroscopy,V0,C0,C1,C2,P0,P1,P2,P3,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model228()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 228 in NEMESIS.
+
+            In this model, the wavelength calibration of a given spectrum is performed, as well as the fit
+            of a double Gaussian ILS suitable for ACS MIR solar occultation observations
+            
+            The wavelength calibration is performed such that the first wavelength or wavenumber is given by V0. 
+            Then the rest of the wavelengths of the next data points are calculated by calculating the wavelength
+            step between data points given by dV = C0 + C1*data_number + C2*data_number, where data_number 
+            is an array going from 0 to NCONV-1.
+
+            The ILS is fit using the approach of Alday et al. (2019, A&A). In this approach, the parameters to fit
+            the ILS are the Offset of the second gaussian with respect to the first one (P0), the FWHM of the main 
+            gaussian (P1), Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber (P2)
+            , Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (P3), and
+            a linear variation of the relative amplitude.
+        
+        INPUTS :
+        
+            Measurement :: Python class defining the Measurement
+            Spectroscopy :: Python class defining the Spectroscopy
+            V0 :: Wavelength/Wavenumber of the first data point
+            C0,C1,C2 :: Coefficients to calculate the step size in wavelength/wavenumbers between data points
+            P0,P1,P2,P3 :: Parameters used to define the double Gaussian ILS of ACS MIR
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Updated Measurement and Spectroscopy classes
+        
+        CALLING SEQUENCE:
+        
+            Measurement,Spectroscopy = model228(Measurement,Spectroscopy,V0,C0,C1,C2,P0,P1,P2,P3)
+        
+        MODIFICATION HISTORY : Juan Alday (20/12/2021)
+        
+    """
+
+    from NemesisPy import ngauss
+
+    #1.: Defining the new wavelength array
+    ##################################################
+
+    nconv = Measurement.NCONV[0]
+    vconv1 = np.zeros(nconv)
+    vconv1[0] = V0
+
+    xx = np.linspace(0,nconv-2,nconv-1)
+    dV = C0 + C1*xx + C2*(xx)**2.
+
+    for i in range(nconv-1):
+        vconv1[i+1] = vconv1[i] + dV[i]
+
+    for i in range(Measurement.NGEOM):
+        Measurement.VCONV[0:Measurement.NCONV[i],i] = vconv1[:]
+
+    #2.: Calculating the new ILS function based on the new convolution wavelengths
+    ###################################################################################
+
+    ng = 2 #Number of gaussians to include
+
+    #Wavenumber offset of the two gaussians
+    offset = np.zeros([nconv,ng])
+    offset[:,0] = 0.0
+    offset[:,1] = P0
+
+    #FWHM for the two gaussians (assumed to be constant in wavelength, not in wavenumber)
+    fwhm = np.zeros([nconv,ng])
+    fwhml = P1 / vconv1[0]**2.0
+    for i in range(nconv):
+        fwhm[i,0] = fwhml * (vconv1[i])**2.
+        fwhm[i,1] = fwhm[i,0]
+
+    #Amplitde of the second gaussian with respect to the main one
+    amp = np.zeros([nconv,ng])
+    ampgrad = (P3 - P2)/(vconv1[nconv-1]-vconv1[0])
+    for i in range(nconv):
+        amp[i,0] = 1.0
+        amp[i,1] = (vconv1[i] - vconv1[0]) * ampgrad + P2
+
+    #Running for each spectral point
+    nfil = np.zeros(nconv,dtype='int32')
+    mfil1 = 200
+    vfil1 = np.zeros([mfil1,nconv])
+    afil1 = np.zeros([mfil1,nconv])
+    for i in range(nconv):
+
+        #determining the lowest and highest wavenumbers to calculate
+        xlim = 0.0
+        xdist = 5.0 
+        for j in range(ng):
+            xcen = offset[i,j]
+            xmin = abs(xcen - xdist*fwhm[i,j]/2.)
+            if xmin > xlim:
+                xlim = xmin
+            xmax = abs(xcen + xdist*fwhm[i,j]/2.)
+            if xmax > xlim:
+                xlim = xmax
+
+        #determining the wavenumber spacing we need to sample properly the gaussians
+        xsamp = 7.0   #number of points we require to sample one HWHM 
+        xhwhm = 10000.0
+        for j in range(ng):
+            xhwhmx = fwhm[i,j]/2. 
+            if xhwhmx < xhwhm:
+                xhwhm = xhwhmx
+        deltawave = xhwhm/xsamp
+        np1 = 2.0 * xlim / deltawave
+        npx = int(np1) + 1
+
+        #Calculating the ILS in this spectral point
+        iamp = np.zeros([ng])
+        imean = np.zeros([ng])
+        ifwhm = np.zeros([ng])
+        fun = np.zeros([npx])
+        xwave = np.linspace(vconv1[i]-deltawave*(npx-1)/2.,vconv1[i]+deltawave*(npx-1)/2.,npx)        
+        for j in range(ng):
+            iamp[j] = amp[i,j]
+            imean[j] = offset[i,j] + vconv1[i]
+            ifwhm[j] = fwhm[i,j]
+
+        fun = ngauss(npx,xwave,ng,iamp,imean,ifwhm)  
+        nfil[i] = npx
+        vfil1[0:nfil[i],i] = xwave[:]
+        afil1[0:nfil[i],i] = fun[:]
+
+    mfil = nfil.max()
+    vfil = np.zeros([mfil,nconv])
+    afil = np.zeros([mfil,nconv])
+    for i in range(nconv):
+        vfil[0:nfil[i],i] = vfil1[0:nfil[i],i]
+        afil[0:nfil[i],i] = afil1[0:nfil[i],i]
+    
+    Measurement.NFIL = nfil
+    Measurement.VFIL = vfil
+    Measurement.AFIL = afil
+
+    #3. Defining new calculations wavelengths and reading again lbl-tables in correct range
+    ###########################################################################################
+
+    Spectroscopy.read_lls(Spectroscopy.RUNNAME)
+    Measurement.wavesetc(Spectroscopy,IGEOM=0)
+    Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
+
+    return Measurement,Spectroscopy
+
+###############################################################################################
+
 def model229(Measurement,par1,par2,par3,par4,par5,par6,par7,MakePlot=False):
     
     """
@@ -908,6 +1063,73 @@ def model230(Measurement,nwindows,liml,limh,par,MakePlot=False):
         plt.show()
 
     return Measurement
+
+
+###############################################################################################
+
+def model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,WaveNorm,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model446()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 446 in NEMESIS.
+            In this model, we fit a continuous profile of aerosol abundance in m-3, and a continuous
+            vertical profile for the vertical size, which is assumed to follow a log-normal distribution 
+            at each altitude with some mean value r and a standard deviation sigma. The extinction
+            properties of each aerosol population are computed using Mie Theory
+        
+        INPUTS :
+        
+            Atmosphere :: Python class defining the atmosphere
+
+            Scatter :: Python class defining the scattering parameters
+
+            idust0 :: Index of the aerosol distribution at the lowest altitude level (from 0 to NDUST-1)
+                      The rest of the IDUST at the different altitudes are expected to follow this one
+
+            aero_id :: ID of the particular aerosol to be modelled in the refractive index dictionary
+
+            aero_dens(npro) :: Aerosol abundance at each altitude level (m-3)
+
+            aero_rsize(npro) :: Mean particle size at each altitude level (um)
+
+            sigma_rsize :: Standard deviation of the distribution
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            Atmosphere :: Updated atmospheric class
+            Scatter :: Updated scattering class
+            xmap(npro,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
+                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,Scatter,xmap = model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize)
+        
+        MODIFICATION HISTORY : Juan Alday (25/11/2021)
+        
+    """
+
+    ipar0 = Atmosphere.NVMR+1+idust0
+
+    xmap = np.zeros((2*Atmosphere.NP,Atmosphere.NVMR+2+Atmosphere.NDUST,Atmosphere.NP))
+
+    for i in range(Atmosphere.NP):
+        Atmosphere.DUST[i,i+idust0] = aero_dens[i]
+        psdist = 1
+        pardist = [aero_rsize[i],sigma_rsize]
+        Scatter.miescat_k(idust0+i,psdist,pardist,WaveNorm=WaveNorm)
+
+        xmap[i,ipar0+i,i] = aero_dens[i]
+
+    return Atmosphere,Scatter,xmap
+
 
 ###############################################################################################
 

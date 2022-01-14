@@ -277,6 +277,17 @@ def miescat(ispace,wave,refind_real,refind_im,psdist,pardist,theta,MakePlot=Fals
         xphase = np.zeros([nwave,ntheta])
         xphase = phase[:,:,0]
 
+    #Sorting again the arrays if ispace=0
+    if ispace==0:  #Wavenumber
+        wave = 1.0e4/wave
+        isort = np.argsort(wave)
+        wave = wave[isort]
+        xext = xext[isort]
+        xsca = xsca[isort]
+        xabs = xabs[isort]
+        xphase[:,:] = xphase[isort,:]
+
+
     if MakePlot==True:
 
         fig,ax1 = plt.subplots(1,1,figsize=(14,7))
