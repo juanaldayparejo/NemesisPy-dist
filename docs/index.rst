@@ -22,7 +22,7 @@ Revision history
 -----------------------------
 
 - 0.0.0 (14 January, 2022)
-  - First version of the code.
+    - First version of the code.
 
 Publications using NEMESIS
 -----------------------------
