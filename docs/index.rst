@@ -1,8 +1,8 @@
-The NEMESIS planetary atmosphere radiative transfer and retrieval tool
+NEMESIS
 ======================================================================
 
 This website includes the documentation regarding the Python version of the NEMESIS (Non-linear Optimal Estimator for MultivariatE
-Spectral analySIS) code. 
+Spectral analySIS) planetary atmosphere radiative transfer and retrieval code. 
 
 The main description of the NEMESIS code was published by `Irwin et al. (2008) <https://doi.org/10.1016/j.jqsrt.2007.11.006>`_.
 The original Fortran version of the code is `available here <https://doi.org/10.5281/zenodo.4303976>`_.
