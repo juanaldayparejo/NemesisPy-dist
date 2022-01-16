@@ -25,7 +25,6 @@ Publications Using NEMESIS
   
   - Alday, J., Trokhimovskiy, A., Irwin, P. G. J., Wilson, C. F., Montmessin, F., Lef vre, F., et al. (2021). Isotopic fractionation of water and its photolytic products in the atmosphere of Mars. Nature Astronomy, 5, 943–950. https://doi.org/10.1038/s41550-021-01389-x
   
-  - Alday, J., Wilson, C. F., Irwin, P. G. J., Olsen, K. S., Baggio, L., Montmessin, F., et al. (2019). Oxygen isotopic ratios in Martian water vapour observed
-by ACS MIR on board the ExoMars Trace Gas Orbiter. Astronomy & Astrophysics, 630, A91. https://doi.org/10.1051/0004-6361/201936234
+  - Alday, J., Wilson, C. F., Irwin, P. G. J., Olsen, K. S., Baggio, L., Montmessin, F., et al. (2019). Oxygen isotopic ratios in Martian water vapour observed by ACS MIR on board the ExoMars Trace Gas Orbiter. Astronomy & Astrophysics, 630, A91. https://doi.org/10.1051/0004-6361/201936234
 
   - Irwin, P., Teanby, N., de Kok, R., Fletcher, L., Howett, C., Tsang, C., et al. (2008). The NEMESIS planetary atmosphere radiative transfer and retrieval tool. Journal of Quantitative Spectroscopy and Radiative Transfer, 109(6), 1136–1150. https://doi.org/10.1016/j.jqsrt.2007.11.006
