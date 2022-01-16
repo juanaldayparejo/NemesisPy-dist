@@ -71,7 +71,7 @@ The atmosphere of other planets can also be modelled, by including a new ID numb
 
 Apart from the gravitational parameters of the planet, the atmosphere is represented by a set of vertical profiles indicating the pressure, temperature and gaseous volume mixing ratios as a function of altitude. In order to define the composition of the atmosphere, different gaseous species are defined using ID numbers. These ID numbers are:
 
-- H$_2$O (1)
+- H:sub:`2`O (1)
 - CO$_2$ (2)
 
 Spectroscopy
