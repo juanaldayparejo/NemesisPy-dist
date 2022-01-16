@@ -586,6 +586,8 @@ class Scatter_0:
             nr = int((r1-r0)/delr) + 1
             rd = np.linspace(r0,r1,nr) #Array of particle sizes
             Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
+            print(Nd)
+            print(rd)
         elif psdist==2: #Standard gamma distribution
             sys.exit('error in miescat :: Standard gamma distribution has not yet been implemented')
         elif psdist==-1:
@@ -711,6 +713,80 @@ class Scatter_0:
         self.KSCA[:,IDUST] = xsca
         self.SGLALB[:,IDUST] = xsca/xext
         self.PHASE[:,:,IDUST] = xphase
+
+        if MakePlot==True:
+
+            fig,ax1 = plt.subplots(1,1,figsize=(14,7))
+
+            ax1 = plt.subplot2grid((3, 3), (0, 0), colspan=1,rowspan=2)
+            ax2 = plt.subplot2grid((3, 3), (0, 1), colspan=2,rowspan=1)
+            ax3 = plt.subplot2grid((3, 3), (1, 1), colspan=2,rowspan=1)
+
+            ax4 = plt.subplot2grid((3, 3), (2, 0), colspan=1,rowspan=1)
+            ax5 = plt.subplot2grid((3, 3), (2, 1), colspan=1,rowspan=1)
+            ax6 = plt.subplot2grid((3, 3), (2, 2), colspan=1,rowspan=1)
+
+            if nr>1:
+
+                import matplotlib
+
+                colormap = 'viridis'
+                norm = matplotlib.colors.Normalize(vmin=Nd.min(),vmax=Nd.max())
+                c_m = plt.cm.get_cmap(colormap,360)
+                # create a ScalarMappable and initialize a data structure
+                s_m = matplotlib.cm.ScalarMappable(cmap=c_m, norm=norm)
+                s_m.set_array([])
+
+                #Plotting the extinction cross section 
+                iwave0 = 0
+                iwave1 = int(self.NWAVE/2-1)
+                iwave2 = self.NWAVE-1
+                for ir in range(nr):
+                    ax1.scatter(rd[ir],Nd[ir],c=s_m.to_rgba([Nd[ir]]),edgecolors='black')
+                    ax2.semilogy(self.WAVE,kext1[:,ir],c=s_m.to_rgba([Nd[ir]]),linewidth=0.75)
+                    ax3.semilogy(self.WAVE,ksca1[:,ir]/kext1[:,ir],c=s_m.to_rgba([Nd[ir]]),linewidth=0.75)
+                    ax4.plot(self.THETA,phase1[iwave0,:,ir],c=s_m.to_rgba([Nd[ir]]),linewidth=0.75)
+                    ax5.plot(self.THETA,phase1[iwave1,:,ir],c=s_m.to_rgba([Nd[ir]]),linewidth=0.75)
+                    ax6.plot(self.THETA,phase1[iwave2,:,ir],c=s_m.to_rgba([Nd[ir]]),linewidth=0.75)
+                #ax2.semilogy(self.WAVE,xext,c='tab:red')
+                #ax3.semilogy(self.WAVE,xsca/xext,c='tab:red')
+                #ax4.plot(self.THETA,xphase[iwave0,:],c='tab:red')
+                #ax5.plot(self.THETA,xphase[iwave1,:],c='tab:red')
+                #ax6.plot(self.THETA,xphase[iwave2,:],c='tab:red')
+                if self.ISPACE==0:
+                    ax2.set_xlabel('Wavenumber (cm$^{-1}$)')
+                    ax3.set_xlabel('Wavenumber (cm$^{-1}$)')
+                else:
+                    ax2.set_xlabel('Wavelength ($\mu$m)')
+                    ax3.set_xlabel('Wavelength ($\mu$m)')
+                ax1.set_ylabel('Density distribution')
+                ax2.set_ylabel('Extinction cross section (cm$^2$)')
+                ax3.set_ylabel('Single scattering albedo')
+                ax4.set_ylabel('Phase function')
+                ax5.set_ylabel('Phase function')
+                ax6.set_ylabel('Phase function')
+
+            ax1.set_xlabel('Particle size radii ($\mu$m)')
+            ax4.set_xlabel('Angle (deg)')
+            ax5.set_xlabel('Angle (deg)')
+            ax6.set_xlabel('Angle (deg)')
+            
+
+            cax = plt.axes([0.92, 0.15, 0.02, 0.7])   #Bottom
+            cbar2 = plt.colorbar(s_m,cax=cax,orientation='vertical')
+            cbar2.set_label('Density distribution')
+
+            ax1.grid()
+            ax2.grid()
+            ax3.grid()
+            ax4.grid()
+            ax5.grid()
+            ax6.grid()
+
+
+            plt.subplots_adjust(left=0.05, bottom=0.08, right=0.9, top=0.95, wspace=0.35, hspace=0.35)
+
+
 
 
     def miescat_k(self,IDUST,psdist,pardist,MakePlot=False,rdist=None,Ndist=None,WaveNorm=None):
