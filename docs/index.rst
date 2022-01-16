@@ -1,4 +1,4 @@
-NEMESIS
+The NEMESIS radiative transfer and retrieval code
 ======================================================================
 
 This website includes the documentation regarding the Python version of the NEMESIS (Non-linear Optimal Estimator for MultivariatE
@@ -18,7 +18,13 @@ The latest version of code has to be downloaded from `Github <https://github.com
 
 In the future, we aim to release official versions to The Python Package Index (PyPI), so that it can be installed using pip.
 
-Publications Using NEMESIS
+Revision history
+-----------------------------
+
+- 0.0.0 (14 January, 2022)
+  - First version of the code.
+
+Publications using NEMESIS
 -----------------------------
 
   - Alday, J., Wilson, C. F., Irwin, P. G. J., Trokhimovskiy, A., Montmessin, F., Fedorova, A. A., et al. (2021). Isotopic composition of CO2 in the atmosphere of Mars: Fractionation by diffusive separation observed by the ExoMars Trace Gas Orbiter. Journal of Geophysical Research: Planets, 126, e2021JE006992. https://doi.org/10.1029/2021JE006992
