@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as matplotlib
 from copy import *
+import pickle
 
 #!/usr/local/bin/python3
 # -*- coding: utf-8 -*-
@@ -189,7 +190,7 @@ class OptimalEstimation_0:
         kt = np.transpose(self.KK)
 
         #Calculating the gain matrix dd
-        if (self.NX >= self.NY):
+        if (self.NX == self.NY):
 
             #Multiply sa*kt
             m = np.matmul(self.SA,kt)
@@ -293,13 +294,17 @@ class OptimalEstimation_0:
         #Add se to a
         b = np.add(a,self.SE)
 
-        sum1 = 0.0
-        sum2 = 0.0
-        sum3 = 0.0
-        for i in range(self.NY):
-            sum1 = sum1 + b[i,i]
-            sum2 = sum2 + self.SE[i,i]
-            sum3 = sum3 + b[i,i]/self.SE[i,i]
+        #sum1 = 0.0
+        #sum2 = 0.0
+        #sum3 = 0.0
+        #for i in range(self.NY):
+        #    sum1 = sum1 + b[i,i]
+        #    sum2 = sum2 + self.SE[i,i]
+        #    sum3 = sum3 + b[i,i]/self.SE[i,i]
+
+        sum1 = np.sum(np.diagonal(b))
+        sum2 = np.sum(np.diagonal(self.SE))
+        sum3 = np.sum(np.diagonal(b)/np.diagonal(self.SE))
 
         sum1 = sum1/self.NY
         sum2 = sum2/self.NY
@@ -528,7 +533,7 @@ class OptimalEstimation_0:
 
         f.close()  
 
-    def write_cov(self,runname,Variables):
+    def write_cov(self,runname,Variables,pickle=False):
         """
         Write information about the Optimal Estimation matrices into the .cov file
 
@@ -538,46 +543,55 @@ class OptimalEstimation_0:
             Python class describing the different parameterisations retrieved
         """
 
-        #Open file
-        f = open(runname+'.cov','w')
+        if pickle==False:
+            #Open file
+            f = open(runname+'.cov','w')
 
-        npro=1
-        f.write("%i %i\n" % (npro,Variables.NVAR))
+            npro=1
+            f.write("%i %i\n" % (npro,Variables.NVAR))
 
-        for ivar in range(Variables.NVAR):
-            f.write("%i \t %i \t %i\n" % (Variables.VARIDENT[ivar,0],Variables.VARIDENT[ivar,1],Variables.VARIDENT[ivar,2]))
-            f.write("%10.8e \t %10.8e \t %10.8e \t %10.8e \t %10.8e\n" % (Variables.VARPARAM[ivar,0],Variables.VARPARAM[ivar,1],Variables.VARPARAM[ivar,2],Variables.VARPARAM[ivar,3],Variables.VARPARAM[ivar,4]))
+            for ivar in range(Variables.NVAR):
+                f.write("%i \t %i \t %i\n" % (Variables.VARIDENT[ivar,0],Variables.VARIDENT[ivar,1],Variables.VARIDENT[ivar,2]))
+                f.write("%10.8e \t %10.8e \t %10.8e \t %10.8e \t %10.8e\n" % (Variables.VARPARAM[ivar,0],Variables.VARPARAM[ivar,1],Variables.VARPARAM[ivar,2],Variables.VARPARAM[ivar,3],Variables.VARPARAM[ivar,4]))
 
-        f.write("%i %i\n" % (self.NX,self.NY))
+            f.write("%i %i\n" % (self.NX,self.NY))
 
-        for i in range(self.NX):
-            for j in range(self.NX):
-                f.write("%10.8e\n" % (self.SA[i,j]))
-            for j in range(self.NX):
-                f.write("%10.8e\n" % (self.SM[i,j]))
-            for j in range(self.NX):
-                f.write("%10.8e\n" % (self.SN[i,j]))
-            for j in range(self.NX):
-                f.write("%10.8e\n" % (self.ST[i,j]))
+            for i in range(self.NX):
+                for j in range(self.NX):
+                    f.write("%10.8e\n" % (self.SA[i,j]))
+                for j in range(self.NX):
+                    f.write("%10.8e\n" % (self.SM[i,j]))
+                for j in range(self.NX):
+                    f.write("%10.8e\n" % (self.SN[i,j]))
+                for j in range(self.NX):
+                    f.write("%10.8e\n" % (self.ST[i,j]))
 
-        for i in range(self.NX):
-            for j in range(self.NX):
-                f.write("%10.8e\n" % (self.AA[i,j]))
+            for i in range(self.NX):
+                for j in range(self.NX):
+                    f.write("%10.8e\n" % (self.AA[i,j]))
 
-        for i in range(self.NX):
-            for j in range(self.NY):
-                f.write("%10.8e\n" % (self.DD[i,j]))
+            for i in range(self.NX):
+                for j in range(self.NY):
+                    f.write("%10.8e\n" % (self.DD[i,j]))
 
-        for i in range(self.NY):
-            for j in range(self.NX):
-                f.write("%10.8e\n" % (self.KK[i,j]))
+            for i in range(self.NY):
+                for j in range(self.NX):
+                    f.write("%10.8e\n" % (self.KK[i,j]))
 
-        for i in range(self.NY):
-            f.write("%10.8e\n" % (self.SE[i,i]))
+            for i in range(self.NY):
+                f.write("%10.8e\n" % (self.SE[i,i]))
 
-        f.close() 
+            f.close() 
 
-    def read_cov(self,runname,Variables=None):
+        else:
+
+            import pickle
+            filehandler = open(runname+'.cov',"wb")
+            pickle.dump(self,filehandler,pickle.HIGHEST_PROTOCOL)
+
+
+
+    def read_cov(self,runname,Variables=None,pickle=False):
         """
         Write information about the Optimal Estimation matrices into the .cov file
 
@@ -587,9 +601,123 @@ class OptimalEstimation_0:
             Python class describing the different parameterisations retrieved
         """
 
-        if Variables==None:
-            Variables=Variables_0()
+        if pickle==False:
+            if Variables==None:
+                Variables=Variables_0()
         
-        f = open(runname+'.cov')
+            f = open(runname+'.cov','r')
 
-        f.close()
+            #Reading variables that were retrieved
+            tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
+            npro = int(tmp[0])
+            nvar = int(tmp[1])
+
+            varident = np.zeros([nvar,3],dtype='int')
+            varparam = np.zeros([nvar,5],dtype='int')
+            for i in range(nvar):
+                tmp = np.fromfile(f,sep=' ',count=3,dtype='int')
+                varident[i,:] = tmp[:]
+
+                tmp = np.fromfile(f,sep=' ',count=5,dtype='float')
+                varparam[i,:] = tmp[:] 
+
+            Variables.NVAR = nvar
+            Variables.VARIDENT = varident
+            Variables.VARPARAM = varparam
+            Variables.calc_NXVAR(npro)
+
+            #Reading optimal estimation matrices
+            tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
+            nx = int(tmp[0])
+            ny = int(tmp[1])
+
+            sa = np.zeros([nx,nx])
+            sm = np.zeros([nx,nx])
+            sn = np.zeros([nx,nx])
+            st = np.zeros([nx,nx])
+            aa = np.zeros([nx,nx])
+            dd = np.zeros([nx,ny])
+            kk = np.zeros([ny,nx])
+            se = np.zeros([ny,ny])
+            for i in range(nx):
+                for j in range(nx):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    sa[i,j] = tmp[0]
+                for j in range(nx):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    sm[i,j] = tmp[0]
+                for j in range(nx):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    sn[i,j] = tmp[0]
+                for j in range(nx):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    st[i,j] = tmp[0]
+
+
+            for i in range(nx):
+                for j in range(nx):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    aa[i,j] = tmp[0]
+
+
+            for i in range(nx):
+                for j in range(ny):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    dd[i,j] = tmp[0]
+
+
+            for i in range(ny):
+                for j in range(nx):
+                    tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                    kk[i,j] = tmp[0]
+
+            for i in range(ny):
+                tmp = np.fromfile(f,sep=' ',count=1,dtype='float')
+                se[i,i] = tmp[0]
+
+            f.close()
+
+            self.NX = nx
+            self.NY = ny
+            self.edit_SA(sa)
+            self.edit_SE(se)
+            self.SM = sm
+            self.SN = sn
+            self.ST = st
+            self.DD = dd
+            self.AA = aa
+            self.edit_KK(kk)
+
+        else:
+
+            import pickle
+
+            filen = open(runname+'.cov','rb')
+            pickleobj = pickle.load(filen)
+            self.NX = pickleobj.NX
+            self.NY = pickleobj.NY
+            self.SA = pickleobj.SA
+            self.SE = pickleobj.SE
+            self.SM = pickleobj.SM
+            self.SN = pickleobj.SN
+            self.ST = pickleobj.ST
+            self.DD = pickleobj.DD
+            self.AA = pickleobj.AA
+            self.KK = pickleobj.KK
+
+    def plot_K(self):
+        """
+        Function to plot the Jaxobian matrix
+        """
+
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+        im = ax1.imshow(np.transpose(self.KK),aspect='auto',origin='lower',cmap='jet')
+        divider = make_axes_locatable(ax1)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar = plt.colorbar(im, cax=cax)
+        cbar.set_label('Gradients (dR/dx)')
+        ax1.grid()
+        plt.tight_layout()
+        plt.show()

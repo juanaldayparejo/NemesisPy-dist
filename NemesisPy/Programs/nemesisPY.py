@@ -48,7 +48,6 @@ Scatter,Stellar,Surface,Layer = read_set(runname,Layer=Layer)
 
 Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Scatter=Scatter)
 
-
 #Reading .sur file if planet has surface
 #############################################################################
 
@@ -152,7 +151,7 @@ else:
 ######################################################
 
 if IRET==0:
-    OptimalEstimation.write_cov(runname,Variables)
+    OptimalEstimation.write_cov(runname,Variables,pickle=True)
     OptimalEstimation.write_mre(runname,Variables,Measurement)
 
 #Finishing pogram

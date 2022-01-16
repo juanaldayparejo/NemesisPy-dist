@@ -19,7 +19,7 @@ State Vector Class.
 
 class Spectroscopy_0:
 
-    def __init__(self, ISPACE=0, ILBL=2, NGAS=2, ID=[1,2], ISO=[0,0], LOCATION=['',''], NWAVE=2, WAVE=[0.,100.], \
+    def __init__(self, RUNNAME='wasp121', ISPACE=0, ILBL=2, NGAS=2, ID=[1,2], ISO=[0,0], LOCATION=['',''], NWAVE=2, WAVE=[0.,100.], \
                  NP=2, NT=2, PRESS=[1.0e2,1.0e-10], TEMP=[30.,300.], NG=1, G_ORD=[0.], DELG=[1.], FWHM=0.0):
 
         """
@@ -69,6 +69,7 @@ class Spectroscopy_0:
         """
 
         #Input parameters
+        self.RUNNAME = RUNNAME
         self.ISPACE = ISPACE
         self.ILBL = ILBL
         self.NGAS = NGAS
@@ -554,7 +555,7 @@ class Spectroscopy_0:
         #Interpolating the k-coefficients to the correct pressure and temperature
         #############################################################################
 
-        #K (NWAVE,NG,NP,NT,NGAS)
+        #K (NWAVE,NG,NPOINTS,NGAS)
 
         kgood = np.zeros([self.NWAVE,self.NG,npoints,self.NGAS])
         dkgooddT = np.zeros([self.NWAVE,self.NG,npoints,self.NGAS])
@@ -623,13 +624,14 @@ class Spectroscopy_0:
             igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
             kgood[igood[0],igood[1],ipoint,igood[2]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1],igood[2]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1],igood[2]]) + v*u*np.log(khi2[igood[0],igood[1],igood[2]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1],igood[2]])
             kgood[igood[0],igood[1],ipoint,igood[2]] = np.exp(kgood[igood[0],igood[1],ipoint,igood[2]])
-            dxdt = -np.log(klo1[igood[0],igood[1],igood[2]])*(1.0-v) - np.log(khi1[igood[0],igood[1],igood[2]])*v + np.log(khi2[igood[0],igood[1],igood[2]])*v + np.log(klo2[igood[0],igood[1],igood[2]]) * (1.0-v)
+            dxdt = (-np.log(klo1[igood[0],igood[1],igood[2]])*(1.0-v) - np.log(khi1[igood[0],igood[1],igood[2]])*v + np.log(khi2[igood[0],igood[1],igood[2]])*v + np.log(klo2[igood[0],igood[1],igood[2]]) * (1.0-v))*dudt
             dkgooddT[igood[0],igood[1],ipoint,igood[2]] = kgood[igood[0],igood[1],ipoint,igood[2]] * dxdt
 
             ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
             kgood[ibad[0],ibad[1],ipoint,ibad[2]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1],ibad[2]] + v*(1.0-u)*khi1[ibad[0],ibad[1],ibad[2]] + v*u*khi2[ibad[0],ibad[1],ibad[2]] + (1.0-v)*u*klo2[ibad[0],ibad[1],ibad[2]]
-            dxdt = -klo1[ibad[0],ibad[1],ibad[2]]*(1.0-v) - khi1[ibad[0],ibad[1],ibad[2]]*v + khi2[ibad[0],ibad[1],ibad[2]]*v + klo2[ibad[0],ibad[1],ibad[2]] * (1.0-v)
+            dxdt = (-klo1[ibad[0],ibad[1],ibad[2]]*(1.0-v) - khi1[ibad[0],ibad[1],ibad[2]]*v + khi2[ibad[0],ibad[1],ibad[2]]*v + klo2[ibad[0],ibad[1],ibad[2]] * (1.0-v))*dudt
             dkgooddT[ibad[0],ibad[1],ipoint,ibad[2]] = dxdt
+
 
         #Checking that the calculation wavenumbers coincide with the wavenumbers in the k-tables
         ##########################################################################################

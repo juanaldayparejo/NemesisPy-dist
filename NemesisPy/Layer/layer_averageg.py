@@ -139,8 +139,14 @@ def layer_averageg(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
     DTE = np.zeros((NLAY, NPRO))
     #DCO = matrix to relate the dust abundance in each layer (CONT) to the dust abundance in the input profiles (DUST)
     DCO = np.zeros((NLAY, NPRO))
-    #DCO = matrix to relate the gaseous abundance in each layer (AMOUNT) to the gas VMR in the input profiles (VMR)
+    #DAM = matrix to relate the gaseous abundance in each layer (AMOUNT) to the gas VMR in the input profiles (VMR)
     DAM = np.zeros((NLAY, NPRO))
+
+    #Defining the weights for the integration with the Simpson's rule
+    w = np.ones(NINT) * 4.
+    w[::2] = 2.
+    w[0] = 1.0
+    w[NINT-1] = 1.0
 
     # Calculate average properties depending on intergration type
     if LAYINT == 0:
@@ -218,8 +224,10 @@ def layer_averageg(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
             HEIGHT[I]  = simps(h*duds,S)/TOTAM[I]
             PRESS[I] = simps(p*duds,S)/TOTAM[I]
             TEMP[I]  = simps(temp*duds,S)/TOTAM[I]
-            DTE[I,JJ[1]] = simps((1.-F)*duds,S)/TOTAM[I]
-            DTE[I,JJ[1]+1] = simps(F*duds,S)/TOTAM[I]
+
+            for iint in range(NINT):
+                DTE[I,JJ[iint]] = DTE[I,JJ[iint]] + (1.-F[iint])*w[iint]*duds[iint]
+                DTE[I,JJ[iint]+1] = DTE[I,JJ[iint]+1] + (F[iint])*w[iint]*duds[iint]
 
             if VMR.ndim > 1:
                 amount = np.zeros((NINT, NVMR))
@@ -249,8 +257,9 @@ def layer_averageg(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
                         molwt[K] = Calc_mmw(amount[K], ID)
                     MOLWT[I] = simps(molwt*duds,S)/TOTAM[I]
 
-            DAM[I,JJ[1]] = simps((1.-F)*duds,S)
-            DAM[I,JJ[1]+1] = simps(F*duds,S)
+            for iint in range(NINT):
+                DAM[I,JJ[iint]] = DAM[I,JJ[iint]] + (1.-F[iint])*duds[iint]*w[iint]
+                DAM[I,JJ[iint]+1] = DAM[I,JJ[iint]+1] + (F[iint])*duds[iint]*w[iint]
 
             if DUST.ndim > 1:
                 dd = np.zeros((NINT,NDUST))
@@ -261,8 +270,15 @@ def layer_averageg(RADIUS, H, P, T, ID, VMR, DUST, BASEH, BASEP,
                 dd,JJ,F = interpg(H, DUST, h) 
                 CONT[I] = simps(dd,S)
 
-            DCO[I,JJ[1]] = simps((1.-F),S)
-            DCO[I,JJ[1]+1] = simps(F,S)
+            for iint in range(NINT):
+                DCO[I,JJ[iint]] = DCO[I,JJ[iint]] + (1.-F[iint])*w[iint]
+                DCO[I,JJ[iint]+1] = DCO[I,JJ[iint]+1] + (F[iint])*w[iint]
+
+    #Finishing the integration for the matrices
+    for IPRO in range(NPRO):
+        DTE[:,IPRO] = DTE[:,IPRO] * DELS / 100. / 3. / TOTAM
+        DAM[:,IPRO] = DAM[:,IPRO] * DELS / 100. / 3.
+        DCO[:,IPRO] = DCO[:,IPRO] * DELS / 100. / 3.
 
     # Scale back to vertical layers
     TOTAM = TOTAM / LAYSF

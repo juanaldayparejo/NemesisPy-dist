@@ -529,7 +529,6 @@ def k_overlap(nwave,ng,del_g,ngas,npoints,k_gas,f):
 
 ###############################################################################################
 
-@jit(nopython=True)
 def k_overlapg(nwave,ng,del_g,ngas,npoints,k_gas,dkgasdT,f):
     
     """
@@ -585,9 +584,15 @@ def k_overlapg(nwave,ng,del_g,ngas,npoints,k_gas,dkgasdT,f):
             dkgdT[:,:] = dkgasdT[iwave,:,ip,:]
             q[:] = f[:,ip]
 
-            k_g_combined, dk_g_combined = k_overlapg_two_gas(k_g, dkgdT, q, del_g)
-            k_combined[iwave,:] = k_g_combined[:]
-            dk_combined[iwave,:,:] = dk_g_combined[:,:]
+            if ng==1:
+                #k_g_combined, dk_g_combined = k_overlapg1_gas(k_g, dkgdT, q)
+                k_g_combined, dk_g_combined = k_overlapg_gas(k_g, dkgdT, q, del_g)
+                k_combined[iwave,:] = k_g_combined[:]
+                dk_combined[iwave,:,:] = dk_g_combined[:,:]
+            else:
+                k_g_combined, dk_g_combined = k_overlapg_gas(k_g, dkgdT, q, del_g)
+                k_combined[iwave,:] = k_g_combined[:]
+                dk_combined[iwave,:,:] = dk_g_combined[:,:]
 
         k[:,:,ip] = k_combined[:,:]
         dk[:,:,ip,:] = dk_combined[:,:,:]
@@ -700,11 +705,11 @@ def k_overlap_two_gas(k_g1, k_g2, q1, q2, del_g):
     
 ###############################################################################################
 @jit(nopython=True)
-def k_overlapg_two_gas(k_g, dkgdT, q, del_g):
+def k_overlapg_gas(k_g, dkgdT, q, del_g):
     
     """
         
-        FUNCTION NAME : k_overlapg_two_gas()
+        FUNCTION NAME : k_overlapg_gas()
         
         DESCRIPTION : This subroutine combines the absorption coefficient distributions of
                       two overlapping gases. The overlap is implicitly assumed to be random
@@ -723,12 +728,12 @@ def k_overlapg_two_gas(k_g, dkgdT, q, del_g):
         OUTPUTS :
         
             k_g_combined(ng) :: Combined k-distribution of both gases
-            dk_g_combined(ng,3) :: Combined rate of change of k-distribution with respect to the VMR of each of the gases and the temperature
-            q_combined :: Combined Volume mixing ratio of both gases
+            dk_g_combined(ng,3) :: Combined rate of change of the k-distribution opacity with respect to the absorber amounts (cm-2) of each of the gases and the temperature
+            q_combined :: Combined absorber amount (cm-2)
         
         CALLING SEQUENCE:
         
-            k_g_combined,dk_g_combined = k_overlapg_two_gas(k_g, dkgdT, q, del_g)
+            k_g_combined,dk_g_combined = k_overlapg_gas(k_g, dkgdT, q, del_g)
         
         MODIFICATION HISTORY : Juan Alday (25/09/2019)
         
@@ -737,171 +742,280 @@ def k_overlapg_two_gas(k_g, dkgdT, q, del_g):
     ng = len(del_g)  #Number of g-ordinates
     ngas = len(k_g[0,:]) #Number of active gases in atmosphere
 
+    k_g_combined = np.zeros(ng)  #Combined opacity
+    dk_g_combined = np.zeros((ng,ngas+1)) #dTAU/dAMOUNT or dTAU/dT
+
+    if ngas==1:
+
+        q1 = q[0]
+        k_g1 = k_g[0,0]
+        dkg1dT = dkgdT[0,0]
+
+        k_g_combined[0] = k_g1 * q1
+        dk_g_combined[0,0] = k_g1
+        dk_g_combined[0,1] = dkg1dT * q1 #dk/dT
+
+    else:
+
+        for igas in range(ngas-1):
+
+            if igas==0:
+
+                q1 = q[igas]
+                q2 = q[igas+1]
+                k_g1 = np.zeros(ng)
+                k_g2 = np.zeros(ng)
+                dkg1dT = np.zeros(ng)
+                dkg2dT = np.zeros(ng)
+                k_g1[:] = k_g[:,igas]
+                k_g2[:] = k_g[:,igas+1]
+                dkg1dT[:] = dkgdT[:,igas]
+                dkg2dT[:] = dkgdT[:,igas+1]
+
+                if((k_g1[ng-1]==0.0)):
+                    k_g_combined[:] = k_g2[:] * q2
+                    dk_g_combined[:,igas] = 0.0  #dk/dq1
+                    dk_g_combined[:,igas+1] = k_g2[:] #dk/dq2
+                    dk_g_combined[:,igas+2] = dkg2dT[:] * q2 #dk/dT
+                    icomp = 0
+                elif((k_g2[ng-1]==0.0)):
+                    k_g_combined[:] = k_g1[:] * q1
+                    dk_g_combined[:,igas] = k_g1[:]  #dk/dq1
+                    dk_g_combined[:,igas+1] = 0.0  #dk/dq2
+                    dk_g_combined[:,igas+2] = dkg1dT[:] * q1 #dk/dT
+                    icomp = 0
+                else:
+                    icomp = 1
+                    nloop = ng * ng
+                    weight = np.zeros(nloop)
+                    contri = np.zeros(nloop)
+                    grad = np.zeros((nloop,ngas+1))
+                    ix = 0
+                    for i in range(ng):
+                        for j in range(ng):
+                            weight[ix] = del_g[i] * del_g[j]
+                            contri[ix] = (k_g1[i]*q1 + k_g2[j]*q2)
+                            grad[ix,0] = k_g1[i]
+                            grad[ix,1] = k_g2[j]
+                            grad[ix,2] = dkg1dT[i] * q1 + dkg2dT[j] * q2
+                            ix = ix + 1
+
+            else:
+
+                q2 = q[igas+1]
+                k_g1 = np.zeros(ng)
+                k_g2 = np.zeros(ng)
+                k_g1[:] = k_g_combined[:]
+                k_g2[:] = k_g[:,igas+1]
+                dkg1dT = np.zeros(ng)
+                dkg2dT = np.zeros(ng)
+                dkg1dT[:] = dk_g_combined[:,igas+1]  #dk/dT of previous sum of gases
+                dkg2dT[:] = dkgdT[:,igas+1] #dK/dT of new gas
+
+                if((k_g1[ng-1]==0.0)):
+                    k_g_combined[:] = k_g2[:] * q2
+                    for jgas in range(igas):
+                        dk_g_combined[:,jgas] = 0.0 
+                    dk_g_combined[:,igas+1] = k_g2[:] #dk/dq2
+                    dk_g_combined[:,igas+2] = dkg2dT[:] * q2 #dk/dT
+                    icomp = 0
+                elif((k_g2[ng-1]==0.0)):
+                    k_g_combined[:] = k_g1[:]
+                    dk_g_combined[:,igas+1] = 0.0  #dk/dq2
+                    dk_g_combined[:,igas+2] = dkg1dT[:] #dk/dT
+                    icomp = 0
+                else:
+                    icomp = 1
+                    nloop = ng * ng
+                    weight = np.zeros(nloop)
+                    contri = np.zeros(nloop)
+                    grad = np.zeros((nloop,ngas+1))
+                    ix = 0
+                    for i in range(ng):
+                        for j in range(ng):
+                            weight[ix] = del_g[i] * del_g[j]
+                            contri[ix] = (k_g1[i] + k_g2[j]*q2)
+                            for jgas in range(igas):
+                                grad[ix,jgas] = dk_g_combined[i,jgas]
+                            grad[ix,igas+1] = k_g2[j]
+                            grad[ix,igas+2] = dkg1dT[i] + dkg2dT[j] * q2
+                            ix = ix + 1
+
+            #Now we perform the combination of gases if required
+
+            if icomp==1:
+
+                #getting the cumulative g ordinate
+                g_ord = np.zeros(ng+1)
+                g_ord[0] = 0.0
+                for ig in range(ng):
+                    g_ord[ig+1] = g_ord[ig] + del_g[ig]
+
+                if g_ord[ng]<1.0:
+                    g_ord[ng] = 1.0
+
+                #sorting contri array
+                isort = np.argsort(contri)
+                contrib1 = contri[isort]
+                weight1 = weight[isort]
+                grad1 = np.zeros((nloop,ngas+1))
+                grad1[:,:] = grad[isort,:]
+
+                #creating combined g-ordinate array
+                gdist = np.zeros(nloop)
+                gdist[0] = weight1[0]
+                for i in range(nloop-1):
+                    ix = i + 1
+                    gdist[ix] = weight1[ix] + gdist[i]
+
+                #Re-starting 
+                k_g_combined = np.zeros(ng)
+                dk_g_combined1 = np.zeros((ng,ngas+1))
+
+                ig = 0
+                sum1 = 0.0
+                for i in range(nloop):
+            
+                    if( (gdist[i]<g_ord[ig+1]) & (ig<=ng-1) ):
+                        k_g_combined[ig] = k_g_combined[ig] + contrib1[i] * weight1[i]
+                        dk_g_combined1[ig,:] = dk_g_combined1[ig,:] + grad1[i,:]*weight1[i]
+                        sum1 = sum1 + weight1[i]
+                    else:
+                        frac = (g_ord[ig+1]-gdist[i-1])/(gdist[i]-gdist[i-1])
+                        k_g_combined[ig] = k_g_combined[ig] + frac * contrib1[i] * weight1[i]
+                        dk_g_combined1[ig,:] = dk_g_combined1[ig,:] + grad1[i,:]*weight1[i]*frac
+                        sum1 = sum1 + weight1[i]
+                        k_g_combined[ig] = k_g_combined[ig] / sum1
+                        dk_g_combined1[ig,:] = dk_g_combined1[ig,:] / sum1
+                        ig = ig + 1
+                        if(ig<=ng-1):
+                            sum1 = (1.-frac)*weight1[i]
+                            k_g_combined[ig] = k_g_combined[ig] + (1.-frac) * contrib1[i] * weight1[i]
+                            dk_g_combined1[ig,:] = dk_g_combined1[ig,:] + (1.-frac)*grad1[i,:]*weight1[i]
+
+                if ig==ng-1:
+                    k_g_combined[ig] = k_g_combined[ig] / sum1
+                    dk_g_combined1[ig,:] = dk_g_combined1[ig,:] / sum1
+                
+                if igas==0:
+                    dk_g_combined[:,igas] = dk_g_combined1[:,igas]
+                    dk_g_combined[:,igas+1] = dk_g_combined1[:,igas+1]
+                    dk_g_combined[:,igas+2] = dk_g_combined1[:,igas+2]
+                else:
+                    dk_g_combined[:,igas+1] = dk_g_combined1[:,igas+1]
+                    dk_g_combined[:,igas+2] = dk_g_combined1[:,igas+2]      
+
+    return k_g_combined,dk_g_combined
+
+###############################################################################################
+@jit(nopython=True)
+def k_overlapg1_gas(k_g, dkgdT, q):
+    
+    """
+        
+        FUNCTION NAME : k_overlapg1_gas()
+        
+        DESCRIPTION : This subroutine combines the absorption coefficient distributions of
+                      several overlapping gases when NG=1 (Line-by-line)
+        
+        INPUTS :
+        
+            k_g(ng,ngas) :: k-coefficients for each gas at a particular wave bin and temperature/pressure.
+            dkgdT(ng,ngas) :: Rate of change of k-coefficients with temperature for each gas at a particular wave bin and temperature/pressure.
+            q(ngas) :: Absorber amount of each gas (cm-2)
+            del_g(ng) ::Gauss quadrature weights for the g-ordinates, assumed same for both gases.
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            k_g_combined(ng) :: Combined k-distribution of both gases
+            dk_g_combined(ng,ngas+1) :: Combined rate of change of k-distribution with respect to the VMR of each of the gases and the temperature
+        
+        CALLING SEQUENCE:
+        
+            k_g_combined,dk_g_combined = k_overlapg1_gas(k_g, dkgdT, q, del_g)
+        
+        MODIFICATION HISTORY : Juan Alday (25/09/2019)
+        
+    """
+
+    ng = 1  #Number of g-ordinates
+    ngas = len(k_g[0,:]) #Number of active gases in atmosphere
+
     k_g_combined = np.zeros(ng)
     dk_g_combined = np.zeros((ng,ngas+1))
 
-    for igas in range(ngas-1):
+    if ngas==1:
 
-        if igas==0:
+        q1 = q[0]
+        k_g1 = k_g[0,0]
+        dkg1dT = dkgdT[0,0]
 
-            q1 = q[igas]
-            q2 = q[igas+1]
-            k_g1 = np.zeros(ng)
-            k_g2 = np.zeros(ng)
-            dkg1dT = np.zeros(ng)
-            dkg2dT = np.zeros(ng)
-            k_g1[:] = k_g[:,igas]
-            k_g2[:] = k_g[:,igas+1]
-            dkg1dT[:] = dkgdT[:,igas]
-            dkg2dT[:] = dkgdT[:,igas+1]
+        k_g_combined[0] = k_g1 * q1
+        dk_g_combined[0,0] = k_g1
+        dk_g_combined[0,1] = dkg1dT * q1 #dk/dT
 
-            if((k_g1[ng-1]==0.0)):
-                k_g_combined[:] = k_g2[:] * q2
-                dk_g_combined[:,igas] = 0.0  #dk/dq1
-                dk_g_combined[:,igas+1] = k_g2[:] #dk/dq2
-                dk_g_combined[:,igas+2] = dkg2dT[:] * q2 #dk/dT
-            elif((k_g2[ng-1]==0.0)):
-                k_g_combined[:] = k_g1[:] * q1
-                dk_g_combined[:,igas] = k_g1[:]  #dk/dq1
-                dk_g_combined[:,igas+1] = 0.0  #dk/dq2
-                dk_g_combined[:,igas+2] = dkg1dT[:] * q1 #dk/dT
+    else:
+
+        for igas in range(ngas-1):
+
+            if igas==0:
+
+                q1 = q[igas]
+                q2 = q[igas+1]
+                k_g1 = k_g[0,igas]
+                k_g2 = k_g[0,igas+1]
+                dkg1dT = dkgdT[0,igas]
+                dkg2dT = dkgdT[0,igas+1]
+
+                if((k_g1==0.0)):
+                    k_g_combined[0] = k_g2 * q2
+                    dk_g_combined[0,igas] = 0.0  #dk/dq1
+                    dk_g_combined[0,igas+1] = k_g2 #dk/dq2
+                    dk_g_combined[0,igas+2] = dkg2dT * q2 #dk/dT
+                elif((k_g2==0.0)):
+                    k_g_combined[0] = k_g1 * q1
+                    dk_g_combined[0,igas] = k_g1  #dk/dq1
+                    dk_g_combined[0,igas+1] = 0.0  #dk/dq2
+                    dk_g_combined[0,igas+2] = dkg1dT * q1 #dk/dT
+                else:
+
+                    k_g_combined[0] = k_g1 * q1  + k_g2 * q2
+                    dk_g_combined[0,igas] = k_g1
+                    dk_g_combined[0,igas+1] = k_g2
+                    dk_g_combined[0,igas+2] = dkg1dT * q1 + dkg2dT * q2
+
+
             else:
 
-                nloop = ng * ng
-                weight = np.zeros(nloop)
-                contri = np.zeros(nloop)
-                grad = np.zeros((nloop,ngas+1))
-                ix = 0
-                for i in range(ng):
-                    for j in range(ng):
-                        weight[ix] = del_g[i] * del_g[j]
-                        contri[ix] = (k_g1[i]*q1 + k_g2[j]*q2)
-                        grad[ix,0] = k_g1[i]
-                        grad[ix,1] = k_g2[j]
-                        grad[ix,2] = dkg1dT[i] * q1 + dkg2dT[j] * q2
-                        ix = ix + 1
+                q2 = q[igas+1]
+                k_g1 = k_g_combined[0]
+                k_g2 = k_g[0,igas+1]
+                dkg1dT = dk_g_combined[0,igas+1]  #dk/dT of previous sum of gases
+                dkg2dT = dkgdT[0,igas+1] #dK/dT of new gas
 
-        else:
+                if((k_g1==0.0)):
+                    k_g_combined[0] = k_g2 * q2
+                    for jgas in range(igas):
+                        dk_g_combined[0,jgas] = 0.0 
+                    dk_g_combined[0,igas+1] = k_g2 #dk/dq2
+                    dk_g_combined[0,igas+2] = dkg2dT * q2 #dk/dT
+                elif((k_g2==0.0)):
+                    k_g_combined[0] = k_g1
+                    dk_g_combined[0,igas+1] = 0.0  #dk/dq2
+                    dk_g_combined[0,igas+2] = dkg1dT #dk/dT
+                else:
 
-            q2 = q[igas+1]
-            k_g1 = np.zeros(ng)
-            k_g2 = np.zeros(ng)
-            k_g1[:] = k_g_combined[:]
-            k_g2[:] = k_g[:,igas+1]
-            dkg1dT = np.zeros(ng)
-            dkg2dT = np.zeros(ng)
-            dkg1dT[:] = dk_g_combined[:,igas+1]  #dk/dT of previous sum of gases
-            dkg2dT[:] = dkgdT[:,igas+1] #dK/dT of new gas
+                    k_g_combined[0] = k_g1 * q1  + k_g2 * q2
+                    for jgas in range(igas):
+                        dk_g_combined[0,jgas] = dk_g_combined[0,jgas]
+                    dk_g_combined[0,igas+1] = k_g2
+                    dk_g_combined[0,igas+2] = dkg1dT+ dkg2dT * q2
 
-            if((k_g1[ng-1]==0.0)):
-                k_g_combined[:] = k_g2[:] * q2
-                for jgas in range(igas):
-                    dk_g_combined[:,jgas] = 0.0 
-                dk_g_combined[:,igas+1] = k_g2[:] #dk/dq2
-                dk_g_combined[:,igas+2] = dkg2dT[:] * q2 #dk/dT
-            elif((k_g2[ng-1]==0.0)):
-                k_g_combined[:] = k_g1[:]
-                dk_g_combined[:,igas+1] = 0.0  #dk/dq2
-                dk_g_combined[:,igas+2] = dkg1dT[:] #dk/dT
-            else:
-
-                nloop = ng * ng
-                weight = np.zeros(nloop)
-                contri = np.zeros(nloop)
-                grad = np.zeros((nloop,ngas+1))
-                ix = 0
-                for i in range(ng):
-                    for j in range(ng):
-                        weight[ix] = del_g[i] * del_g[j]
-                        contri[ix] = (k_g1[i] + k_g2[j]*q2)
-                        for jgas in range(igas):
-                            grad[ix,jgas] = dk_g_combined[i,jgas]
-                        grad[ix,igas+1] = k_g2[j]
-                        grad[ix,igas+2] = dkg1dT[i] + dkg2dT[j] * q2
-                        ix = ix + 1
-
-        #Now we perform the combination of gases
-
-        #getting the cumulative g ordinate
-        g_ord = np.zeros(ng+1)
-        g_ord[0] = 0.0
-        for ig in range(ng):
-            g_ord[ig+1] = g_ord[ig] + del_g[ig]
-
-        if g_ord[ng]<1.0:
-            g_ord[ng] = 1.0
-
-        #sorting contri array
-        isort = np.argsort(contri)
-        contrib1 = contri[isort]
-        weight1 = weight[isort]
-        grad1 = np.zeros((nloop,ngas+1))
-        grad1[:,:] = grad[isort,:]
-
-        #creating combined g-ordinate array
-        gdist = np.zeros(nloop)
-        gdist[0] = weight1[0]
-        for i in range(nloop-1):
-            ix = i + 1
-            gdist[ix] = weight1[ix] + gdist[i]
-
-        #Re-starting 
-        k_g_combined = np.zeros(ng)
-        dk_g_combined = np.zeros((ng,ngas+1))
-
-        """
-        ig = 0
-        sum1 = 0.0
-        for i in range(nloop):
-            
-            if((gdist[i]<g_ord[ig+1])):
-                k_g_combined[ig] = k_g_combined[ig] + contrib1[i] * weight1[i]
-                dk_g_combined[ig,:] = dk_g_combined[ig,:] + grad1[i,:]*weight1[i]
-                sum1 = sum1 + weight1[i]
-            else:
-                frac = (g_ord[ig+1]-gdist[i-1])/(gdist[i]-gdist[i-1])
-                k_g_combined[ig] = k_g_combined[ig] + frac * contrib1[i] * weight1[i]
-                dk_g_combined[ig,:] = dk_g_combined[ig,:] + grad1[i,:]*weight1[i]*frac
-                sum1 = sum1 + frac*weight1[i]
-                k_g[ig] = k_g[ig] / sum1
-                dk_g_combined[ig,:] = dk_g_combined[ig,:] / sum1
-
-                ig = ig + 1
-                sum1 = (1.0-frac)*weight1[i]
-                k_g_combined[ig] = (1.-frac) * contrib1[i] * weight1[i]
-                dk_g_combined[ig,:] = (1.-frac)*grad1[i,:]*weight1[i]
-
-        if ig==ng-1:
-            k_g_combined[ig] = k_g_combined[ig] / sum1
-            dk_g_combined[ig,:] = dk_g_combined[ig,:] / sum1
-        """
-
-        ig = 0
-        sum1 = 0.0
-        for i in range(nloop):
-            
-            if( (gdist[i]<g_ord[ig+1]) & (ig<=ng-1) ):
-                k_g_combined[ig] = k_g_combined[ig] + contrib1[i] * weight1[i]
-                dk_g_combined[ig,:] = dk_g_combined[ig,:] + grad1[i,:]*weight1[i]
-                sum1 = sum1 + weight1[i]
-            else:
-                frac = (g_ord[ig+1]-gdist[i-1])/(gdist[i]-gdist[i-1])
-                k_g_combined[ig] = k_g_combined[ig] + frac * contrib1[i] * weight1[i]
-                dk_g_combined[ig,:] = dk_g_combined[ig,:] + grad1[i,:]*weight1[i]*frac
-                sum1 = sum1 + weight1[i]
-                k_g_combined[ig] = k_g_combined[ig] / sum1
-                dk_g_combined[ig,:] = dk_g_combined[ig,:] / sum1
-                ig = ig + 1
-                if(ig<=ng-1):
-                    sum1 = (1.-frac)*weight1[i]
-                    k_g_combined[ig] = k_g_combined[ig] + (1.-frac) * contrib1[i] * weight1[i]
-                    dk_g_combined[ig,:] = dk_g_combined[ig,:] + (1.-frac)*grad1[i,:]*weight1[i]
-
-        if ig==ng-1:
-            k_g_combined[ig] = k_g_combined[ig] / sum1
-            dk_g_combined[ig,:] = dk_g_combined[ig,:] / sum1
 
     return k_g_combined,dk_g_combined
+
 
 ###############################################################################################
 
@@ -946,6 +1060,7 @@ def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
         
     """
 
+    from NemesisPy import read_fil
 
     yout = np.zeros([nconv])
     ynor = np.zeros([nconv])
@@ -1000,7 +1115,7 @@ def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
 
     if fwhm<0.0:
         #Line shape for each convolution number in each case is read from .fil file
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
 
         if nconv1 != nconv:
             sys.exit('lblconv :: Convolution wavenumbers must be the same in .spx and .fil files')
@@ -1085,7 +1200,7 @@ def wavesetb(runname,nconv,vconv,fwhm):
             save[i] = vconv[i]
 
     if fwhm < 0.0:
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
         if nconv != nconv1:
             sys.exit('error :: onvolution wavenumbers must be the same in .spx and .fil files')
 
@@ -1209,7 +1324,7 @@ def wavesetc_v2(runname,nconv,vconv,fwhm):
     save = np.zeros([savemax])
     ico = 0
     if fwhm < 0.0:
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
         if nconv != nconv1:
             sys.exit('error :: convolution wavenumbers must be the same in .spx and .fil files')
 
@@ -1363,7 +1478,7 @@ def wavesetc(runname,nconv,vconv,fwhm):
 
     elif fwhm<=0.0:
         
-        nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+        nconv1,vconv1,nfil,vfil,afil = read_fil(runname)
         if nconv != nconv1:
             sys.exit('error :: convolution wavenumbers must be the same in .spx and .fil files')
 
@@ -1457,3 +1572,80 @@ def planck(ispace,wave,temp,MakePlot=False):
         plt.show()
 
     return bb
+
+###############################################################################################
+
+def planckg(ispace,wave,temp,MakePlot=False):
+
+
+    """
+    FUNCTION NAME : planckg()
+
+    DESCRIPTION : Function to calculate the blackbody radiation given by the Planck function
+                    as well as its derivative with respect to temperature
+
+    INPUTS : 
+
+        ispace :: Flag indicating the spectral units
+                  (0) Wavenumber (cm-1)
+                  (1) Wavelength (um)
+        wave(nwave) :: Wavelength or wavenumber array
+        temp :: Temperature of the blackbody (K)
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    bb(nwave) :: Planck function (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)
+        dBdT(nwave) :: Temperature gradient (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)/K
+ 
+    CALLING SEQUENCE:
+
+	    bb,dBdT = planckg(ispace,wave,temp)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/07/2021)
+
+    """
+
+    c1 = 1.1911e-12
+    c2 = 1.439
+    if ispace==0:
+        y = wave
+        a = c1 * (y**3.)
+        ap = c1 * c2 * (y**4.)/temp**2.
+    elif ispace==1:
+        y = 1.0e4/wave
+        a = c1 * (y**5.) / 1.0e4
+        ap = c1 * c2 * (y**6.) / 1.0e4 / temp**2.
+    else:
+        sys.exit('error in planck :: ISPACE must be either 0 or 1')
+
+    tmp = c2 * y / temp
+    b = np.exp(tmp) - 1
+    bb = a/b
+
+    tmpp = c2 * y / temp
+    bp = (np.exp(tmp) - 1.)**2.
+    tp = np.exp(tmpp) * ap
+    dBdT = tp/bp
+
+    if MakePlot==True:
+        fig,(ax1,ax2) = plt.subplots(2,1,figsize=(10,5))
+        ax1.plot(wave,bb)
+        ax2.plot(wave,dBdT)
+        if ispace==0:
+            ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+            ax2.set_xlabel('Wavenumber (cm$^{-1}$)')
+            ax2.set_ylabel('dB/dT (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$ K$^{-1}$)')    
+        else:
+            ax1.set_xlabel('Wavelength ($\mu$m)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+            ax2.set_xlabel('Wavelength ($\mu$m)')
+            ax2.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$ K$^{-1}$)')
+        ax1.grid()
+        ax2.grid()
+        plt.tight_layout()
+        plt.show()
+
+    return bb,dBdT

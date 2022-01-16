@@ -66,6 +66,14 @@ class Variables_0:
             Flag indicating whether the elements of the state vector are carried in log-scale
         @attribute FIX: 1D array
             Flag indicating whether the elements of the state vector must be fixed
+        @attribute NUM: 1D array
+            Flag indicating how the gradients with respect to a particular element of the state vector must be computed
+            (0) Gradients are computed analytically inside CIRSradg (Atmospheric gradients or Surface temperature) or subspecretg (Others)
+            (1) Gradients are computed numerically 
+        @attribute DSTEP: 1D array
+            For the elements of the state vector whose derivative is being calculated numerically, this array indicates
+            the step in the function to be used to calculate the numerical derivative (f' = (f(x+h) - f(x)) / h ). 
+            If not specified, this step is assumed to be 5% of the value (h = 0.05*x)
 
         Methods
         -------
@@ -101,6 +109,8 @@ class Variables_0:
         self.LX = None # np.zeros(NX)
         self.FIX =  None # np.zeros(NX)
         self.SX = None # np.zeros((NX, NX))
+        self.NUM = None #np.zeros(NX)
+        self.DSTEP = None #np.zeros(NX)
 
     def edit_VARIDENT(self, VARIDENT_array):
         """
@@ -135,14 +145,21 @@ class Variables_0:
         nxvar = np.zeros(self.NVAR,dtype='int32')
 
         if self.NVAR==1:
-            imod = self.VARIDENT[2]
-            ipar = self.VARPARAM[0]
+            if len(self.VARIDENT.shape)==1:
+                imod = self.VARIDENT[2]
+                ipar = self.VARPARAM[0]
+                ipar2 = self.VARPARAM[1]
+            else:
+                imod = self.VARIDENT[0,2]
+                ipar = self.VARPARAM[0,0]
+                ipar2 = self.VARPARAM[0,1]
 
         for i in range(self.NVAR):
 
             if self.NVAR>1:
                 imod = self.VARIDENT[i,2]
                 ipar = self.VARPARAM[i,0]
+                ipar2 = self.VARPARAM[i,1]
 
             if imod == -1:
                 nxvar[i] = NPRO
@@ -205,15 +222,21 @@ class Variables_0:
             elif imod == 28:
                 nxvar[i] = 1
             elif imod == 228:
-                nxvar[i] = 7
+                nxvar[i] = 8
             elif imod == 229:
                 nxvar[i] = 7
             elif imod == 230:
-                nxvar[i] = 2*int(ipar)
+                nxvar[i] = 7*int(ipar)
             elif imod == 231:
+                nxvar[i] = int(ipar)*int(ipar2+1)
+            elif imod == 232:
                 nxvar[i] = 2*int(ipar)
+            elif imod == 233:
+                nxvar[i] = 3*int(ipar)
             elif imod == 444:
                 nxvar[i] = 1 + 1 + int(ipar)
+            elif imod == 446:
+                nxvar[i] = 2*int(ipar)
             elif imod == 666:
                 nxvar[i] = 1
             elif imod == 667:
@@ -228,6 +251,40 @@ class Variables_0:
                 sys.exit('error :: varID not included in calc_NXVAR()')
 
         self.NXVAR = nxvar
+
+    def calc_DSTEP(self):
+        """
+        Calculate the step size to be used for the calculation of the numerical derivatives
+        f' =  ( f(x+h) - f(x) ) / h
+        """
+
+        #Generally, we use h = 0.05*x
+        dstep = np.zeros(self.NX)
+        dstep[:] = self.XN * 0.05
+
+        #Changing the step size for certain parameterisations
+        ix = 0
+        for i in range(self.NVAR):
+
+            if self.NVAR>1:
+                imod = self.VARIDENT[i,2]
+                ipar = self.VARPARAM[i,0]
+            else:
+                imod = self.VARIDENT[0,2]
+                ipar = self.VARPARAM[0,0]
+
+            if imod == 228:
+                
+                #V0,C0,C1,C2,P0,P1,P2,P3
+                dstep[ix] = 0.5 * np.sqrt( self.SA[ix,ix] )
+                dstep[ix+1] = 0.5 * np.sqrt( self.SA[ix+1,ix+1] )
+                dstep[ix+2] = 0.5 * np.sqrt( self.SA[ix+2,ix+2] )
+                dstep[ix+3] = 0.5 * np.sqrt( self.SA[ix+3,ix+3] )
+
+            ix = ix + self.NXVAR[i]
+
+        self.DSTEP = dstep
+
 
     def edit_XA(self, XA_array):
         """
@@ -359,12 +416,13 @@ class Variables_0:
         jfrac = -1
         sxminfac = 0.001
         mparam = 200        #Giving big sizes but they will be re-sized
-        mx = 1000
+        mx = 2000
         varident = np.zeros([nvar,3],dtype='int')
         varparam = np.zeros([nvar,mparam])
         lx = np.zeros([mx],dtype='int')
         x0 = np.zeros([mx])
         sx = np.zeros([mx,mx])
+        inum = np.zeros([mx],dtype='int')
 
         #Reading data
         ix = 0
@@ -376,7 +434,7 @@ class Variables_0:
 
             #Starting different cases
             if varident[i,2] <= 100:    #Parameter must be an atmospheric one
-            
+
                 if varident[i,2] == 0:
 #               ********* continuous profile ************************
                     s = f.readline().split()
@@ -400,6 +458,9 @@ class Variables_0:
                         x0[ix:ix+nlevel] = ref[:]
                         for j in range(nlevel):
                             sx[ix+j,ix+j] = eref[j]**2.
+                            if varident[i,1] == -1: #Gradients computed numerically
+                                inum[ix+j] = 1
+
                     else:                   #**** vmr, cloud, para-H2 , fcloud, take logs ***
                         for j in range(nlevel):
                             lx[ix+j] = 1
@@ -580,8 +641,9 @@ class Variables_0:
                     if xdeep>0.0:
                         x0[ix] = np.log(xdeep)
                         lx[ix] = 1
+                        #inum[ix] = 1
                     else:
-                        print('error in read_apr() :: Parameter xdeep (total atmospheric aerosol column) must be positive')
+                        sys.exit('error in read_apr() :: Parameter xdeep (total atmospheric aerosol column) must be positive')
 
                     err = edeep/xdeep
                     sx[ix,ix] = err**2.
@@ -591,8 +653,9 @@ class Variables_0:
                     if xfsh>0.0:
                         x0[ix] = np.log(xfsh)
                         lx[ix] = 1
+                        #inum[ix] = 1
                     else:
-                        print('error in read_apr() :: Parameter xfsh (cloud fractional scale height) must be positive')
+                        sys.exit('error in read_apr() :: Parameter xfsh (cloud fractional scale height) must be positive')
 
                     err = efsh/xfsh
                     sx[ix,ix] = err**2.
@@ -600,6 +663,7 @@ class Variables_0:
                     ix = ix + 1
 
                     x0[ix] = hknee
+                    #inum[ix] = 1
                     sx[ix,ix] = eknee**2.
 
                     ix = ix + 1
@@ -610,48 +674,62 @@ class Variables_0:
             else:
 
                 if varident[i,2] == 228:
-#               ******** model for retrieving the ILS in ACS MIR solar occultation observations
+#               ******** model for retrieving the ILS and Wavelength calibration in ACS MIR solar occultation observations
                 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #wavenumber offset at lowest wavenumber
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #V0
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #wavenumber offset at highest wavenumber
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #C0
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Offset of the second gaussian with respect to the first one (assumed spectrally constant)
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #C1
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #FWHM of the main gaussian at the lowest wavenumber
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #C2
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #FWHM of the main gaussian at the highest wavenumber (Assumed linear variation)
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #P0 - Offset of the second gaussian with respect to the first one (assumed spectrally constant)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
+                    ix = ix + 1
+
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #P1 - FWHM of the main gaussian (assumed to be constant in wavelength units)
+                    x0[ix] = float(tmp[0])
+                    sx[ix,ix] = float(tmp[1])**2.
+                    lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #P2 - Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
-                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (linear variation)
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #P3 - Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (linear variation)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
 
                 elif varident[i,2] == 229:
@@ -661,90 +739,281 @@ class Variables_0:
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
         
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #wavenumber offset at wavenumber in the middle
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #wavenumber offset at highest wavenumber
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Offset of the second gaussian with respect to the first one (assumed spectrally constant)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #FWHM of the main gaussian (assumed to be constant in wavelength units)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (linear variation)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
+                    inum[ix] = 1
                     ix = ix + 1
 
 
                 elif varident[i,2] == 230:
-#               ******** Aerosol opacity using Angstrom coefficient
-#               !!! this model is only valid for the python version of nemesisSO
+#               ******** model for retrieving multiple ILS (different spectral windows) in ACS MIR solar occultation observations
 
                     s = f.readline().split()
                     f1 = open(s[0],'r')
-                    tmp = np.fromfile(f1,sep=' ',count=1,dtype='int')
-                    nlevel = int(tmp[0])
-                    varparam[i,0] = nlevel
-                    for ilevel in range(nlevel):
-                        tmp = np.fromfile(f1,sep=' ',count=4,dtype='float')
-                        r0 = float(tmp[0])    #Opaity at the first wavenumber
-                        err0 = float(tmp[1])
-                        r1 = float(tmp[2])    #Angstrom coefficient
-                        err1 = float(tmp[3])
-                        x0[ix] = np.log(r0)
-                        sx[ix,ix] = (err0/r0)**2.
-                        lx[ix] = 1
-                        x0[ix+1] = r1
-                        sx[ix+1,ix+1] = err1**2.
-                        lx[ix] = 0
-                        ix = ix + 2
+                    s = f1.readline().split()
+                    nwindows = int(s[0])
+                    varparam[i,0] = nwindows
+                    liml = np.zeros(nwindows)
+                    limh = np.zeros(nwindows)
+                    for iwin in range(nwindows):
+                        s = f1.readline().split()
+                        liml[iwin] = float(s[0])
+                        limh[iwin] = float(s[1])
+                        varparam[i,2*iwin+1] = liml[iwin]
+                        varparam[i,2*iwin+2] = limh[iwin]
+
+                    par = np.zeros((7,nwindows))
+                    parerr = np.zeros((7,nwindows))
+                    for iw in range(nwindows):
+                        for j in range(7):
+                            s = f1.readline().split()
+                            par[j,iw] = float(s[0])
+                            parerr[j,iw] = float(s[1])
+                            x0[ix] = par[j,iw]
+                            sx[ix,ix] = (parerr[j,iw])**2.
+                            inum[ix] = 1
+                            ix = ix + 1
 
                 elif varident[i,2] == 231:
-#               ******** Continuum addition to transmission spectra using a linearly varying scaling factor
+#               ******** Continuum addition to transmission spectra using a varying scaling factor (following polynomial of degree N)
 
-                    #The computed transmission spectra is multiplied by TRANS = TRANS0 * (T0 + T1*(WAVE-WAVE0))
-                    #Where the parameters to fit are T0 and T1
+                    #The computed spectra is multiplied by R = R0 * (T0 + POL)
+                    #Where the polynomial function POL depends on the wavelength given by:
+                    # POL = A0 + A1*(WAVE-WAVE0) + A2*(WAVE-WAVE0)**2. + ...
+
+                    s = f.readline().split()
+                    f1 = open(s[0],'r')
+                    tmp = np.fromfile(f1,sep=' ',count=2,dtype='int')
+                    nlevel = int(tmp[0])
+                    ndegree = int(tmp[1])
+                    varparam[i,0] = nlevel
+                    varparam[i,1] = ndegree
+                    for ilevel in range(nlevel):
+                        tmp = np.fromfile(f1,sep=' ',count=2*(ndegree+1),dtype='float')
+                        for ic in range(ndegree+1):
+                            r0 = float(tmp[2*ic])
+                            err0 = float(tmp[2*ic+1])
+                            x0[ix] = r0
+                            sx[ix,ix] = (err0)**2.
+                            inum[ix] = 0
+                            ix = ix + 1
+
+                elif varident[i,2] == 232:
+#               ******** Continuum addition to transmission spectra using the Angstrom coefficient
+
+                    #The computed transmission spectra is multiplied by TRANS = TRANS0 * NP.EXP( - TAU0 * (WAVE/WAVE0)**-ALPHA )
+                    #Where the parameters to fit are TAU0 and ALPHA
+
+                    s = f.readline().split()
+                    wavenorm = float(s[0])                    
 
                     s = f.readline().split()
                     f1 = open(s[0],'r')
                     tmp = np.fromfile(f1,sep=' ',count=1,dtype='int')
                     nlevel = int(tmp[0])
                     varparam[i,0] = nlevel
+                    varparam[i,1] = wavenorm
                     for ilevel in range(nlevel):
                         tmp = np.fromfile(f1,sep=' ',count=4,dtype='float')
-                        r0 = float(tmp[0])   #Transmission level at the first wavenumber
+                        r0 = float(tmp[0])   #Opacity level at wavenorm
                         err0 = float(tmp[1])
-                        r1 = float(tmp[2])   #Slope ofthe transmission with wavenumber
+                        r1 = float(tmp[2])   #Angstrom coefficient
                         err1 = float(tmp[3])
                         x0[ix] = r0
                         sx[ix,ix] = (err0)**2.
                         x0[ix+1] = r1
                         sx[ix+1,ix+1] = err1**2.
+                        inum[ix] = 0
+                        inum[ix+1] = 0                        
                         ix = ix + 2
+
+                elif varident[i,2] == 233:
+#               ******** Aerosol opacity modelled with a variable angstrom coefficient. Applicable to transmission spectra.
+
+                    #The computed transmission spectra is multiplied by TRANS = TRANS0 * NP.EXP( -TAU_AERO )
+                    #Where the aerosol opacity is modelled following
+
+                    # np.log(TAU_AERO) = a0 + a1 * np.log(WAVE) + a2 * np.log(WAVE)**2.
+
+                    #The coefficient a2 accounts for a curvature in the angstrom coefficient used in model 232. Note that model
+                    #233 converges to model 232 when a2=0.                  
+
+                    #Reading the file where the a priori parameters are stored
+                    s = f.readline().split()
+                    f1 = open(s[0],'r')
+                    tmp = np.fromfile(f1,sep=' ',count=1,dtype='int')
+                    nlevel = int(tmp[0])
+                    varparam[i,0] = nlevel
+                    for ilevel in range(nlevel):
+                        tmp = np.fromfile(f1,sep=' ',count=6,dtype='float')
+                        a0 = float(tmp[0])   #A0
+                        err0 = float(tmp[1])
+                        a1 = float(tmp[2])   #A1
+                        err1 = float(tmp[3])
+                        a2 = float(tmp[4])   #A2
+                        err2 = float(tmp[5])
+                        x0[ix] = a0
+                        sx[ix,ix] = (err0)**2.
+                        x0[ix+1] = a1
+                        sx[ix+1,ix+1] = err1**2.
+                        x0[ix+2] = a2
+                        sx[ix+2,ix+2] = err2**2.
+                        inum[ix] = 0
+                        inum[ix+1] = 0    
+                        inum[ix+2] = 0                  
+                        ix = ix + 3
+
+                elif varident[i,2] == 447:
+#               ******** model for retrieving an aerosol opacity profile + Angstrom coefficient profile
+
+                    #Read the number of altitude levels (and therefore number of aerosol populations)
+                    #Wavelength at which the opacity must be normalised
+                    s = f.readline().split()
+                    nlevel = int(s[0])
+                    WaveNorm = float(s[2])
+
+                    varparam[i,0] = nlevel
+                    varparam[i,2] = WaveNorm
+
+                    if nlevel!=npro:
+                        sys.exit('error in model 446 : The number of aerosol levels in the input file must be the same as in the .ref file')
+
+                    
+
+
+                elif varident[i,2] == 446:
+#               ******** model for retrieving an aerosol density profile + aerosol particle size (log-normal distribution)
+
+                    #This model requires one aerosol population for altitude level in order to have the correct extinction
+                    #coefficients and single scattering albedo at all altitudes
+
+                    #Read the number of altitude levels (and therefore number of aerosol populations)
+                    #Read the aerosol id (from the aerosol dictionary) from which to take the refractive index
+                    #Read the sigma of the lognormal distribution (assumed to be fixed)
+                    #Read the 
+                    s = f.readline().split()
+                    nlevel = int(s[0])
+                    aerosol_id = int(s[1])
+                    sigma_dist = float(s[2])
+                    idust0 = int(s[3])
+                    WaveNorm = float(s[4])
+                    
+                    varparam[i,0] = nlevel
+                    varparam[i,1] = aerosol_id
+                    varparam[i,2] = sigma_dist
+                    varparam[i,3] = idust0
+                    varparam[i,4] = WaveNorm
+
+                    if nlevel!=npro:
+                        sys.exit('error in model 446 : The number of aerosol levels in the input file must be the same as in the .ref file')
+
+                    #Read the name of the file where the a priori vertical profiles are defined
+                    s = f.readline().split()
+                    fnamex = s[0]
+
+                    #Reading the file and the profiles
+                    faero = open(fnamex,'r')
+                    s = faero.readline().split()
+                    clen_dens = float(s[0])
+                    clen_rsize = float(s[1])
+
+                    pref = np.zeros(nlevel)
+                    aerodens = np.zeros(nlevel)
+                    aerodenserr = np.zeros(nlevel)
+                    rsize = np.zeros(nlevel)
+                    rsizeerr = np.zeros(nlevel)
+                    for ih in range(nlevel):
+                        s = faero.readline().split()
+                        pref[ih] = float(s[0])
+                        aerodens[ih] = float(s[1])
+                        aerodenserr[ih] = float(s[2])
+                        rsize[ih] = float(s[3])
+                        rsizeerr[ih] = float(s[4])
+                    
+                    faero.close()
+
+                    #Filling the state vector and a priori covariance matrix with the dust abundance
+                    for ih in range(nlevel):
+                        lx[ix+ih] = 1
+                        x0[ix+ih] = np.log(aerodens[ih])
+                        sx[ix+ih,ix+ih] = ( aerodenserr[ih]/aerodens[ih]  )**2.
+
+                    for j in range(nlevel):
+                        for k in range(nlevel):
+                            if pref[j] < 0.0:
+                                sys.exit('Error in read_apr_nemesis().  A priori file must be on pressure grid')
+                        
+                            delp = np.log(pref[k])-np.log(pref[j])
+                            arg = abs(delp/clen_dens)
+                            xfac = np.exp(-arg)
+                            if xfac >= sxminfac:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
+
+                    ix = ix + nlevel
+
+                    #Filling the state vector and a priori covariance matrix with the dust particle size
+                    for ih in range(nlevel):
+                        #x0[ix+ih] = rsize[ih]
+                        lx[ix+ih] = 1
+                        x0[ix+ih] = np.log(rsize[ih])
+                        inum[ix+ih] = 1
+                        sx[ix+ih,ix+ih] = ( rsizeerr[ih]/rsize[ih]  )**2.
+                        #sx[ix+ih,ix+ih] = (rsizeerr[ih])**2.
+
+                    for j in range(nlevel):
+                        for k in range(nlevel):
+                            if pref[j] < 0.0:
+                                sys.exit('Error in read_apr_nemesis().  A priori file must be on pressure grid')
+                        
+                            delp = np.log(pref[k])-np.log(pref[j])
+                            arg = abs(delp/clen_rsize)
+                            xfac = np.exp(-arg)
+                            if xfac >= sxminfac:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
+
+                    ix = ix + nlevel
 
                 elif varident[i,2] == 666:
 #               ******** pressure at given altitude
@@ -757,6 +1026,7 @@ class Variables_0:
                     if ptan>0.0:
                         x0[ix] = np.log(ptan)
                         lx[ix] = 1
+                        inum[ix] = 1
                     else:
                         sys.exit('error in read_apr_nemesis() :: pressure must be > 0')
                 
@@ -766,11 +1036,12 @@ class Variables_0:
                     ix = ix + 1
 
                 elif varident[i,2] == 667:
-#               ******** dillusion factor to account for thermal gradients thorughout exoplanet
+#               ******** dilution factor to account for thermal gradients thorughout exoplanet
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
                     xfac = float(tmp[0])
                     xfacerr = float(tmp[1])
                     x0[ix] = xfac
+                    inum[ix] = 0 
                     sx[ix,ix] = xfacerr**2.
                     ix = ix + 1
 
@@ -809,6 +1080,7 @@ class Variables_0:
                     for j in range(nwv):
                         x0[ix+j] = np.log(xsc[j])
                         lx[ix+j] = 1
+                        inum[ix+j] = 1
                         sx[ix+j,ix+j] = (err[j]/xsc[j])**2.
 
                     for j in range(nwv):
@@ -846,6 +1118,7 @@ class Variables_0:
                         err = float(s[1])
                         x0[ix] = r0
                         sx[ix,ix] = err**2.0
+                        inum[ix] = 1
                         ix = ix + 1
 
                 elif varident[i,2] == 999:
@@ -855,22 +1128,25 @@ class Variables_0:
                     esurf = float(s[1])
                     x0[ix] = tsurf
                     sx[ix,ix] = esurf**2.
+                    inum[ix] = 0
                     jsurf = ix
             
                     ix = ix + 1
 
 
+
         f.close()
 
         nx = ix
-        lx1 = np.zeros([nx],dtype='int32')
-        xa = np.zeros([nx])
+        lx1 = np.zeros(nx,dtype='int32')
+        inum1 = np.zeros(nx,dtype='int32')
+        xa = np.zeros(nx)
         sa = np.zeros([nx,nx])
         lx1[0:nx] = lx[0:nx]
+        inum1[0:nx] = inum[0:nx]
         xa[0:nx] = x0[0:nx]
         sa[0:nx,0:nx] = sx[0:nx,0:nx]
-                        
-        #Var = Variables_0()
+
         self.NVAR=nvar
         self.NPARAM=mparam
         self.edit_VARIDENT(varident)
@@ -879,6 +1155,9 @@ class Variables_0:
         self.JPRE, self.JTAN, self.JSURF, self.JALB, self.JXSC, self.JLOGG, self.JFRAC = jpre, jtan, jsurf, jalb, jxsc, jlogg, jfrac
         self.NX = nx
         self.edit_XA(xa)
+        self.edit_XN(xa)
         self.edit_SA(sa)
         self.edit_LX(lx1)
+        self.NUM = inum1
+        self.calc_DSTEP()
         self.calc_FIX()

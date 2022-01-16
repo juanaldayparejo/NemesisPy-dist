@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 ###############################################################################################
 
-def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Layer,flagh2p):
+def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,Layer,flagh2p):
 
     """
     FUNCTION NAME : subprogretg()
@@ -23,6 +23,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
         Variables :: Python class defining the parameterisations and state vector
         Measurement :: Python class defining the measurements 
         Atmosphere :: Python class defining the reference atmosphere
+        Spectroscopy :: Python class defining the spectroscopic parameters
         Scatter :: Python class defining the parameters required for scattering calculations
         Stellar :: Python class defining the stellar spectrum
         Surface :: Python class defining the surface
@@ -154,9 +155,35 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
 
             ix = ix + Variables.NXVAR[ivar]
 
-        elif Variables.VARIDENT[ivar,0]==228:
-#       Model 228. Retrieval of instrument line shape for ACS-MIR (v1)
+        elif Variables.VARIDENT[ivar,2]==9:
+#       Model 9. Simple cloud represented by base height, fractional scale height
+#                and the total integrated cloud density
 #       ***************************************************************
+
+            tau = np.exp(Variables.XN[ix])  #Integrated dust column-density
+            fsh = np.exp(Variables.XN[ix+1]) #Fractional scale height
+            href = Variables.XN[ix+2] #Base height (km)
+
+            Atmosphere,xmap1 = model9(Atmosphere,ipar,href,fsh,tau)
+            xmap[ix:ix+Variables.NXVAR[ivar],:,0:Atmosphere.NP] = xmap1[:,:,:]
+
+            ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==228:
+#       Model 228. Retrieval of instrument line shape for ACS-MIR and wavelength calibration
+#       **************************************************************************************
+
+            V0 = Variables.XN[ix]
+            C0 = Variables.XN[ix+1]
+            C1 = Variables.XN[ix+2]
+            C2 = Variables.XN[ix+3]
+            P0 = Variables.XN[ix+4]
+            P1 = Variables.XN[ix+5]
+            P2 = Variables.XN[ix+6]
+            P3 = Variables.XN[ix+7]
+
+            Measurement,Spectroscopy = model228(Measurement,Spectroscopy,V0,C0,C1,C2,P0,P1,P2,P3)
+
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]
 
@@ -177,18 +204,110 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]
 
-        elif Variables.VARIDENT[ivar,0]==231:
-#       Model 231. Continuum addition to transmission spectra using a linearly varying scaling factor
+        elif Variables.VARIDENT[ivar,0]==230:
+#       Model 230. Retrieval of multiple instrument line shapes for ACS-MIR
 #       ***************************************************************
 
-            #The computed transmission spectra is multiplied by TRANS = TRANS0 * (T0 + T1*(WAVE-WAVE0))
-            #Where the parameters to fit are T0 and T1
+            nwindows = int(Variables.VARPARAM[ivar,0])
+            liml = np.zeros(nwindows)
+            limh = np.zeros(nwindows)
+            i0 = 1
+            for iwin in range(nwindows):
+                liml[iwin] = Variables.VARPARAM[ivar,i0]
+                limh[iwin] = Variables.VARPARAM[ivar,i0+1]
+                i0 = i0 + 2
+
+            par1 = np.zeros((7,nwindows))
+            for iwin in range(nwindows):
+                for jwin in range(7):
+                    par1[jwin,iwin] = Variables.XN[ix]
+                    ix = ix + 1
+
+            Measurement = model230(Measurement,nwindows,liml,limh,par1)
+
+            ipar = -1
+
+        elif Variables.VARIDENT[ivar,0]==231:
+#       Model 231. Continuum addition to transmission spectra using a varying scaling factor (given a polynomial of degree N)
+#       ***************************************************************
+
+            #The computed transmission spectra is multiplied by R = R0 * POL
+            #Where POL is given by POL = A0 + A1*(WAVE-WAVE0) + A2*(WAVE-WAVE0)**2. + ...
 
             #The effect of this model takes place after the computation of the spectra in CIRSrad!
-            if int(Variables.NXVAR[ivar]/2)!=Measurement.NGEOM:
+            if int(Variables.VARPARAM[ivar,0])!=Measurement.NGEOM:
                 sys.exit('error using Model 231 :: The number of levels for the addition of continuum must be the same as NGEOM')
 
             ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==232:
+#       Model 232. Continuum addition to transmission spectra using the angstrom coefficient
+#       ***************************************************************
+
+            #The computed transmission spectra is multiplied by TRANS = TRANS0 * NP.EXP( - TAU0 * (WAVE/WAVE0)**-ALPHA )
+            #Where the parameters to fit are TAU0 and ALPHA
+
+            #The effect of this model takes place after the computation of the spectra in CIRSrad!
+            if int(Variables.NXVAR[ivar]/2)!=Measurement.NGEOM:
+                sys.exit('error using Model 232 :: The number of levels for the addition of continuum must be the same as NGEOM')
+
+            ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==233:
+#       Model 233. Continuum addition to transmission spectra using a variable angstrom coefficient
+#       ***************************************************************
+
+            #The computed transmission spectra is multiplied by TRANS = TRANS0 * NP.EXP( -TAU_AERO )
+            #Where the aerosol opacity is modelled following
+
+            # np.log(TAU_AERO) = a0 + a1 * np.log(WAVE) + a2 * np.log(WAVE)**2.
+
+            #The coefficient a2 accounts for a curvature in the angstrom coefficient used in model 232. Note that model
+            #233 converges to model 232 when a2=0.
+
+            #The effect of this model takes place after the computation of the spectra in CIRSrad!
+            if int(Variables.NXVAR[ivar]/3)!=Measurement.NGEOM:
+                sys.exit('error using Model 233 :: The number of levels for the addition of continuum must be the same as NGEOM')
+
+            ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==446:
+#       Model 446. model for retrieving an aerosol density profile + aerosol particle size (log-normal distribution)
+#       ***************************************************************
+
+            #This model fits a continuous vertical profile for the aerosol density and the particle size, which
+            #is assumed to follow a log-normal distribution
+
+            if int(Variables.NXVAR[ivar]/2)!=Atmosphere.NP:
+                sys.exit('error using Model 446 :: The number of levels for the addition of continuum must be the same as NPRO')
+
+            aero_dens = np.zeros(Atmosphere.NP)
+            aero_rsize = np.zeros(Atmosphere.NP)
+            aero_dens[:] = np.exp(Variables.XN[ix:ix+Atmosphere.NP])
+            aero_rsize[:] = np.exp(Variables.XN[ix+Atmosphere.NP:ix+Atmosphere.NP+Atmosphere.NP])
+            #aero_rsize[:] = Variables.XN[ix+Atmosphere.NP:ix+Atmosphere.NP+Atmosphere.NP]
+
+            nlevel = int(Variables.VARPARAM[ivar,0])
+            aero_id = int(Variables.VARPARAM[ivar,1])
+            sigma_rsize = Variables.VARPARAM[ivar,2]
+            idust0 = int(Variables.VARPARAM[ivar,3])
+            WaveNorm = Variables.VARPARAM[ivar,4]
+
+            #Reading the refractive index from the dictionary
+            Scatter.WAVER = aerosol_info[str(aero_id)]["wave"]
+            Scatter.REFIND_REAL = aerosol_info[str(aero_id)]["refind_real"]
+            Scatter.REFIND_IM = aerosol_info[str(aero_id)]["refind_im"]
+
+            if Atmosphere.NDUST<nlevel:
+                sys.exit('error in Model 446 :: The number of aerosol populations must at least be equal to the number of altitude levels')
+
+            Atmosphere,Scatter,xmap1 = model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,WaveNorm)
+
+            xmap[ix:ix+Variables.NXVAR[ivar],:,0:Atmosphere.NP] = xmap1[:,:,:]
+
             ix = ix + Variables.NXVAR[ivar]
 
         elif Variables.VARIDENT[ivar,0]==666:
@@ -198,8 +317,18 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface
             ix = ix + Variables.NXVAR[ivar]
 
         elif Variables.VARIDENT[ivar,0]==667:
-#       Model 667. Retrieval of dillusion factor to account for thermal gradients in planets
+#       Model 667. Retrieval of dilution factor to account for thermal gradients in planets
 #       ***************************************************************
+            ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
+
+        elif Variables.VARIDENT[ivar,0]==999:
+#       Model 999. Retrieval of surface temperature
+#       ***************************************************************
+
+            tsurf = Variables.XN[ix]
+            Surface.TSURF = tsurf
+
             ipar = -1
             ix = ix + Variables.NXVAR[ivar]
 
