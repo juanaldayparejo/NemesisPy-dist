@@ -47,15 +47,45 @@ Radiative transfer: Types of simulations
 
 The NEMESIS code is able to model the electromagnetic spectrum of different planetary atmospheres under different observing geometries (e.g., nadir-viewing, limb-viewing, solar occultations, exoplanet phase curves, etc.). In the following sections, 
 
+
+Atmosphere
+-----------------------------
+
+In order to model the atmosphere of different planets, NEMESIS uses an ID number for each of these, and searches some important parameters (e.g., size and mass) to compute the gravitational field at different altitudes and latitudes. Currently, the planets whose IDs have been implemented in the code are:
+
+1) Mercury.
+2) Venus.
+3) Earth.
+4) Mars.
+5) Jupiter.
+6) Saturn.
+7) Uranus.
+8) Neptune.
+9) Pluto.
+10) Sun.
+11) Titan.
+85) NGTS-10b.
+87) WASP-43b.
+
+
+The atmosphere is represented by a set of vertical profiles indicating the pressure, temperature and gaseous volume mixing ratios as a function of altitude.
+
 Spectroscopy
 -----------------------------
 
 The modelling of the spectra 
 
 
-Scattering
+Surface
 -----------------------------
 
+
+Collision-Induced Absorption
+-----------------------------
+
+
+Scattering
+-----------------------------
 
 
 Observing geometry
