@@ -47,10 +47,53 @@ Radiative transfer: Types of simulations
 
 The NEMESIS code is able to model the electromagnetic spectrum of different planetary atmospheres under different observing geometries (e.g., nadir-viewing, limb-viewing, solar occultations, exoplanet phase curves, etc.). In the following sections, 
 
+Spectroscopy
+-----------------------------
+
+The modelling of the spectra 
+
+
+Scattering
+-----------------------------
+
+
+
+Observing geometry
+-----------------------------
+
+
+
 Retrieval techniques: Solving the inverse problem
 ======================================================================
 
 The NEMESIS code includes different retrieval techniques to solve the inverse problem: based on the observed electromagnetic spectrum of a given planetary atmosphere, we aim to find a set of atmospheric parameters that explain the observation.
+
+Optimal Estimation
+-----------------------------
+
+
+Nested Sampling
+-----------------------------
+
+
+Model parameterisations
+-----------------------------
+
+The retrieval 
+
+Adding custom parameterisations
+---------------------------------
+
+
+
+Input files
+======================================================================
+
+
+Examples
+======================================================================
+
+
 
 
 
