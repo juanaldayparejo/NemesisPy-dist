@@ -40,3 +40,18 @@ Publications using NEMESIS
   - Irwin, P. G., Toledo, D., Garland, R., Teanby, N. A., Fletcher, L. N., Orton, G. A., & Bézard, B. (2018). Detection of hydrogen sulfide above the clouds in Uranus’s atmosphere. Nature Astronomy, 2(5), 420-427. https://doi.org/10.1038/s41550-018-0432-1
 
   - Irwin, P., Teanby, N., de Kok, R., Fletcher, L., Howett, C., Tsang, C., et al. (2008). The NEMESIS planetary atmosphere radiative transfer and retrieval tool. Journal of Quantitative Spectroscopy and Radiative Transfer, 109(6), 1136–1150. https://doi.org/10.1016/j.jqsrt.2007.11.006
+
+
+Radiative transfer: Types of simulations
+======================================================================
+
+The NEMESIS code is able to model the electromagnetic spectrum of different planetary atmospheres under different observing geometries (e.g., nadir-viewing, limb-viewing, solar occultations, exoplanet phase curves, etc.). In the following sections, 
+
+Retrieval techniques: Solving the inverse problem
+======================================================================
+
+The NEMESIS code includes different retrieval techniques to solve the inverse problem: based on the observed electromagnetic spectrum of a given planetary atmosphere, we aim to find a set of atmospheric parameters that explain the observation.
+
+
+
+
