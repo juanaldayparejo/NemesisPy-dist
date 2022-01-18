@@ -41,11 +41,15 @@ class CIA_0:
             Temperature levels at which the CIA data is defined (K)
         @attribute K_CIA: 1D array
             CIA cross sections for each pair at each wavenumber and temperature level
+        @attribute CIADATA: str
+            String indicating where the CIA data files are stored
 
         Methods
         ----------
         CIA_0.read_cia(runname)
         """
+
+        from NemesisPy import Nemesis_Path
 
         #Input parameters
         self.INORMAL = INORMAL
@@ -58,8 +62,9 @@ class CIA_0:
         self.TEMP = None # np.zeros(NT)
         self.K_CIA = None #np.zeros(NPAIR,NT,NWAVE)
 
+        self.CIADATA = Nemesis_Path()+'NemesisPy/Data/cia/'
 
-    def read_cia(self,runname,raddata='/Users/aldayparejo/Documents/Projects/PlanetaryScience/NemesisPy-dist/NemesisPy/Data/cia/'):
+    def read_cia(self,runname):
         """
         Read the .cia file
         @param runname: str
@@ -67,7 +72,7 @@ class CIA_0:
         """
 
         from scipy.io import FortranFile
-        
+
         #Reading .cia file
         f = open(runname+'.cia','r')
         s = f.readline().split()
@@ -85,7 +90,7 @@ class CIA_0:
         if npara==0:
             NPAIR = 9
 
-        f = FortranFile(raddata+cianame, 'r' )
+        f = FortranFile(self.CIADATA+cianame, 'r' )
         TEMPS = f.read_reals( dtype='float64' )
         KCIA_list = f.read_reals( dtype='float32' )
         NT = len(TEMPS)
