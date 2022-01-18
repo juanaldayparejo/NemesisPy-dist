@@ -42,11 +42,15 @@ class Stellar_0:
             Stellar power spectrum (W/(cm-1) or W/um)
         @attribute SOLFLUX: 1D array
             Stellar flux at planet's distance (W cm-2 um-1 or W cm-2 (cm-1)-1)
+        @attribute STELLARDATA: str
+            String indicating where the STELLAR data files are stored
 
         Methods
         -------
         Stellar_0.edit_SOLSPEC
         """
+
+        from NemesisPy import Nemesis_Path
 
         #Input parameters
         self.SOLEXIST = SOLEXIST
@@ -59,6 +63,8 @@ class Stellar_0:
         self.VCONV = None # np.zeros(NCONV)
         self.SOLSPEC = None # np.zeros(NCONV)
         self.SOLFLUX = None #np.zeros(NCONV)
+
+        self.STELLARDATA = Nemesis_Path()+'NemesisPy/Data/stellar/'
 
     def edit_VCONV(self, VCONV):
         """
@@ -80,7 +86,7 @@ class Stellar_0:
         assert len(SOLSPEC_array) == self.NCONV, 'SOLSPEC should have NCONV elements'
         self.SOLSPEC = SOLSPEC_array
 
-    def read_sol(self, runname, MakePlot=False, datarchive='/Users/aldayparejo/Documents/Projects/PlanetaryScience/NemesisPy-dist/NemesisPy/Data/stellar/'):
+    def read_sol(self, runname, MakePlot=False):
         """
         Read the solar spectrum from the .sol file
         @param runname: str
@@ -95,7 +101,7 @@ class Stellar_0:
         solname = s[0]
         f.close()
 
-        nlines = file_lines(datarchive+solname)
+        nlines = file_lines(self.STELLARDATA+solname)
 
         #Reading buffer
         ibuff = 0
