@@ -1,9 +1,0 @@
-setup.py
-NemesisPy/Driver.py
-NemesisPy/test_layer.py
-NemesisPy/test_models.py
-NemesisPy.egg-info/PKG-INFO
-NemesisPy.egg-info/SOURCES.txt
-NemesisPy.egg-info/dependency_links.txt
-NemesisPy.egg-info/requires.txt
-NemesisPy.egg-info/top_level.txt
