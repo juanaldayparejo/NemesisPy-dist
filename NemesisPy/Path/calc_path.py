@@ -36,7 +36,7 @@ def calc_path(Atmosphere,Scatter,Measurement,Layer):
     MODIFICATION HISTORY : Juan Alday (15/03/2021)
     """
 
-    from NemesisPy.Layer import AtmCalc_0,Path_0
+    from NemesisPy.Path import AtmCalc_0,Path_0
 
     #Based on the new reference atmosphere, we split the atmosphere into layers
     ################################################################################

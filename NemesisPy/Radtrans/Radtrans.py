@@ -143,9 +143,8 @@ def nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
         
     """
 
-    from NemesisPy.Models import subprofretg,subspecret,calc_pathg_SO
-    from NemesisPy.Layer import AtmCalc_0
-    from NemesisPy.Layer import Path_0
+    from NemesisPy.Models import subprofretg,subspecret
+    from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg_SO
     #from NemesisPy.Radtrans import lblconv
     from NemesisPy import find_nearest
     from scipy import interpolate
@@ -326,9 +325,8 @@ def nemesisSOfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
         
     """
 
-    from NemesisPy.Models import subprofretg,subspecret,calc_path_SO
-    from NemesisPy.Layer import AtmCalc_0
-    from NemesisPy.Layer import Path_0
+    from NemesisPy.Models import subprofretg,subspecret
+    from NemesisPy.Path import AtmCalc_0,Path_0,calc_path_SO
     from NemesisPy import find_nearest
     from scipy import interpolate
     from copy import copy
@@ -694,9 +692,8 @@ def nemesisfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         
     """
 
-    from NemesisPy.Models import subprofretg,calc_path
-    from NemesisPy.Layer import AtmCalc_0
-    from NemesisPy.Layer import Path_0
+    from NemesisPy.Models import subprofretg
+    from NemesisPy.Path import AtmCalc_0,Path_0,calc_path
     from NemesisPy.Radtrans import lblconv
     from NemesisPy import find_nearest,subspecret
     from scipy import interpolate
@@ -818,9 +815,8 @@ def nemesisfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Ste
         
     """
 
-    from NemesisPy.Models import subprofretg,calc_pathg
-    from NemesisPy.Layer import AtmCalc_0
-    from NemesisPy.Layer import Path_0
+    from NemesisPy.Models import subprofretg
+    from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg
     from NemesisPy.Radtrans import lblconv
     from NemesisPy import find_nearest,subspecret
     from scipy import interpolate

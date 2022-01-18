@@ -6,14 +6,15 @@ import matplotlib.pyplot as plt
 
 ###############################################################################################
 
-def calc_path_SO(Atmosphere,Scatter,Measurement,Layer):
+def calc_pathg_SO(Atmosphere,Scatter,Measurement,Layer):
 
     """
-    FUNCTION NAME : calc_path_SO()
+    FUNCTION NAME : calc_pathg_SO()
 
     DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files), 
                   different parameters in the Path class are changed to perform correctly
-                  the radiative transfer calculations
+                  the radiative transfer calculations. This version also computes the matrices relating
+                  the properties of each layer (Layer) with the properties of the input profiles (Atmosphere)
 
     INPUTS :
     
@@ -31,12 +32,12 @@ def calc_path_SO(Atmosphere,Scatter,Measurement,Layer):
 
     CALLING SEQUENCE:
 
-        Layer,Path = calc_path_SO(Atmosphere,Scatter,Measurement,Layer)
+        Layer,Path = calc_pathg(Atmosphere,Scatter,Layer)
  
     MODIFICATION HISTORY : Juan Alday (15/03/2021)
     """
 
-    from NemesisPy.Layer import AtmCalc_0,Path_0
+    from NemesisPy.Path import AtmCalc_0,Path_0
     from NemesisPy import find_nearest
 
     #Based on the new reference atmosphere, we split the atmosphere into layers
@@ -49,8 +50,8 @@ def calc_path_SO(Atmosphere,Scatter,Measurement,Layer):
     #In solar occultation LAYANG = 90.0
     LAYANG = 90.0
 
-    BASEH, BASEP, BASET, HEIGHT, PRESS, TEMP, TOTAM, AMOUNT, PP, CONT, LAYSF, DELH\
-        = Layer.integrate(H=Atmosphere.H,P=Atmosphere.P,T=Atmosphere.T, LAYANG=LAYANG, ID=Atmosphere.ID,VMR=Atmosphere.VMR, DUST=Atmosphere.DUST)
+    BASEH, BASEP, BASET, HEIGHT, PRESS, TEMP, TOTAM, AMOUNT, PP, CONT, LAYSF, DELH, DTE, DAM, DCO\
+        = Layer.integrateg(H=Atmosphere.H,P=Atmosphere.P,T=Atmosphere.T, LAYANG=LAYANG, ID=Atmosphere.ID,VMR=Atmosphere.VMR, DUST=Atmosphere.DUST)
 
     #Based on the atmospheric layerinc, we calculate each required atmospheric path to model the measurements
     #############################################################################################################
@@ -84,3 +85,5 @@ def calc_path_SO(Atmosphere,Scatter,Measurement,Layer):
     Path = Path_0(AtmCalc_List,COMBINE=True)
 
     return Layer,Path
+
+
