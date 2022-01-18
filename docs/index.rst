@@ -60,7 +60,7 @@ Atmosphere
 In order to model the atmosphere of different planets, NEMESIS uses an ID number for each of these, and searches some important parameters (e.g., size and mass) to compute the gravitational field at different altitudes and latitudes. Currently, the planets whose IDs have been implemented in the code are:
 
 +----+------------+
-| ID | Planet.    | 
+| ID | Planet     | 
 +====+============+
 | 1  | Mercury    |
 +----+------------+
