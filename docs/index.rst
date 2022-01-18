@@ -73,12 +73,25 @@ In order to model the atmosphere of different planets, NEMESIS uses an ID number
 - NGTS-10b (85). 
 - WASP-43b (87).
 
-The atmosphere of other planets can also be modelled, by including a new ID number in the Python dictionary stored in Data/ref_data.py.
+The atmosphere of other planets can also be modelled, by including a new ID number in the Python dictionary stored in Data/planet_data.py.
 
 Apart from the gravitational parameters of the planet, the atmosphere is represented by a set of vertical profiles indicating the pressure, temperature and gaseous volume mixing ratios as a function of altitude. In order to define the composition of the atmosphere, different gaseous species are defined using ID numbers. These ID numbers are:
 
-- H~2~O (1)
-- CO<sub>2</sub> (2)
+- H2O (1)
+- CO2 (2)
+- O3 (3)
+- N2O (4)
+- CO (5)
+- CH4 (6)
+- O2 (7)
+- NO (8)
+- SO2 (9)
+- NO2 (10)
+- NH3 (11)
+- HNO3 (12)
+- OH (13)
+- HF (14)
+- HCl (15)
 
 Spectroscopy
 -----------------------------
