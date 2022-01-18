@@ -59,19 +59,35 @@ Atmosphere
 
 In order to model the atmosphere of different planets, NEMESIS uses an ID number for each of these, and searches some important parameters (e.g., size and mass) to compute the gravitational field at different altitudes and latitudes. Currently, the planets whose IDs have been implemented in the code are:
 
-- Mercury (1). 
-- Venus (2). 
-- Earth (3). 
-- Mars (4). 
-- Jupiter (5). 
-- Saturn (6). 
-- Uranus (7). 
-- Neptune (8). 
-- Pluto (9). 
-- Sun (10). 
-- Titan (11). 
-- NGTS-10b (85). 
-- WASP-43b (87).
++----+------------+
+| ID | Planet.    | 
++====+============+
+| 1  | Mercury    |
++----+------------+
+| 2  | Venus      |
++----+------------+
+| 3  | Earth      |
++----+------------+
+| 4  | Mars       |
++----+------------+
+| 5  | Jupiter    |
++----+------------+
+| 6  | Saturn     |
++----+------------+
+| 7  | Uranus     |
++----+------------+
+| 8  | Neptune    |
++----+------------+
+| 9  | Pluto      |
++----+------------+
+| 10 | Sun        |
++----+------------+
+| 11 | Titan      |
++----+------------+
+| 85 | NGTS-10b   |
++----+------------+
+| 87 | WASP-43b   |
++----+------------+
 
 The atmosphere of other planets can also be modelled, by including a new ID number in the Python dictionary stored in Data/planet_data.py.
 
