@@ -724,6 +724,7 @@ def nemesisfm(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
             Scatter1 = copy(Scatter)
             Stellar1 = copy(Stellar)
             Surface1 = copy(Surface)
+            Spectroscopy1 = copy(Spectroscopy)
             Layer1 = copy(Layer)
             CIA1 = copy(CIA)
             flagh2p = False
@@ -848,6 +849,7 @@ def nemesisfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Ste
             Scatter1 = copy(Scatter)
             Stellar1 = copy(Stellar)
             Surface1 = copy(Surface)
+            Spectroscopy1 = copy(Spectroscopy)
             Layer1 = copy(Layer)
             CIA1 = copy(CIA)
             flagh2p = False
