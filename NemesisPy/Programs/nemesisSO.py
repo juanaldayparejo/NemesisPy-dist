@@ -16,7 +16,7 @@ import numpy as np
 import time
 
 runname = input('run name: ')
-NCores = 4
+NCores = 1
 
 start = time.time()
 

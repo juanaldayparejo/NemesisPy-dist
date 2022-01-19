@@ -105,7 +105,7 @@ class Stellar_0:
 
         #Reading buffer
         ibuff = 0
-        with open(datarchive+solname,'r') as fsol:
+        with open(self.STELLARDATA+solname,'r') as fsol:
             for curline in fsol:
                 if curline.startswith("#"):
                     ibuff = ibuff + 1
@@ -115,7 +115,7 @@ class Stellar_0:
         nvsol = nlines - ibuff - 2
         
         #Reading file
-        fsol = open(datarchive+solname,'r')
+        fsol = open(self.STELLARDATA+solname,'r')
         for i in range(ibuff):
             s = fsol.readline().split()
     

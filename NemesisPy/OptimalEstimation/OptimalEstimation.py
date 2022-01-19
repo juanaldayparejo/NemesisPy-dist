@@ -104,7 +104,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
     else:
         print('nemesis :: Calculating Jacobian matrix KK')
-        YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=Ncores)
+        YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
 
     OptimalEstimation.edit_YN(YN)
     OptimalEstimation.edit_KK(KK)
