@@ -441,7 +441,7 @@ def nemesisSOfm_parallel(ix,runname,Variables,Measurement,Atmosphere,Spectroscop
 
 ###############################################################################################
 
-def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,MakePlot=False):
+def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,MakePlot=False,NCores=1):
 
     """
 
@@ -468,6 +468,7 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
         OPTIONAL INPUTS:
 
             MakePlot :: If True, a summary plot is generated
+            NCores :: Number of cores that can be used to parallelise the calculation of the jacobian matrix
         
         OUTPUTS :
 
@@ -566,12 +567,11 @@ def jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Sca
 
 
     #Calling the forward model nfm times to calculate the measurement vector for each case
-    NCORES = 1  #Number of processes to run in parallel
     YNtot = np.zeros([Measurement.NY,nfm])
 
     print('Calculating numerical part of the Jacobian :: running '+str(nfm)+' forward models ')
-    if NCORES>1:
-        ray.init(num_cpus=NCORES)
+    if NCores>1:
+        ray.init(num_cpus=NCores)
         YNtot_ids = []
         SpectroscopyP = ray.put(Spectroscopy)
         for ix in range(nfm):
@@ -946,7 +946,7 @@ def nemesisfm_parallel(ix,runname,Variables,Measurement,Atmosphere,Spectroscopy,
 
 ###############################################################################################
 
-def jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,MakePlot=False):
+def jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,MakePlot=False,NCores=1):
 
     """
 
@@ -974,6 +974,7 @@ def jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatt
         OPTIONAL INPUTS:
 
             MakePlot :: If True, a summary plot is generated
+            NCores :: Number of cores that can be used to parallelise the calculation of the jacobian matrix
         
         OUTPUTS :
 
@@ -1055,12 +1056,11 @@ def jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatt
 
 
     #Calling the forward model nfm times to calculate the measurement vector for each case
-    NCORES = 1  #Number of processes to run in parallel
     YNtot = np.zeros([Measurement.NY,nfm])
 
     print('Calculating numerical part of the Jacobian :: running '+str(nfm)+' forward models ')
-    if NCORES>1:
-        ray.init(num_cpus=NCORES)
+    if NCores>1:
+        ray.init(num_cpus=NCores)
         YNtot_ids = []
         SpectroscopyP = ray.put(Spectroscopy)
         for ix in range(nfm):

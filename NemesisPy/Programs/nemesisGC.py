@@ -19,6 +19,7 @@ import time
 import pickle
 
 runname = input('run name: ')
+ NCores=1
  
 start = time.time()
 
