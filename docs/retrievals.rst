@@ -14,7 +14,9 @@ Nested Sampling
 Model parameterisations
 -----------------------------
 
-The retrieval 
+The different retrieval parameterisations in the NEMESIS code are identified by a number of Variable IDs and Variable Parameters. 
 
 Adding custom parameterisations
 ---------------------------------
+
+It is possible to add custom parameterisations to the retrieval scheme. 
