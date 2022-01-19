@@ -16,7 +16,8 @@ import numpy as np
 import time
 
 runname = input('run name: ')
- 
+NCores = 4
+
 start = time.time()
 
 ######################################################
@@ -129,7 +130,7 @@ Variables.SX = copy(Variables.SA)
 IRET = 0    #(0) Optimal Estimation (1) Nested sampling
 if IRET==0:
     OptimalEstimation = coreretOE(runname,Variables,Measurement,Atm,Spec,Scatter,Stellar,Surface,CIA,Layer,\
-                                     NITER=NITER,PHILIMIT=PHILIMIT,nemesisSO=True)
+                                     NITER=NITER,PHILIMIT=PHILIMIT,nemesisSO=True,NCores=NCores)
 else:
     sys.exit('error in nemesisSO :: Retrieval scheme has not been implemented yet')
 

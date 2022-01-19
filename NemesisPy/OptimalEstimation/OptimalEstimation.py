@@ -23,7 +23,7 @@ from copy import *
 ###############################################################################################
 
 def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,\
-                 NITER=10,PHILIMIT=0.1,nemesisSO=False):
+                 NITER=10,PHILIMIT=0.1,NCores=1,nemesisSO=False):
 
 
     """
@@ -101,10 +101,10 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
 
     if nemesisSO==True:
         print('nemesisSO :: Calculating Jacobian matrix KK')
-        YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+        YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
     else:
         print('nemesis :: Calculating Jacobian matrix KK')
-        YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+        YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=Ncores)
 
     OptimalEstimation.edit_YN(YN)
     OptimalEstimation.edit_KK(KK)
@@ -224,10 +224,10 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         Variables.edit_XN(XN1)
         if nemesisSO==True:
             print('nemesisSO :: Calculating Jacobian matrix KK')
-            YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+            YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
         else:
             print('nemesis :: Calculating Jacobian matrix KK')
-            YN1,KK1 = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
+            YN1,KK1 = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
 
         OptimalEstimation1 = copy(OptimalEstimation)
         OptimalEstimation1.edit_YN(YN1)
