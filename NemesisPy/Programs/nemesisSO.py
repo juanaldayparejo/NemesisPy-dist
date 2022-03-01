@@ -30,10 +30,10 @@ start = time.time()
 #Initialise Atmosphere class and read file (.ref, aerosol.ref)
 ##############################################################
 
-Atm = Atmosphere_1()
+Atm = Atmosphere_1(runname=runname)
 
 #Read gaseous atmosphere
-Atm.read_ref(runname)
+Atm.read_ref()
 
 #Read aerosol profiles
 Atm.read_aerosol()
@@ -72,7 +72,8 @@ if Scatter.NDUST!=Atm.NDUST:
 #Initialise Measurement class and read files (.spx, .sha)
 ##############################################################
 
-Measurement.read_spx_SO(runname)
+Measurement.runname = runname
+Measurement.read_spx_SO()
 
 #Reading .sha file if FWHM>0.0
 if Measurement.FWHM>0.0:
@@ -99,8 +100,8 @@ if( (Measurement.IFORM==1) or (Measurement.IFORM==2) or (Measurement.IFORM==3) o
 #Initialise CIA class and read files (.cia)
 ##############################################################
 
-CIA = CIA_0()
-CIA.read_cia(runname)
+CIA = CIA_0(runname=runname)
+CIA.read_cia()
 
 
 #Reading .fla file

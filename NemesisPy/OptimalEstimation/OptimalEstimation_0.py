@@ -486,15 +486,15 @@ class OptimalEstimation_0:
                         relerr1=-1.0
 
                     if Measurement.IFORM==0:
-                        strspec = "\t %4i %14.8f %15.8e %15.8e %7.2f %15.8f %9.5f \n"
+                        strspec = "\t %4i %14.8f %15.8e %15.8e %7.2f %15.8e %9.5f \n"
                     elif Measurement.IFORM==1:
-                        strspec = "\t %4i %10.4f %15.8e %15.8e %7.2f %15.8f %9.5f \n"
+                        strspec = "\t %4i %10.4f %15.8e %15.8e %7.2f %15.8e %9.5f \n"
                     elif Measurement.IFORM==2:
-                        strspec = "\t %4i %9.4f %12.6e %12.6e %6.2f %12.6f %6.2f \n"
+                        strspec = "\t %4i %9.4f %12.6e %12.6e %6.2f %12.6e %6.2f \n"
                     elif Measurement.IFORM==3:
-                        strspec = "\t %4i %10.4f %15.8e %15.8e %7.2f %15.8f %9.5f \n"
+                        strspec = "\t %4i %10.4f %15.8e %15.8e %7.2f %15.8e %9.5f \n"
                     else:
-                        strspec = "\t %4i %14.8f %15.8e %15.8e %7.2f %15.8f %9.5f \n"
+                        strspec = "\t %4i %14.8f %15.8e %15.8e %7.2f %15.8e %9.5f \n"
 
                     f.write(strspec % (i+1,Measurement.VCONV[iconv,igeom],self.Y[i]*xfac,err1*xfac,xerr1,self.YN[i]*xfac,relerr))
                 

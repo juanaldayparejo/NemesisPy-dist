@@ -30,10 +30,10 @@ start = time.time()
 #Initialise Atmosphere class and read file (.ref, aerosol.ref)
 ##############################################################
 
-Atm = Atmosphere_1()
+Atm = Atmosphere_1(runname=runname)
 
 #Read gaseous atmosphere
-Atm.read_ref(runname)
+Atm.read_ref()
 
 #Read aerosol profiles
 Atm.read_aerosol()
@@ -81,7 +81,8 @@ if Scatter.NDUST!=Atm.NDUST:
 #Initialise Measurement class and read files (.spx, .sha)
 ##############################################################
 
-Measurement.read_spx(runname)
+Measurement.runname = runname
+Measurement.read_spx()
 
 #Reading .sha file if FWHM>0.0
 if Measurement.FWHM>0.0:
@@ -101,6 +102,7 @@ else:
 #Now, reading k-tables or lbl-tables for the spectral range of interest
 Spec.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
 
+
 #Reading stellar spectrum if required by Measurement units
 if( (Measurement.IFORM==1) or (Measurement.IFORM==2) or (Measurement.IFORM==3) or (Measurement.IFORM==4)):
     Stellar.read_sol(runname)
@@ -108,8 +110,8 @@ if( (Measurement.IFORM==1) or (Measurement.IFORM==2) or (Measurement.IFORM==3) o
 #Initialise CIA class and read files (.cia)
 ##############################################################
 
-CIA = CIA_0()
-CIA.read_cia(runname)
+CIA = CIA_0(runname=runname)
+CIA.read_cia()
 
 #Reading .fla file
 #############################################################################
