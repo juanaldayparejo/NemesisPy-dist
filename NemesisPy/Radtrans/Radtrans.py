@@ -915,7 +915,7 @@ def nemesisfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Ste
 
         elif Spectroscopy.ILBL==2: #LBL-tables
 
-            SPECONV1 = Measurement.lblconvg(SPEC,dSPEC,IGEOM=IGEOM)
+            SPECONV1,dSPECONV1 = Measurement.lblconvg(SPEC,dSPEC,IGEOM=IGEOM)
 
         SPECONV[0:Measurement.NCONV[IGEOM],IGEOM] = SPECONV1[0:Measurement.NCONV[IGEOM]]
         dSPECONV[0:Measurement.NCONV[IGEOM],IGEOM,:] = dSPECONV1[0:Measurement.NCONV[IGEOM],:]
@@ -1429,27 +1429,27 @@ def CIRSradg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stell
 
         #Pure transmission spectrum
         SPECOUT = np.exp(-(TAUTOT_PATH))  #(NWAVE,NG,NPATH)
-        del TAUTOT_PATH
+        #del TAUTOT_PATH
 
-        xfac = 1.0
+        xfac = np.ones(Measurement.NWAVE)
         if Measurement.IFORM==4:  #If IFORM=4 we should multiply the transmission by solar flux
             Stellar.calc_solar_flux()
             #Interpolating to the calculation wavelengths
             f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLFLUX)
             solflux = f(Measurement.WAVE)
             xfac = solflux
-            for ipath in range(npath):
-                SPECOUT[:,:,ipath] = SPECOUT[:,:,ipath] * xfac
+            for ipath in range(Path.NPATH):
+                for ig in range(Spectroscopy.NG):
+                    SPECOUT[:,ig,ipath] = SPECOUT[:,ig,ipath] * xfac
 
-        #Calculating the derivatives 
-        #tmp = -TAUTOT_PATH*SPECOUT
         
         print('CIRSradg :: Calculating GRADIENTS')
         for iwave in range(Measurement.NWAVE):
             for ig in range(Spectroscopy.NG):
                 for ipath in range(Path.NPATH):
-                    dSPECOUT[iwave,ig,:,:,ipath] = -SPECOUT[iwave,ig,ipath] * dTAUTOT_LAYINC[iwave,ig,:,:,ipath] * xfac 
+                    dSPECOUT[iwave,ig,:,:,ipath] = -SPECOUT[iwave,ig,ipath] * dTAUTOT_LAYINC[iwave,ig,:,:,ipath] 
         del dTAUTOT_LAYINC
+        del TAUTOT_PATH
         
 
     elif IMODM==1:
@@ -1579,8 +1579,7 @@ def map2lay(dSPECIN,NWAVE,NVMR,NDUST,NLAY,NPATH,NLAYIN,LAYINC):
     """
         FUNCTION NAME : map2lay()
         
-        DESCRIPTION : This function maps the analytical gradients defined with respect to the Layers
-                      onto the input atmospheric levels defined in Atmosphere
+        DESCRIPTION : This function maps the analytical gradients along the path to the gradients in each layer
         
         INPUTS :
         
@@ -1957,8 +1956,9 @@ def CIRSrad(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stella
             f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLFLUX)
             solflux = f(Measurement.WAVE)
             xfac = solflux
-            for ipath in range(npath):
-                SPECOUT[:,:,ipat] = SPECOUT[:,:,ipat] * xfac
+            for ipath in range(Path.NPATH):
+                for ig in range(Spectroscopy.NG):
+                    SPECOUT[:,ig,ipath] = SPECOUT[:,ig,ipath] * xfac
 
     elif IMODM==1:
 

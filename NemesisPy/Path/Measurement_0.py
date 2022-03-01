@@ -20,11 +20,13 @@ State Vector Class.
 
 class Measurement_0:
 
-    def __init__(self, NGEOM=1, FWHM=0.0, ISHAPE=2, IFORM=0, ISPACE=0, LATITUDE=0.0, LONGITUDE=0.0, NCONV=[1], NAV=[1]):
+    def __init__(self, runname='', NGEOM=1, FWHM=0.0, ISHAPE=2, IFORM=0, ISPACE=0, LATITUDE=0.0, LONGITUDE=0.0, NCONV=[1], NAV=[1]):
 
         """
         Inputs
         ------
+        @param runname: str,
+            Name of the Nemesis run
         @param NGEOM: int,
             Number of observing geometries
         @param FWHM: real,
@@ -115,6 +117,7 @@ class Measurement_0:
         """
 
         #Input parameters
+        self.runname = runname
         self.NGEOM = NGEOM
         self.FWHM = FWHM
         self.ISHAPE = ISHAPE
@@ -350,7 +353,7 @@ class Measurement_0:
         if isinstance(self.WGEOM,np.ndarray)==True!=None:
             self.WGEOM = np.delete(self.WGEOM,IGEOM,axis=0)
 
-    def read_spx_SO(self,runname,MakePlot=False):
+    def read_spx_SO(self,MakePlot=False):
     
         """
         Fill the attribute and parameters of the Measurement class for a retrieval
@@ -361,7 +364,7 @@ class Measurement_0:
         """
 
         #Opening file
-        f = open(runname+'.spx','r')
+        f = open(self.runname+'.spx','r')
     
         #Reading first line
         tmp = np.fromfile(f,sep=' ',count=4,dtype='float')
@@ -447,7 +450,7 @@ class Measurement_0:
             cbar2.set_label('Altitude (km)')
 
 
-    def read_spx(self,runname,MakePlot=False):
+    def read_spx(self,MakePlot=False):
     
         """
         Fill the attribute and parameters of the Measurement class for a retrieval
@@ -457,7 +460,7 @@ class Measurement_0:
         """
 
         #Opening file
-        f = open(runname+'.spx','r')
+        f = open(self.runname+'.spx','r')
 
         #Reading first line
         tmp = np.fromfile(f,sep=' ',count=4,dtype='float')
@@ -537,36 +540,6 @@ class Measurement_0:
         self.edit_AZI_ANG(azi_ang)
 
         self.calc_MeasurementVector()
-
-        #Make plot if keyword is specified
-        if (MakePlot == True):
-            
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True,figsize=(10,6))
-            wavemin = wave.min()
-            wavemax = wave.max()
-            ax1.set_xlim(wavemin,wavemax)
-            ax1.ticklabel_format(useOffset=False)
-            ax2.set_xlim(wavemin,wavemax)
-            ax2.ticklabel_format(useOffset=False)
-            ax2.set_yscale('log')
-
-            ax2.set_xlabel('Wavenumber/Wavelength')
-            ax1.set_ylabel('Radiance')  
-            ax2.set_ylabel('Radiance')
-
-            for i in range(ngeom):
-                im = ax1.plot(wave[0:nconv[i],i],meas[0:nconv[i],i])
-                ax1.fill_between(wave[0:nconv[i],i],meas[0:nconv[i],i]-errmeas[0:nconv[i],i],meas[0:nconv[i],i]+errmeas[0:nconv[i],i],alpha=0.4)
-
-            for i in range(ngeom):
-                im = ax2.plot(wave[0:nconv[i],i],meas[0:nconv[i],i]) 
-                ax2.fill_between(wave[0:nconv[i],i],meas[0:nconv[i],i]-errmeas[0:nconv[i],i],meas[0:nconv[i],i]+errmeas[0:nconv[i],i],alpha=0.4)
-        
-            ax1.grid()
-            ax2.grid()
-            plt.tight_layout()
-            plt.show()
-
 
     def read_sha(self,runname):
     
@@ -663,7 +636,7 @@ class Measurement_0:
             plt.tight_layout()
             plt.show()
 
-    def write_fil(self,runname,MakePlot=False,IGEOM=0):
+    def write_fil(self,MakePlot=False,IGEOM=0):
     
         """
         Write the .fil file to see what the Instrument Lineshape for each convolution wavenumber 
@@ -673,7 +646,7 @@ class Measurement_0:
             Name of the Nemesis run 
         """
 
-        f = open(runname+'.fil','w')
+        f = open(self.runname+'.fil','w')
         f.write("%i \n" %  (self.NCONV[IGEOM]))
 
         #Running for each spectral point
@@ -685,7 +658,26 @@ class Measurement_0:
                 f.write("%10.10f %10.10e\n" % (self.VFIL[j,i], self.AFIL[j,i]) )
         f.close()
 
-    def write_spx_SO(self,runname):
+    def write_spx(self):
+    
+        """
+        Write the .spx file
+        """
+
+        fspx = open(self.runname+'.spx','w')
+        fspx.write('%7.5f \t %7.5f \t %7.5f \t %i \n' % (self.FWHM,self.LATITUDE,self.LONGITUDE,self.NGEOM))
+
+        for i in range(self.NGEOM):
+            fspx.write('\t %i \n' % (self.NCONV[i]))
+            fspx.write('\t %i \n' % (self.NAV[i]))
+            for j in range(self.NAV[i]):
+                fspx.write('\t %7.4f \t %7.4f \t %7.4f \t %7.4f \t %7.4f \t %7.4f \t \n' % (self.FLAT[i,j],self.FLON[i,j],self.SOL_ANG[i,j],self.EMISS_ANG[i,j],self.AZI_ANG[i,j],self.WGEOM[i,j]))
+                for k in range(self.NCONV[i]):
+                    fspx.write('\t %10.5f \t %20.7f \t %20.7f \n' % (self.VCONV[k,i],self.MEAS[k,i],self.ERRMEAS[k,i]))
+
+        fspx.close()
+
+    def write_spx_SO(self):
     
         """
         Write the .spx file for a solar occultation measurement
@@ -694,7 +686,7 @@ class Measurement_0:
             Name of the Nemesis run 
         """
 
-        fspx = open(runname+'.spx','w')
+        fspx = open(self.runname+'.spx','w')
         fspx.write('%7.5f \t %7.5f \t %7.5f \t %i \n' % (self.FWHM,self.LATITUDE,self.LONGITUDE,self.NGEOM))
 
         for i in range(self.NGEOM):
@@ -733,7 +725,8 @@ class Measurement_0:
             wavemin = self.VCONV[0,IGEOM] - dv
             wavemax = self.VCONV[self.NCONV[IGEOM]-1,IGEOM] + dv
 
-            if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
+            err = 0.001
+            if (wavemin<(1-err)*Spectroscopy.WAVE.min() or wavemax>(1+err)*Spectroscopy.WAVE.max()):
                 sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
 
         elif self.FWHM<=0.0:
@@ -1123,7 +1116,91 @@ class Measurement_0:
                     gradout[j,:,:] = gradout[j,:,:]/gradnorm[j,:,:]
 
         else:
-            sys.exit('error in lblconv :: Must implement the case IGEOM!=-1')
+
+            IG = IGEOM
+            NX = len(ModGrad[0,:])
+            yout = np.zeros(self.NCONV[IG])
+            ynor = np.zeros(self.NCONV[IG])
+            gradout = np.zeros((self.NCONV[IG],NX))
+            gradnorm = np.zeros((self.NCONV[IG],NX))
+
+            if self.FWHM>0.0:
+                #Set total width of Hamming/Hanning function window in terms of
+                #numbers of FWHMs for ISHAPE=3 and ISHAPE=4
+                nfw = 3.
+                for j in range(self.NCONV[IG]):
+                    yfwhm = self.FWHM
+                    vcen = self.VCONV[j,IG]
+                    if self.ISHAPE==0:
+                        v1 = vcen-0.5*yfwhm
+                        v2 = v1 + yfwhm
+                    elif self.ISHAPE==1:
+                        v1 = vcen-yfwhm
+                        v2 = vcen+yfwhm
+                    elif self.ISHAPE==2:
+                        sig = 0.5*yfwhm/np.sqrt( np.log(2.0)  )
+                        v1 = vcen - 3.*sig
+                        v2 = vcen + 3.*sig
+                    else:
+                        v1 = vcen - nfw*yfwhm
+                        v2 = vcen + nfw*yfwhm
+
+                    #Find relevant points in tabulated files
+                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
+                    inwave = inwave1[0]
+
+                    np1 = len(inwave)
+                    for i in range(np1):
+                        f1=0.0
+                        if self.ISHAPE==0:
+                            #Square instrument lineshape
+                            f1=1.0
+                        elif self.ISHAPE==1:
+                            #Triangular instrument shape
+                            f1=1.0 - abs(self.WAVE[inwave[i]] - vcen)/yfwhm
+                        elif self.ISHAPE==2:
+                            #Gaussian instrument shape
+                            f1 = np.exp(-((self.WAVE[inwave[i]]-vcen)/sig)**2.0)
+                        else:
+                            sys.exit('lblconv :: ishape not included yet in function')
+
+                        if f1>0.0:
+                            yout[j] = yout[j] + f1*ModSpec[inwave[i]]
+                            ynor[j] = ynor[j] + f1
+                            gradout[j,:] = gradout[j,:] + f1*ModGrad[inwave[i],:]
+                            gradnorm[j,:] = gradnorm[j,:] + f1
+
+                    yout[j] = yout[j]/ynor[j]
+                    gradout[j,:] = gradout[j,:]/gradnorm[j,:]
+
+
+            elif self.FWHM<0.0:
+
+                #Line shape for each convolution number in each case is read from .fil file
+                for j in range(self.NCONV[IG]):
+                    v1 = self.VFIL[0,j]
+                    v2 = self.VFIL[self.NFIL[j]-1,j]
+                    #Find relevant points in tabulated files
+                    inwave1 = np.where( (self.WAVE>=v1) & (self.WAVE<=v2) )
+                    inwave = inwave1[0]
+
+                    np1 = len(inwave)
+                    xp = np.zeros([self.NFIL[j]])
+                    yp = np.zeros([self.NFIL[j]])
+                    xp[:] = self.VFIL[0:self.NFIL[j],j]
+                    yp[:] = self.AFIL[0:self.NFIL[j],j]
+
+                    for i in range(np1):
+                        #Interpolating (linear) for finding the lineshape at the calculation wavenumbers
+                        f1 = np.interp(self.WAVE[inwave[i]],xp,yp)
+                        if f1>0.0:
+                            yout[j] = yout[j] + f1*ModSpec[inwave[i]]
+                            ynor[j] = ynor[j] + f1
+                            gradout[j,:] = gradout[j,:] + f1*ModGrad[inwave[i],:]
+                            gradnorm[j,:] = gradnorm[j,:] + f1
+
+                    yout[j] = yout[j]/ynor[j]
+                    gradout[j,:] = gradout[j,:]/gradnorm[j,:]
 
         return yout,gradout
 
@@ -1512,3 +1589,35 @@ class Measurement_0:
         return yout,gradout
 
 
+
+    def plot_spec(self):
+    
+        """
+        Subroutine to make a summary plot of the spectra
+        """
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True,figsize=(10,6))
+        wavemin = self.VCONV.min()
+        wavemax = self.VCONV.max()
+        ax1.set_xlim(wavemin,wavemax)
+        ax1.ticklabel_format(useOffset=False)
+        ax2.set_xlim(wavemin,wavemax)
+        ax2.ticklabel_format(useOffset=False)
+        ax2.set_yscale('log')
+
+        ax2.set_xlabel('Wavenumber/Wavelength')
+        ax1.set_ylabel('Radiance')  
+        ax2.set_ylabel('Radiance')
+
+        for i in range(self.NGEOM):
+            im = ax1.plot(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i])
+            ax1.fill_between(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]-self.ERRMEAS[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]+self.ERRMEAS[0:self.NCONV[i],i],alpha=0.4)
+
+        for i in range(self.NGEOM):
+            im = ax2.plot(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]) 
+            ax2.fill_between(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]-self.ERRMEAS[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]+self.ERRMEAS[0:self.NCONV[i],i],alpha=0.4)
+        
+        ax1.grid()
+        ax2.grid()
+        plt.tight_layout()
+        plt.show()

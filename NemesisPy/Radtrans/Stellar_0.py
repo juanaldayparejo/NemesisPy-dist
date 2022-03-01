@@ -153,5 +153,9 @@ class Stellar_0:
         Calculate the stellar flux at the planet's distance
         """
 
-        area = 4.*np.pi*(self.DIST * unit["AU"] * 100. )**2.
+        from NemesisPy.Data import ref_data
+
+        AU = 1.49598e11
+        #area = 4.*np.pi*(self.DIST * unit["AU"] * 100. )**2.
+        area = 4.*np.pi*(self.DIST * AU * 100. )**2.
         self.SOLFLUX = self.SOLSPEC / area   #W cm-2 (cm-1)-1 or W cm-2 um-1

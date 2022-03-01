@@ -76,8 +76,8 @@ class Atmosphere_0:
         Atmosphere_0.check
         """
 
-        assert type(runname) == str and len(runname) <= 100,\
-            'runname should be a string <= 100 char'
+        #assert type(runname) == str and len(runname) <= 100,\
+        #    'runname should be a string <= 100 char'
         assert type(NP) == int and type(NVMR) == int,\
             'NP and NVMR should be integers'
         try:
@@ -524,13 +524,13 @@ class Atmosphere_0:
         return True
 
 
-    def read_ref(self,runname):
+    def read_ref(self):
         """
         Fills the parameters of the Atmospheric class by reading the .ref file
         """
 
         #Opening file
-        f = open(runname+'.ref','r')
+        f = open(self.runname+'.ref','r')
     
         #Reading first and second lines
         
@@ -581,7 +581,6 @@ class Atmosphere_0:
         self.edit_P(press*101325.)
         self.edit_T(temp)
         self.edit_VMR(vmr)
-        self.runname = runname
 
         if ( (self.AMFORM==1) or (self.AMFORM==2) ):
             self.calc_molwt()
@@ -593,12 +592,12 @@ class Atmosphere_0:
         self.calc_grav()
 
 
-    def write_ref(self,runname):
+    def write_ref(self):
         """
         Write the current atmospheric profiles into the .ref file
         """
 
-        fref = open(runname+'.ref','w')
+        fref = open(self.runname+'.ref','w')
         fref.write('\t %i \n' % (self.AMFORM)) 
         nlat = 1    #Would need to be updated to include more latitudes
         fref.write('\t %i \n' % (nlat))

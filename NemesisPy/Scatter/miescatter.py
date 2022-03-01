@@ -159,6 +159,7 @@ def miescat(ispace,wave,refind_real,refind_im,psdist,pardist,theta,MakePlot=Fals
     from scipy.integrate import simpson
     from scipy.stats import lognorm
     from NemesisPy import lognormal_dist
+    from NemesisPy import find_nearest
 
     #First we determine the number of particle sizes to later perform the integration
     ######################################################################################
@@ -176,15 +177,48 @@ def miescat(ispace,wave,refind_real,refind_im,psdist,pardist,theta,MakePlot=Fals
     elif psdist==1: #Log-normal distribution
         mu = pardist[0]
         sigma = pardist[1]
-        r0 = lognorm.ppf(0.0001, sigma, 0.0, mu)
-        r1 = lognorm.ppf(0.9999, sigma, 0.0, mu)
+        r0 = lognorm.ppf(0.00000001, sigma, 0.0, mu)
+        r1 = lognorm.ppf(0.99999999, sigma, 0.0, mu)
         rmax = np.exp( np.log(mu) - sigma**2.)
-        delr = (rmax-r0)/10.
-        nr = int((r1-r0)/delr) + 1
-        rd = np.linspace(r0,r1,nr) #Array of particle sizes
+        delr = (rmax-r0)/100.
+        #nr = int((r1-r0)/delr) + 1
+        #rd = np.linspace(r0,r1,nr) #Array of particle sizes
+
+        nr = int((r1-r0)/0.005 + 1)
+        rd = np.linspace(r1,r0,nr)
+
+        print(rd.min(),rd.max(),rmax)
+
         Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
     elif psdist==2: #Standard gamma distribution
-        sys.exit('error in miescat :: Standard gamma distribution has not yet been implemented')
+        A = pardist[0]
+        B = pardist[1]
+
+        r = np.linspace(0.,A*10.,10001)
+        rmax = (1-3*B)/B * A * B
+        nmax  = rmax**((1-3*B)/B) * np.exp(-rmax/(A*B))
+        n = r**((1-3*B)/B) * np.exp(-r/(A*B)) / nmax
+
+        cumdist = np.zeros(len(r))
+        for i in range(len(r)):
+            if i==0:
+                cumdist[i] = n[i]
+            else:
+                cumdist[i] = cumdist[i-1] + n[i]
+        cumdist = cumdist / cumdist.max()
+
+        r1,ir1 = find_nearest(cumdist,0.0000001)
+        r2,ir2 = find_nearest(cumdist,0.9999999)
+        delr = (rmax-r1)/100.
+        nr = int((r2-r1)/delr) + 1
+        rd = np.linspace(r1,r2,nr) #Array of particle sizes
+
+        nr = int((20.-0.005)/0.005 + 1)
+        rd = np.linspace(0.005,20.,nr)
+
+        Nd = rd**((1-3*B)/B) * np.exp(-rd/(A*B)) / nmax
+        print('HOLA')
+        print(r1,r2,delr)
     elif psdist==-1:
         if rdist[0]==None:
             sys.exit('error in miescat :: If psdist=-1 rdist and Ndist must be filled')
@@ -222,6 +256,7 @@ def miescat(ispace,wave,refind_real,refind_im,psdist,pardist,theta,MakePlot=Fals
     ksca = np.zeros([nwave,nr])
     phase = np.zeros([nwave,ntheta,nr])
     for ir in range(nr):
+        print(ir,nr)
 
         r0 = rd[ir]
         x = np.zeros(nwave)
@@ -232,9 +267,9 @@ def miescat(ispace,wave,refind_real,refind_im,psdist,pardist,theta,MakePlot=Fals
         kext[:,ir] = qext * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
 
         mu = np.cos(theta/180.*np.pi)
-        for iwave in range(nwave):
-            unpolar = miepython.i_unpolarized(refind[iwave],x[iwave],mu)
-            phase[iwave,:,ir] = unpolar
+        #for iwave in range(nwave):
+        #    unpolar = miepython.i_unpolarized(refind[iwave],x[iwave],mu)
+        #    phase[iwave,:,ir] = unpolar
 
 
     #Now integrating over particle size to find the mean scattering and absorption properties

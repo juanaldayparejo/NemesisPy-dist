@@ -18,11 +18,13 @@ Collision-Induced Absorption Class.
 
 class CIA_0:
 
-    def __init__(self, INORMAL=0, NPAIR=9, NT=25, NWAVE=1501):
+    def __init__(self, runname='', INORMAL=0, NPAIR=9, NT=25, NWAVE=1501):
 
         """
         Inputs
         ------
+        @param runname: str,
+            Name of the Nemesis run
         @param INORMAL: int,
             Flag indicating whether the ortho/para-H2 ratio is in equilibrium (0 for 1:1) or normal (1 for 3:1)
         @param NPAIR: int,
@@ -39,7 +41,7 @@ class CIA_0:
             Wavenumber array (NOTE: ALWAYS IN WAVENUMBER, NOT WAVELENGTH)
         @attribute TEMP: 1D array
             Temperature levels at which the CIA data is defined (K)
-        @attribute K_CIA: 1D array
+        @attribute K_CIA: 3D array
             CIA cross sections for each pair at each wavenumber and temperature level
         @attribute CIADATA: str
             String indicating where the CIA data files are stored
@@ -52,6 +54,7 @@ class CIA_0:
         from NemesisPy import Nemesis_Path
 
         #Input parameters
+        self.runname = runname
         self.INORMAL = INORMAL
         self.NPAIR = NPAIR
         self.NT = NT
@@ -64,7 +67,7 @@ class CIA_0:
 
         self.CIADATA = Nemesis_Path()+'NemesisPy/Data/cia/'
 
-    def read_cia(self,runname):
+    def read_cia(self):
         """
         Read the .cia file
         @param runname: str
@@ -74,7 +77,7 @@ class CIA_0:
         from scipy.io import FortranFile
 
         #Reading .cia file
-        f = open(runname+'.cia','r')
+        f = open(self.runname+'.cia','r')
         s = f.readline().split()
         cianame = s[0]
         s = f.readline().split()
@@ -112,6 +115,28 @@ class CIA_0:
         self.WAVEN = NU_GRID
         self.TEMP = TEMPS
         self.K_CIA = K_CIA
+
+    def plot_cia(self):
+        """
+        Subroutine to make a summary plot of the contents of the .cia file
+        """
+
+        from NemesisPy import find_nearest
+
+        fig,ax1 = plt.subplots(1,1,figsize=(12,5))
+
+        labels = ['H$_2$-H$_2$ w equilibrium ortho/para-H$_2$','He-H$_2$ w equilibrium ortho/para-H$_2$','H$_2$-H$_2$ w normal ortho/para-H$_2$','He-H$_2$ w normal ortho/para-H$_2$','H$_2$-N$_2$','N$_2$-CH$_4$','N$_2$-N$_2$','CH$_4$-CH$_4$','H$_2$-CH$_4$']
+        for i in range(self.NPAIR):
+
+            TEMP0,iTEMP = find_nearest(self.TEMP,296.)
+            ax1.plot(self.WAVEN,self.K_CIA[i,iTEMP,:],label=labels[i])
+
+        ax1.legend()
+        ax1.set_xlabel('Wavenumber (cm$^{-1}$')
+        ax1.set_ylabel('CIA cross section (a.u.)')
+        ax1.grid()
+        plt.tight_layout()
+        plt.show()
 
     def calc_tau_cia(self,ISPACE,WAVEC,Atmosphere,Layer,MakePlot=False):
         """

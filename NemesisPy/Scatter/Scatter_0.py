@@ -530,6 +530,7 @@ class Scatter_0:
             Flag indicating the particle size distribution
                 0 :: Single particle size
                 1 :: Log-normal distribution
+                2 :: Standard gamma distribution
                 -1 :: Other input particle size distribution (using optional inputs)
         @param pardist: int
             Particle size distribution parameters
@@ -579,17 +580,37 @@ class Scatter_0:
         elif psdist==1: #Log-normal distribution
             mu = pardist[0]
             sigma = pardist[1]
-            r0 = lognorm.ppf(0.0001, sigma, 0.0, mu)
-            r1 = lognorm.ppf(0.9999, sigma, 0.0, mu)
+            r0 = lognorm.ppf(0.00001, sigma, 0.0, mu)
+            r1 = lognorm.ppf(0.99999, sigma, 0.0, mu)
             rmax = np.exp( np.log(mu) - sigma**2.)
-            delr = (rmax-r0)/10.
+            delr = (rmax-r0)/50.
             nr = int((r1-r0)/delr) + 1
             rd = np.linspace(r0,r1,nr) #Array of particle sizes
             Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
-            print(Nd)
-            print(rd)
         elif psdist==2: #Standard gamma distribution
-            sys.exit('error in miescat :: Standard gamma distribution has not yet been implemented')
+            A = pardist[0]
+            B = pardist[1]
+
+            r = np.linspace(0.01,A*5.,1001)
+            rmax = (1-3*B)/B * A * B
+            nmax  = rmax**((1-3*B)/B) * np.exp(-rmax/(A*B))
+            n = r**((1-3*B)/B) * np.exp(-r/(A*B)) / nmax
+
+            cumdist = np.zeros(len(r))
+            for i in range(len(r)):
+                if i==0:
+                    cumdist[i] = n[i]
+                else:
+                    cumdist[i] = cumdist[i-1] + n[i]
+            cumdist = cumdist / cumdist.max()
+
+            r1,ir1 = find_nearest(cumdist,0.00001)
+            r2,ir2 = find_nearest(cumdist,0.99999)
+            delr = (rmax-r1)/10.
+            nr = int((r2-r1)/delr) + 1
+            rd = np.linspace(r1,r2,nr) #Array of particle sizes
+            Nd = rd**((1-3*B)/B) * np.exp(-rd/(A*B)) / nmax
+
         elif psdist==-1:
             if rdist[0]==None:
                 sys.exit('error in miescat :: If psdist=-1 rdist and Ndist must be filled')

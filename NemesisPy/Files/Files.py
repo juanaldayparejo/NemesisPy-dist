@@ -75,8 +75,8 @@ def read_mre(runname,MakePlot=False):
     """
 
     #Opening .ref file for getting number of altitude levels
-    Atmosphere = Atmosphere_1()
-    Atmosphere.read_ref(runname)
+    Atmosphere = Atmosphere_1(runname=runname)
+    Atmosphere.read_ref()
     
     #Opening file
     f = open(runname+'.mre','r')
