@@ -55,14 +55,17 @@ Publications using NEMESIS
 .. toctree::
    :caption: Radiative transfer
    :hidden:
+   
    radiative_transfer
    
 .. toctree::
    :caption: Retrievals
    :hidden:
+   
    retrievals
    
 .. toctree::
    :caption: Examples
    :hidden:
+   
    examples
