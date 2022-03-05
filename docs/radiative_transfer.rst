@@ -1,6 +1,3 @@
-Radiative transfer: Types of simulations
-======================================================================
-
 The NEMESIS code is able to model the electromagnetic spectrum of different planetary atmospheres under different observing geometries (e.g., nadir-viewing, limb-viewing, solar occultations, exoplanet phase curves, etc.). In the following sections, 
 
 
