@@ -69,3 +69,4 @@ Publications using NEMESIS
    :hidden:
    
    examples
+   MieScattering.ipynb
