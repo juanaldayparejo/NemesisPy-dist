@@ -1,8 +1,20 @@
 .. toctree::
-   :caption: Table of Contents
+   :caption: Documentation
    :maxdepth: 2
 
-   Documentation <documentation>
-   Radiative transfer <radiative_transfer>
-   Retrievals <retrievals>
-   Examples <examples>
+   documentation
+   
+.. toctree::
+   :caption: Radiative transfer
+   :maxdepth: 2
+   radiative_transfer
+   
+.. toctree::
+   :caption: Retrievals
+   :maxdepth: 2
+   retrievals
+   
+.. toctree::
+   :caption: Examples
+   :maxdepth: 2
+   examples
