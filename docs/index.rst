@@ -50,23 +50,19 @@ Publications using NEMESIS
   
 
 .. toctree::
-   :caption: Documentation
    :maxdepth: 2
    
 .. toctree::
    :caption: Radiative transfer
-   :maxdepth: 2
    :hidden:
    radiative_transfer
    
 .. toctree::
    :caption: Retrievals
-   :maxdepth: 2
    :hidden:
    retrievals
    
 .. toctree::
    :caption: Examples
-   :maxdepth: 2
    :hidden:
    examples
