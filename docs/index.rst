@@ -1,8 +1,8 @@
 ```{toctree}
 ---
 maxdepth: 2
-caption: Tutorials
+caption: Introduction
 ---
 index_ref
-retreivals
+installation
 ```
