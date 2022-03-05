@@ -52,4 +52,16 @@ Publications using NEMESIS
 .. toctree::
    :maxdepth: 2
    index
+   
+.. toctree::
+   :maxdepth: 2
+   radiative_transfer
+   
+.. toctree::
+   :maxdepth: 2
+   retrievals
+   
+.. toctree::
+   :maxdepth: 2
+   examples
 
