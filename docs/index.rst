@@ -48,20 +48,11 @@ Publications using NEMESIS
 
   - Irwin, P., Teanby, N., de Kok, R., Fletcher, L., Howett, C., Tsang, C., et al. (2008). The NEMESIS planetary atmosphere radiative transfer and retrieval tool. Journal of Quantitative Spectroscopy and Radiative Transfer, 109(6), 1136–1150. https://doi.org/10.1016/j.jqsrt.2007.11.006
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Table of Contents
 
-.. toctree::
-   :maxdepth: 2
-   index
-   
-.. toctree::
-   :maxdepth: 2
-   radiative_transfer
-   
-.. toctree::
-   :maxdepth: 2
-   retrievals
-   
-.. toctree::
-   :maxdepth: 2
-   examples
-
+   Documentation <index>
+   Radiative transfer <radiative_transfer>
+   Retrievals <retrievals>
+   Examples <examples>
