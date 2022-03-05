@@ -1,6 +1,6 @@
 .. toctree::
    :caption: Table of Contents
-   :glob:
+   :maxdepth: 2
 
    Documentation <documentation>
    Radiative transfer <radiative_transfer>
