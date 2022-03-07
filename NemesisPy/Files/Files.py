@@ -1694,7 +1694,8 @@ def write_sur(runname,nwave,wave,alb):
             runname :: Name of Nemesis run
             nwave :: Number of wavelengths at which the albedo is defined
             wave(nwave) :: Wavenumber array
-            alb(nwave) :: Albedo
+            emiss(nwave) :: Surface emissivity. Note that if GALB (defined in .set file) is negative
+                            then the surface albedo is calculated as alb = 1 - emiss
         
         OPTIONAL INPUTS: none
         
@@ -1704,7 +1705,7 @@ def write_sur(runname,nwave,wave,alb):
  
         CALLING SEQUENCE:
         
-            write_sur(runname,nwave,wave,alb)
+            write_sur(runname,nwave,wave,emiss)
          
         MODIFICATION HISTORY : Juan Alday (29/04/2019)
         

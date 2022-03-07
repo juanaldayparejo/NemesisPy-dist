@@ -14,10 +14,6 @@ look_up(gas_name):
     look up information about a molecule using the RADTRAN data base.
 """
 
-def Nemesis_Path():
-    nemesis_path = '/Users/aldayparejo/Documents/Projects/PlanetaryScience/NemesisPy-dist/'
-    return nemesis_path
-
 def Calc_mmw(VMR, ID, ISO=0):
     NGAS = len(ID)
     MMW = 0

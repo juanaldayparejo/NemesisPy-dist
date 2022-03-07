@@ -494,11 +494,11 @@ class Measurement_0:
                 emiss_angtmp[i,j] = float(tmp[3])
                 azi_angtmp[i,j] = float(tmp[4])
                 wgeomtmp[i,j] = float(tmp[5])
-                for iconv in range(nconv[i]):
-                    tmp = np.fromfile(f,sep=' ',count=3,dtype='float')
-                    wavetmp[iconv,i,j] = float(tmp[0])
-                    meastmp[iconv,i,j] = float(tmp[1])
-                    errmeastmp[iconv,i,j] = float(tmp[2])
+            for iconv in range(nconv[i]):
+                tmp = np.fromfile(f,sep=' ',count=3,dtype='float')
+                wavetmp[iconv,i,j] = float(tmp[0])
+                meastmp[iconv,i,j] = float(tmp[1])
+                errmeastmp[iconv,i,j] = float(tmp[2])
 
         #Making final arrays for the measured spectra
         nconvmax2 = max(nconv)
