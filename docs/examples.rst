@@ -5,4 +5,4 @@ In this section, we include several Jupyter notebooks with examples showing how 
 
 .. nbgallery::
 
-   MieScattering.ipynb
+   examples/MieScattering/MieScattering.ipynb

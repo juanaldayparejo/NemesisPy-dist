@@ -259,44 +259,45 @@ class Scatter_0:
             f.write(str2+'\n')
 
         f.close()
+        
 
-
-    def read_hgphase(self,MakePlot=False):
+    def read_hgphase(self,NDUST=None):
         """
         Read the Henyey-Greenstein phase function parameters stored in the hgphaseN.dat files
         """
 
         from NemesisPy import file_lines
-        
-        if self.NWAVE==None:
-            uwave = 1
-            self.NWAVE = file_lines('hgphase*.dat')
-        else:
-            uwave = 0
-            nwave = file_lines('hgphase*.dat')
-            if nwave!=self.NWAVE:
-                sys.exit('error reading hgphase*.dat :: NWAVE needs to be the same in .xsc and hgphase files')
+       
+        if NDUST!=None:
+            self.NDUST = NDUST
 
-        wave = np.zeros(self.NWAVE) 
-        g1 = np.zeros([self.NWAVE,self.NDUST])
-        g2 = np.zeros([self.NWAVE,self.NDUST])
-        fr = np.zeros([self.NWAVE,self.NDUST])
-        for i in range(self.NDUST):
-            f = open('hgphase'+str(i+1)+'.dat','r')
+        #Getting the number of wave points
+        nwave = file_lines('hgphase1.dat')
+        self.NWAVE = nwave
+
+        wave = np.zeros(nwave)
+        g1 = np.zeros((self.NWAVE,self.NDUST))
+        g2 = np.zeros((self.NWAVE,self.NDUST))
+        fr = np.zeros((self.NWAVE,self.NDUST))
+
+        for IDUST in range(self.NDUST):
+
+            filename = 'hgphase'+str(IDUST+1)+'.dat'
+
+            f = open(filename,'r')
             for j in range(self.NWAVE):
                 s = f.readline().split()
                 wave[j] = float(s[0])
-                fr[j,i] = float(s[1])
-                g1[j,i] = float(s[2])
-                g2[j,i] = float(s[3])
+                fr[j,IDUST] = float(s[1])
+                g1[j,IDUST] = float(s[2])
+                g2[j,IDUST] = float(s[3])
             f.close()
 
-        if uwave==1:
-            self.WAVE = wave
-
+        self.WAVE = wave
         self.G1 = g1
         self.G2 = g2
         self.F = fr
+
 
     def calc_hgphase(self,Theta):
         """
@@ -317,6 +318,98 @@ class Scatter_0:
                 phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
 
         return phase
+        
+        
+    def read_phase(self,NDUST=None):
+        """
+        Read a file with the format of the PHASE*.DAT using the format required by NEMESIS
+
+        Optional inputs
+        ----------------
+
+        @NDUST: int
+            If included, then several files from 1 to NDUST will be read with the name format being PHASE*.DAT
+        """
+
+        if NDUST!=None:
+            self.NDUST = NDUST
+
+        mwave = 5000
+        mtheta = 361
+        kext = np.zeros((mwave,self.NDUST))
+        sglalb = np.zeros((mwave,self.NDUST))
+        phase = np.zeros((mwave,mtheta,self.NDUST))
+
+        for IDUST in range(self.NDUST):
+
+            filename = 'PHASE'+str(IDUST+1)+'.DAT'         
+
+            f = open(filename,'r')
+            s = f.read()[0:1000].split()
+            f.close()
+            #Getting the spectral unit
+            if s[0]=='wavenumber':
+                self.ISCAT = 0
+            elif s[1]=='wavelength':
+                self.ISCAT = 1
+
+            #Calculating the wave array
+            vmin = float(s[1])
+            vmax = float(s[2])
+            delv = float(s[3])
+            nwave = int(s[4])
+            nphase = int(s[5])
+            wave = np.linspace(vmin,vmax,nwave)
+
+            #Reading the rest of the information
+            f = open(filename,'r')
+            s = f.read()[1000:].split()
+            f.close()
+            i0 = 0
+            #Reading the phase angle
+            theta = np.zeros(nphase)
+            for i in range(nphase):
+                theta[i] = s[i0]
+                i0 = i0 + 1
+
+            #Reading the data
+            wave1 = np.zeros(nwave)
+            kext1 = np.zeros(nwave)
+            sglalb1 = np.zeros(nwave)
+            phase1 = np.zeros((nwave,nphase))
+            for i in range(nwave):
+
+                wave1[i]=s[i0]
+                i0 = i0 + 1
+                kext1[i] = float(s[i0])
+                i0 = i0 + 1
+                sglalb1[i] = float(s[i0])
+                i0 = i0 + 1
+
+                for j in range(nphase):
+                    phase1[i,j] = float(s[i0])
+                    i0 = i0 + 1
+
+            kext[0:nwave,IDUST] = kext1[:]
+            sglalb[0:nwave,IDUST] = sglalb1[:]
+            phase[0:nwave,0:nphase,IDUST] = phase1[:,:]
+            
+        #Filling the parameters in the class based on the information in the files
+        self.NWAVE = nwave
+        self.NTHETA = nphase
+        self.WAVE = wave1
+        self.THETA = theta
+        self.KEXT = np.zeros((self.NWAVE,self.NDUST))
+        self.KSCA = np.zeros((self.NWAVE,self.NDUST))
+        self.KABS = np.zeros((self.NWAVE,self.NDUST))
+        self.SGLALB = np.zeros((self.NWAVE,self.NDUST))
+        self.PHASE = np.zeros((self.NWAVE,self.NTHETA,self.NDUST)) 
+
+        self.KEXT[:,:] = kext[0:self.NWAVE,0:self.NDUST]
+        self.SGLALB[:,:] = sglalb[0:self.NWAVE,0:self.NDUST]
+        self.KSCA[:,:] = self.KEXT[:,:] * self.SGLALB[:,:]
+        self.KABS[:,:] = self.KEXT[:,:] - self.KSCA[:,:]
+        self.PHASE[:,:,:] = phase[0:self.NWAVE,0:self.NTHETA,0:self.NDUST]
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
