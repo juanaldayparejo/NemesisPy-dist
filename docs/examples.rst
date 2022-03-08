@@ -6,3 +6,4 @@ In this section, we include several Jupyter notebooks with examples showing how 
 .. nbgallery::
 
    examples/MieScattering/MieScattering.ipynb
+   examples/Stellar/StellarExample.ipynb
