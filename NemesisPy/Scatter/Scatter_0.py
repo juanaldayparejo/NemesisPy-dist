@@ -298,6 +298,22 @@ class Scatter_0:
         self.G2 = g2
         self.F = fr
 
+    def write_hgphase(self):
+        """
+        Write the Henyey-Greenstein phase function parameters into the hgphaseN.dat files
+        """
+
+        for IDUST in range(self.NDUST):
+
+            filename = 'hgphase'+str(IDUST+1)+'.dat'
+
+            f = open(filename,'w')
+            for j in range(self.NWAVE):
+
+                f.write('%10.7f \t %10.7f \t %10.7f \t %10.7f \n' % (self.WAVE[j],self.F[j,IDUST],self.G1[j,IDUST],self.G2[j,IDUST]))
+
+            f.close()
+
 
     def calc_hgphase(self,Theta):
         """
@@ -312,9 +328,9 @@ class Scatter_0:
         elif np.isscalar(Theta)==False:
             ntheta = len(Theta)
             phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
-            for i in range(self.NTHETA):
-                t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(self.THETA[i]/180.*np.pi) + self.G1**2.)**1.5
-                t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(self.THETA[i]/180.*np.pi) + self.G2**2.)**1.5
+            for i in range(ntheta):
+                t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Theta[i]/180.*np.pi) + self.G1**2.)**1.5
+                t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(Theta[i]/180.*np.pi) + self.G2**2.)**1.5
                 phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
 
         return phase
