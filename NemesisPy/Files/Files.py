@@ -188,7 +188,7 @@ def write_fcloud(npro,naero,height,frac,icloud, MakePlot=False):
         
         CALLING SEQUENCE:
         
-            ll = write_fcloud(npro,naero,height,frac,icloud)
+            write_fcloud(npro,naero,height,frac,icloud)
         
         MODIFICATION HISTORY : Juan Alday (16/03/2021)
         
@@ -205,9 +205,6 @@ def write_fcloud(npro,naero,height,frac,icloud, MakePlot=False):
             f.write(str1+'\n')
 
     f.close()
-
-    dummy = 1
-    return dummy
 
 ###############################################################################################
 
@@ -314,7 +311,7 @@ def write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv):
         
         CALLING SEQUENCE:
         
-            ll = write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv)
+            write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv)
         
         MODIFICATION HISTORY : Juan Alday (16/03/2021)
         
@@ -332,8 +329,6 @@ def write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv):
     f.write('%i \n' % (iuv))
     f.close()
     
-    dummy = 1
-    return dummy
 
 ###############################################################################################
 

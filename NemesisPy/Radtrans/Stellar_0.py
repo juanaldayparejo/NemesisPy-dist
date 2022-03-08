@@ -39,7 +39,7 @@ class Stellar_0:
         @attribute VCONV: 1D array
             Wavelength array at which the stellar file is defined
         @attribute SOLSPEC: 1D array
-            Stellar power spectrum (W/(cm-1) or W/um)
+            Stellar luminosity spectrum (W/(cm-1) or W/um)
         @attribute SOLFLUX: 1D array
             Stellar flux at planet's distance (W cm-2 um-1 or W cm-2 (cm-1)-1)
         @attribute STELLARDATA: str
@@ -144,8 +144,6 @@ class Stellar_0:
             #ax1.set_yscale('log')
             plt.tight_layout()
             plt.show()
-    
-        return solrad,nvsol,vsol,rad
 
 
     def calc_solar_flux(self):
@@ -156,6 +154,5 @@ class Stellar_0:
         from NemesisPy.Data import ref_data
 
         AU = 1.49598e11
-        #area = 4.*np.pi*(self.DIST * unit["AU"] * 100. )**2.
         area = 4.*np.pi*(self.DIST * AU * 100. )**2.
         self.SOLFLUX = self.SOLSPEC / area   #W cm-2 (cm-1)-1 or W cm-2 um-1
