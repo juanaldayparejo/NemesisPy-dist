@@ -1491,10 +1491,6 @@ def CIRSradg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stell
                 tlayer[:,:] = np.exp(-TAUTOT_LAYINC[:,:,j,ipath])
                 taud[:,:] = taud[:,:] + TAUTOT_LAYINC[:,:,j,ipath]
                 tr = trold[:,:] * tlayer[:,:]
-        
-                #for j1 in range(j):
-                #    print(j1,j,dtolddq[0,0,Atmosphere.NVMR,j1])
-                #    input ()
 
                 #Calculating the spectrum
                 bb,dBdT = planckg(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[j,ipath])
