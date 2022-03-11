@@ -56,7 +56,7 @@ Publications using NEMESIS
    :caption: Radiative transfer
    :hidden:
    
-   radiative_transfer
+   radiative_transfer.ipynb
 
 .. toctree::
    :caption: Retrievals
