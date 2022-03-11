@@ -1,2 +1,3 @@
 nbsphinx
 sphinx-gallery
+ipython_genutils
