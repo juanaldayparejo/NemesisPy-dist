@@ -50,7 +50,7 @@ Publications using NEMESIS
   
 .. toctree::
    :maxdepth: 2
- 
+   :caption: NemesisPy 
 
 .. toctree::
    :caption: Radiative transfer
