@@ -1,3 +1,4 @@
 nbsphinx
 sphinx-gallery
 ipython_genutils
+sphinx-rtd-theme
