@@ -50,14 +50,11 @@ Publications using NEMESIS
   
 
 .. toctree::
-   :maxdepth: 2
-   
-.. toctree::
    :caption: Radiative transfer
    :hidden:
    
    radiative_transfer.ipynb
-   
+
 .. toctree::
    :caption: Retrievals
    :hidden:
