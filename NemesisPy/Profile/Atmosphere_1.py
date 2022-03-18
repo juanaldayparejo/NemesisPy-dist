@@ -17,9 +17,9 @@ class Atmosphere_1(Atmosphere_0):
     """
     def __init__(self, runname='wasp43b', NP=10, NVMR=6, ID=[0,0,0,0,0,0],
                 ISO=[0,0,0,0,0,0], LATITUDE=0.0, IPLANET=1, AMFORM=1,
-                NDUST=1, FLAGC=False):
+                NDUST=1, FLAGC=False, NLOCATIONS=1):
         Atmosphere_0.__init__(self, runname=runname, NP=NP, NVMR=NVMR, ID=ID,
-                ISO=ISO, LATITUDE=LATITUDE, IPLANET=IPLANET, AMFORM=AMFORM)
+                ISO=ISO, LATITUDE=LATITUDE, IPLANET=IPLANET, AMFORM=AMFORM, NLOCATIONS=NLOCATIONS)
         """
         See superclass Atmosphere_0 for base class properties.
 

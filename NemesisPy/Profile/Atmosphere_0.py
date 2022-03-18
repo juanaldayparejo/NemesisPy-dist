@@ -17,7 +17,7 @@ class Atmosphere_0:
     Clear atmosphere. Simplest possible profile.
     """
     def __init__(self, runname='wasp43b', NP=10, NVMR=6, ID=[0,0,0,0,0,0],
-                ISO=[0,0,0,0,0,0], LATITUDE=0.0, IPLANET=1, AMFORM=1, RADIUS=0.0):
+                ISO=[0,0,0,0,0,0], LATITUDE=0.0, NLOCATIONS=1, IPLANET=1, AMFORM=1, RADIUS=0.0):
         """
         Set up an atmosphere profile with NP points and NVMR gases.
         Use the class methods to edit Height, Pressure, Temperature and
@@ -110,6 +110,7 @@ class Atmosphere_0:
         self.IPLANET = IPLANET
         self.LATITUDE = LATITUDE
         self.AMFORM = AMFORM
+        self.NLOCATIONS = NLOCATIONS
 
         # Input the following profiles using the edit_ methods.
         self.H = None # np.zeros(NP)

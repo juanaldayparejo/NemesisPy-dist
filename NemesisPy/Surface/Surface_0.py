@@ -20,7 +20,7 @@ State Vector Class.
 
 class Surface_0:
 
-    def __init__(self, GASGIANT=False, LOWBC=1, GALB=1.0, NEM=2, VEM=[0.,1000.]):
+    def __init__(self, GASGIANT=False, LOWBC=1, GALB=1.0, NEM=2, VEM=[0.,1000.], NLOCATIONS=1):
 
         """
         Inputs
@@ -50,6 +50,7 @@ class Surface_0:
         """
 
         #Input parameters
+        self.NLOCATIONS = NLOCATIONS
         self.GASGIANT = GASGIANT
         self.LOWBC = LOWBC
         self.GALB = GALB

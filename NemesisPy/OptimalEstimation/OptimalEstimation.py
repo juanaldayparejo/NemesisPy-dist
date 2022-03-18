@@ -99,12 +99,17 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
     #Calculate the first measurement vector and jacobian matrix
     #################################################################
 
-    if nemesisSO==True:
-        print('nemesisSO :: Calculating Jacobian matrix KK')
-        YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
-    else:
-        print('nemesis :: Calculating Jacobian matrix KK')
-        YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
+    ForwardModel = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables)
+    print('nemesis :: Calculating Jacobian matrix KK')
+    YN,KK = ForwardModel.jacobian_nemesis(NCores=NCores,nemesisSO=nemesisSO)
+    
+    #if nemesisSO==True:
+    #    print('nemesisSO :: Calculating Jacobian matrix KK')
+    #    YN,KK = ForwardModel.jacobian_nemesisSO(NCores=NCores)
+    #    #YN,KK = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
+    #else:
+    #    print('nemesis :: Calculating Jacobian matrix KK')
+    #    YN,KK = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
 
     OptimalEstimation.edit_YN(YN)
     OptimalEstimation.edit_KK(KK)
@@ -194,15 +199,19 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
             #Check to see if any VMRs or other parameters have gone negative.
             Variables1 = copy(Variables)
             Variables1.XN = XN1
-            Measurement1 = copy(Measurement)
-            Atmosphere1 = copy(Atmosphere)
-            Scatter1 = copy(Scatter)
-            Stellar1 = copy(Stellar)
-            Surface1 = copy(Surface)
-            Spectroscopy1 = copy(Spectroscopy)
-            Layer1 = copy(Layer)
-            flagh2p = False
-            xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+            ForwardModel1 = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables1)
+            #Variables1 = copy(Variables)
+            #Variables1.XN = XN1
+            #Measurement1 = copy(Measurement)
+            #Atmosphere1 = copy(Atmosphere)
+            #Scatter1 = copy(Scatter)
+            #Stellar1 = copy(Stellar)
+            #Surface1 = copy(Surface)
+            #Spectroscopy1 = copy(Spectroscopy)
+            #Layer1 = copy(Layer)
+            #flagh2p = False
+            #xmap = subprofretg(runname,Variables1,Measurement1,Atmosphere1,Spectroscopy1,Scatter1,Stellar1,Surface1,Layer1,flagh2p)
+            ForwardModel1.subprofretg()
 
             #if(len(np.where(Atmosphere1.VMR<0.0))>0):
             #    print('nemesisSO :: VMR has gone negative --- increasing brake')
@@ -210,7 +219,8 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
             #    IBRAKE = 0
             #    continue
             
-            iwhere = np.where(Atmosphere1.T<0.0)
+            #iwhere = np.where(Atmosphere1.T<0.0)
+            iwhere = np.where(ForwardModel1.AtmosphereX.T<0.0)
             if(len(iwhere[0])>0):
                 print('nemesis :: Temperature has gone negative --- increasing brake')
                 alambda = alambda * 10.
@@ -222,12 +232,17 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         #Put output spectrum into temporary spectrum yn1 with
         #temporary kernel matrix kk1. Does it improve the fit? 
         Variables.edit_XN(XN1)
-        if nemesisSO==True:
-            print('nemesisSO :: Calculating Jacobian matrix KK')
-            YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
-        else:
-            print('nemesis :: Calculating Jacobian matrix KK')
-            YN1,KK1 = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
+        print('nemesis :: Calculating Jacobian matrix KK')
+        ForwardModel = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables)
+        YN1,KK1 = ForwardModel.jacobian_nemesis(NCores=NCores,nemesisSO=nemesisSO)
+        #if nemesisSO==True:
+        #    print('nemesisSO :: Calculating Jacobian matrix KK')
+        #    ForwardModel = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables)
+        #    YN1,KK1 = ForwardModel.jacobian_nemesisSO(NCores=NCores)
+        #    #YN1,KK1 = jacobian_nemesisSO(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
+        #else:
+        #    print('nemesis :: Calculating Jacobian matrix KK')
+        #    YN1,KK1 = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
 
         OptimalEstimation1 = copy(OptimalEstimation)
         OptimalEstimation1.edit_YN(YN1)

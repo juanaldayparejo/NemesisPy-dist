@@ -235,59 +235,17 @@ def nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,S
             dSPECMOD[:,i,:] = dSPECOUT[:,ibasel,:]*(1.-fhl) + dSPECOUT[:,ibaseh,:]*(1.-fhh)
 
 
-    """
-    NP = Measurement.NWAVE * Atmosphere1.NP
-    xx = np.linspace(0,NP-1,NP)
-    for ipath in range(Measurement.NGEOM):
-        fig,ax1 = plt.subplots(1,1,figsize=(10,3))
-        ll = 0
-        for i in range(Atmosphere1.NP):
-            ax1.plot(xx[ll:ll+Measurement.NWAVE],dSPECMOD[0:Measurement.NWAVE,ipath,i])
-            ll = ll + Measurement.NWAVE
-        plt.tight_layout()
-        plt.show()
-    sys.exit()
-    """
+        #Applying any changes to the spectra required by the state vector
+        SPECMOD,dSPECMOD = subspecret(Measurement1,Variables1,SPECMOD,dSPECMOD)
 
-    #Applying any changes to the spectra required by the state vector
-    SPECMOD,dSPECMOD = subspecret(Measurement1,Variables1,SPECMOD,dSPECMOD)
+        #Convolving the spectrum with the instrument line shape
+        print('Convolving spectra and gradients with instrument line shape')
+        if Spectroscopy1.ILBL==0:
+            SPECONV,dSPECONV = Measurement1.convg(SPECMOD,dSPECMOD,IGEOM='All')
+        elif Spectroscopy1.ILBL==2:
+            SPECONV,dSPECONV = Measurement1.lblconvg(SPECMOD,dSPECMOD,IGEOM='All')
 
-    """
-    for ipath in range(Measurement1.NGEOM):
-        fig,ax1=plt.subplots(1,1,figsize=(10,3))
-        NY1 = Measurement1.NWAVE * Variables1.NX
-        xx = np.linspace(0,NY1-1,NY1)
-        ll = 0
-        for ix in range(Variables1.NX):
-            ax1.plot(xx[ll:ll+Measurement1.NWAVE],dSPECMOD[:,ipath,ix])
-            ll = ll + Measurement1.NWAVE
-        plt.tight_layout()
-        plt.show()
-    sys.exit()
-    """
-
-    #Convolving the spectrum with the instrument line shape
-    print('Convolving spectra and gradients with instrument line shape')
-    if Spectroscopy1.ILBL==0:
-        SPECONV,dSPECONV = Measurement1.convg(SPECMOD,dSPECMOD,IGEOM='All')
-    elif Spectroscopy1.ILBL==2:
-        SPECONV,dSPECONV = Measurement1.lblconvg(SPECMOD,dSPECMOD,IGEOM='All')
-
-    """
-    for ipath in range(Measurement1.NGEOM):
-        fig,ax1=plt.subplots(1,1,figsize=(10,3))
-        NY1 = Measurement1.NCONV[0] * Variables1.NX
-        xx = np.linspace(0,NY1-1,NY1)
-        ll = 0
-        for ix in range(Variables1.NX):
-            ax1.plot(xx[ll:ll+Measurement1.NCONV[ipath]],dSPECONV[:,ipath,ix])
-            ll = ll + Measurement1.NCONV[ipath]
-        plt.tight_layout()
-        plt.show()
-    sys.exit()
-    """
-
-    return SPECONV,dSPECONV
+        return SPECONV,dSPECONV
 
 ###############################################################################################
 
