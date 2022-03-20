@@ -448,7 +448,7 @@ class Atmosphere_0:
         igas = np.where( (self.ID==gasID) & (self.ISO==isoID) )
         igas = igas[0]
         if len(igas)==0:
-            sys.exit('error in Atmosphere.remove_gas() :: Gas ID and Iso ID not found in reference atmosphere')
+            print('error in Atmosphere.remove_gas() :: Gas ID and Iso ID not found in reference atmosphere')
 
         ngas = self.NVMR - 1
         vmr1 = np.zeros([self.NP,ngas])
@@ -485,9 +485,9 @@ class Atmosphere_0:
         if len(vmr)!=self.NP:
             sys.exit('error in Atmosphere.update_gas() :: Number of altitude levels in vmr must be the same as in Atmosphere')
 
-        vmr1 = np.zeros([self.NP,self.VMR])
+        vmr1 = np.zeros((self.NP,self.NVMR))
         vmr1[:,:] = self.VMR
-        vmr1[:,igas] = vmr[:]
+        vmr1[:,igas[0]] = vmr[:]
         self.edit_VMR(vmr1)
 
     def write_to_file(self):

@@ -10,6 +10,7 @@ Cloudy Atmosphere Class.
 import numpy as np
 import matplotlib.pyplot as plt
 from .Atmosphere_0 import Atmosphere_0
+from NemesisPy.Data import planet_info,gas_info
 
 class Atmosphere_1(Atmosphere_0):
     """
@@ -57,8 +58,10 @@ class Atmosphere_1(Atmosphere_0):
         Atmosphere_1.edit_DUST
         Atmosphere_1.edit_FRAC
         Atmosphere_1.edit_ICLOUD
-        Atmosphere_1.write_to_file
-        Atmosphere_1.check
+        Atmosphere_1.read_aerosol
+        Atmosphere_1.write_aerosol
+        Atmosphere_1.plot_Dust
+        Atmosphere_1.print_info
         """
         assert type(NDUST) == int and NDUST>=0
         self.NDUST = NDUST
@@ -204,6 +207,36 @@ class Atmosphere_1(Atmosphere_0):
         ax1.set_ylabel('Altitude (km)')
         plt.tight_layout()
         plt.show()
+
+
+
+    def summary_info(self):
+
+        data = planet_info[str(self.IPLANET)]
+        print('Planet :: '+data['name'])
+        print('Number of profiles :: ',self.NLOCATIONS)
+        print('Latitude of profiles :: ',self.LATITUDE)
+        print('Number of altitude points :: ',self.NP)
+        print('Minimum/maximum heights (km) :: ',self.H.min()/1.0e3,self.H.max()/1.0e3)
+        print('Maximum/minimum pressure (atm) :: ',self.P.max()/101325.,self.P.min()/101325.)
+        print('Maximum/minimum temperature (K)', self.T.max(),self.T.min())
+        if self.GRAV is not None:
+            print('Maximum/minimum gravity (m/s2) :: ',np.round(self.GRAV.max(),2),np.round(self.GRAV.min(),2))
+        if self.MOLWT is not None:
+            print('Maximum/minimum molecular weight :: ',self.MOLWT.max(),self.MOLWT.min())
+        print('Number of gaseous species :: ',self.NVMR)
+        gasname = ['']*self.NVMR
+        for i in range(self.NVMR):
+            gasname1 = gas_info[str(self.ID[i])]['name']
+            if self.ISO[i]!=0:
+                gasname1 = gasname1+' ('+str(self.ISO[i])+')'
+            gasname[i] = gasname1
+        print('Gaseous species :: ',gasname)
+        if self.DUST is not None:
+            print('Number of aerosol populations :: ', self.NDUST)
+        else:
+            print('Number of aerosol populations :: ', 0)
+
 
 
 atm1 = Atmosphere_1()

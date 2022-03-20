@@ -7,3 +7,4 @@ In this section, we include several Jupyter notebooks with examples showing how 
 
    examples/MieScattering/MieScattering.ipynb
    examples/Stellar/StellarExample.ipynb
+   examples/Atmosphere/Atmosphere.ipynb

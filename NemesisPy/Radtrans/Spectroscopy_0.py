@@ -1012,6 +1012,7 @@ def read_lbltable(filename,wavemin,wavemax):
     #Calculating the wavenumbers to be read
     vmax = vmin + delv * (nwavelta-1)
     wavelta = np.linspace(vmin,vmax,nwavelta)
+
     #wavelta = np.round(wavelta,5)
     ins1 = np.where( (wavelta>=wavemin) & (wavelta<=wavemax) )
     ins = ins1[0]
@@ -1213,7 +1214,7 @@ def write_lbltable(filename,npress,ntemp,gasID,isoID,presslevels,templevels,nwav
     else:
         f = open(filename+'.lta','w+b')
 
-    irec0 = 8 + npress + ntemp
+    irec0 = 9 + npress + ntemp    #Don't know why this 9 is like this, but it works for a Linux/Ubuntu machine
     bin=struct.pack('i',irec0) #IREC0
     f.write(bin)
 
