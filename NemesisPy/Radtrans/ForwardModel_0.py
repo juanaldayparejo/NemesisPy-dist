@@ -20,13 +20,15 @@ Forward Model Class.
 
 class ForwardModel_0:
 
-    def __init__(self, runname='wasp121', Atmosphere=None, Surface=None, Measurement=None, Spectroscopy=None, Stellar=None, Scatter=None, CIA=None, Layer=None, Variables=None):
+    def __init__(self, runname='wasp121', Atmosphere=None, Surface=None,
+        Measurement=None, Spectroscopy=None, Stellar=None, Scatter=None, CIA=None,
+        Layer=None, Variables=None):
 
         """
         Inputs (Reference classes)
         ------
         @class Atmosphere:,
-            Class defining the Atmosphere 
+            Class defining the Atmosphere
         @class Surface:,
             Class defining the Surface
         @class Measurement:,
@@ -42,15 +44,15 @@ class ForwardModel_0:
         @class Layer:,
             Class defining the Layer
         @class Variables:,
-            Class defining the Variables      
+            Class defining the Variables
 
         Attributes (Attribute classes)
         ----------
 
-        Note: The classes appear to be duplicated, some of them having an X in the end. 
+        Note: The classes appear to be duplicated, some of them having an X in the end.
         The main difference between these two types is that ones are the reference classes
         given as an input, and which are not varied through the Forward Model. The other ones
-        are the reference classes modified by the model paramterisations and varied through 
+        are the reference classes modified by the model paramterisations and varied through
         the calculations to calculate a specific forward model
 
         @attribute AtmosphereX:
@@ -150,26 +152,26 @@ class ForwardModel_0:
     ###############################################################################################
 
     def nemesisfm(self):
-    
+
         """
             FUNCTION NAME : nemesisfm()
-        
+
             DESCRIPTION : This function computes a forward model
-        
+
             INPUTS : none
-        
+
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 SPECMOD(NCONV,NGEOM) :: Modelled spectra
-        
+
             CALLING SEQUENCE:
 
                 ForwardModel.nemesisfm()
-        
+
             MODIFICATION HISTORY : Juan Alday (14/03/2022)
-        
+
         """
 
         from NemesisPy.Models import subprofretg
@@ -200,7 +202,7 @@ class ForwardModel_0:
 
                 #Selecting the relevant Measurement
                 self.select_Measurement(IGEOM,IAV)
-            
+
                 #Making copy of classes to avoid overwriting them
                 self.AtmosphereX = copy(self.Atmosphere)
                 self.ScatterX = copy(self.Scatter)
@@ -266,38 +268,38 @@ class ForwardModel_0:
     ###############################################################################################
 
     def nemesisfmg(self):
-    
+
         """
             FUNCTION NAME : nemesisfmg()
-        
+
             DESCRIPTION : This function computes a forward model and the analytical gradients
-        
+
             INPUTS :
-        
+
                 runname :: Name of the Nemesis run
                 Variables :: Python class defining the parameterisations and state vector
-                Measurement :: Python class defining the measurements 
+                Measurement :: Python class defining the measurements
                 Atmosphere :: Python class defining the reference atmosphere
                 Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
                 Scatter :: Python class defining the parameters required for scattering calculations
                 Stellar :: Python class defining the stellar spectrum
                 Surface :: Python class defining the surface
                 Layer :: Python class defining the layering scheme to be applied in the calculations
-        
+
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 SPECMOD(NCONV,NGEOM) :: Modelled spectra
                 dSPECMOD(NCONV,NGEOM,NX) :: Gradients of the spectra in each geometry with respect to the elements
                                             in the state vector
-        
+
             CALLING SEQUENCE:
-        
+
                 nemesisfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
-        
+
             MODIFICATION HISTORY : Juan Alday (25/07/2021)
-        
+
         """
 
         from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg
@@ -327,10 +329,10 @@ class ForwardModel_0:
             dSPEC = np.zeros((self.Measurement.NWAVE,self.Variables.NX))
             WGEOMTOT = 0.0
             for IAV in range(self.Measurement.NAV[IGEOM]):
-            
+
                 #Selecting the relevant Measurement
                 self.select_Measurement(IGEOM,IAV)
-            
+
                 #Making copy of classes to avoid overwriting them
                 self.AtmosphereX = copy(self.Atmosphere)
                 self.ScatterX = copy(self.Scatter)
@@ -361,7 +363,7 @@ class ForwardModel_0:
                 #SPEC1,dSPEC3,dTSURF = CIRSradg(self.runname,self.Variables,self.MeasurementX,self.AtmosphereX,self.SpectroscopyX,self.ScatterX,self.StellarX,self.SurfaceX,self.CIAX,self.LayerX,self.PathX)
                 SPEC1,dSPEC3,dTSURF = self.CIRSradg()
 
-                #Mapping the gradients from Layer properties to Profile properties 
+                #Mapping the gradients from Layer properties to Profile properties
                 print('Mapping gradients from Layer to Profile')
                 #Calculating the elements from NVMR+2+NDUST that need to be mapped
                 incpar = []
@@ -379,7 +381,7 @@ class ForwardModel_0:
                 #(NWAVE,NPATH,NX)
                 del dSPEC2
 
-                #Adding the temperature surface gradient if required    
+                #Adding the temperature surface gradient if required
                 if self.Variables.JSURF>=0:
                     dSPEC1[:,0,self.Variables.JSURF] = dTSURF[:,0]
 
@@ -421,26 +423,26 @@ class ForwardModel_0:
     ###############################################################################################
 
     def nemesisSOfm(self):
-    
+
         """
             FUNCTION NAME : nemesisSOfm()
-        
+
             DESCRIPTION : This function computes a forward model for a solar occultation observation
-        
+
             INPUTS : none
-        
+
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 SPECMOD(NCONV,NGEOM) :: Modelled spectra
-        
+
             CALLING SEQUENCE:
-        
+
                 ForwardModel.nemesisSOfm()
-        
+
             MODIFICATION HISTORY : Juan Alday (25/07/2021)
-        
+
         """
 
         from NemesisPy.Models import subprofretg,subspecret
@@ -512,18 +514,18 @@ class ForwardModel_0:
     ###############################################################################################
 
     def nemesisSOfmg(self):
-    
+
         """
             FUNCTION NAME : nemesisSOfmg()
-        
+
             DESCRIPTION : This function computes a forward model for a solar occultation observation and the gradients
                        of the transmission spectrum with respect to the elements in the state vector
-        
+
             INPUTS :
-        
+
                 runname :: Name of the Nemesis run
                 Variables :: Python class defining the parameterisations and state vector
-                Measurement :: Python class defining the measurements 
+                Measurement :: Python class defining the measurements
                 Atmosphere :: Python class defining the reference atmosphere
                 Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
                 Scatter :: Python class defining the parameters required for scattering calculations
@@ -531,21 +533,21 @@ class ForwardModel_0:
                 Surface :: Python class defining the surface
                 CIA :: Python class defining the Collision-Induced-Absorption cross-sections
                 Layer :: Python class defining the layering scheme to be applied in the calculations
-        
+
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 SPECMOD(NCONV,NGEOM) :: Modelled spectra
-                dSPECMOD(NCONV,NGEOM,NX) :: Derivatives of each spectrum in each geometry with 
+                dSPECMOD(NCONV,NGEOM,NX) :: Derivatives of each spectrum in each geometry with
                                         respect to the elements of the state vector
-        
+
             CALLING SEQUENCE:
-        
+
                 nemesisSOfmg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
-        
+
             MODIFICATION HISTORY : Juan Alday (25/07/2021)
-        
+
         """
 
         from NemesisPy.Models import subprofretg,subspecret
@@ -582,7 +584,7 @@ class ForwardModel_0:
         #SPECOUT,dSPECOUT2,dTSURF = CIRSradg(self.runname,self.Variables,self.MeasurementX,self.AtmosphereX,self.SpectroscopyX,self.ScatterX,self.StellarX,self.SurfaceX,self.CIAX,self.LayerX,self.PathX)
         SPECOUT,dSPECOUT2,dTSURF = self.CIRSradg()
 
-        #Mapping the gradients from Layer properties to Profile properties 
+        #Mapping the gradients from Layer properties to Profile properties
         print('Mapping gradients from Layer to Profile')
         #Calculating the elements from NVMR+2+NDUST that need to be mapped
         incpar = []
@@ -646,17 +648,17 @@ class ForwardModel_0:
         """
 
             FUNCTION NAME : jacobian_nemesisSO()
-        
-            DESCRIPTION : 
 
-                This function calculates the Jacobian matrix by calling nx+1 times nemesisSOfm(). 
-                This routine is set up so that each forward model is calculated in parallel, 
+            DESCRIPTION :
+
+                This function calculates the Jacobian matrix by calling nx+1 times nemesisSOfm().
+                This routine is set up so that each forward model is calculated in parallel,
                 increasing the computational speed of the code
- 
+
             INPUTS :
-      
+
                 Variables :: Python class defining the parameterisations and state vector
-                Measurement :: Python class defining the measurements 
+                Measurement :: Python class defining the measurements
                 Atmosphere :: Python class defining the reference atmosphere
                 Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
                 Scatter :: Python class defining the parameters required for scattering calculations
@@ -664,21 +666,21 @@ class ForwardModel_0:
                 Surface :: Python class defining the surface
                 CIA :: Python class defining the Collision-Induced-Absorption cross-sections
                 Layer :: Python class defining the layering scheme to be applied in the calculations
- 
+
             OPTIONAL INPUTS:
 
                 MakePlot :: If True, a summary plot is generated
                 NCores :: Number of cores that can be used to parallelise the calculation of the jacobian matrix
-        
+
             OUTPUTS :
 
                 YN(NY) :: New measurement vector
                 KK(NY,NX) :: Jacobian matrix
 
             CALLING SEQUENCE:
-        
+
                 YN,KK = jacobian_nemesisSO(Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,CIA,Layer)
- 
+
             MODIFICATION HISTORY : Juan Alday (29/07/2021)
 
         """
@@ -711,7 +713,7 @@ class ForwardModel_0:
 
 
         """
-        #Because of the parallelisation, the parameters that are kept fixed need to be located at the end of the 
+        #Because of the parallelisation, the parameters that are kept fixed need to be located at the end of the
         #state vector, otherwise the code crashes
         ic = 0
         for i in range(self.Variables.NX):
@@ -790,7 +792,7 @@ class ForwardModel_0:
             ray.shutdown()
 
         else:
-    
+
             for ifm in range(nfm):
                 print('Calculating forward model '+str(ifm)+'/'+str(nfm))
                 #self.Variables1 = copy(self.Variables)
@@ -843,7 +845,7 @@ class ForwardModel_0:
         FUNCTION NAME : subprogretg()
 
         DESCRIPTION : Updates the reference classes based on the variables and parameterisations in the
-                      state vector. Changes to other parameters in the model based on the variables 
+                      state vector. Changes to other parameters in the model based on the variables
                       and parameterisations in the state vector are also performed here. However,
                       the functional derivatives to these other parameters are not included since
                       they cannot be determined analytically.
@@ -851,16 +853,16 @@ class ForwardModel_0:
         INPUTS : none
 
         OPTIONAL INPUTS: none
-            
-        OUTPUTS : 
 
-            xmap(maxv,ngas+2+ncont,npro) :: Matrix relating functional derivatives calculated 
+        OUTPUTS :
+
+            xmap(maxv,ngas+2+ncont,npro) :: Matrix relating functional derivatives calculated
                                              by CIRSRADG to the elements of the state vector.
-                                             Elements of XMAP are the rate of change of 
+                                             Elements of XMAP are the rate of change of
                                              the profile vectors (i.e. temperature, vmr prf
                                              files) with respect to the change in the state
-                                             vector elements. So if X1(J) is the modified 
-                                             temperature,vmr,clouds at level J to be 
+                                             vector elements. So if X1(J) is the modified
+                                             temperature,vmr,clouds at level J to be
                                              written out to runname.prf or aerosol.prf then
                                             XMAP(K,L,J) is d(X1(J))/d(XN(K)) and where
                                             L is the identifier (1 to NGAS+1+2*NCONT)
@@ -868,7 +870,7 @@ class ForwardModel_0:
         CALLING SEQUENCE:
 
             xmap = ForwardModel.subprofretg()
- 
+
         MODIFICATION HISTORY : Juan Alday (15/03/2022)
 
         """
@@ -877,7 +879,7 @@ class ForwardModel_0:
         #If so, calculating the relevant surface and atmospheric properties at the latitude and longitude of the observation
 
         if self.Atmosphere.NLOCATIONS>1:
-        
+
             #Selecting the relevant atmospheric profiles
             self.AtmosphereX.NLOCATIONS = 1
             self.select_Profile(self.MeasurementX.LATITUDE,self.MeasurementX.LONGITUDE)
@@ -887,7 +889,7 @@ class ForwardModel_0:
             #Selecting the relevant surface properties
             self.SurfaceX.NLOCATIONS = 1
             self.select_Surface(self.MeasurementX.LATITUDE,self.MeasurementX.LONGITUDE)
-    
+
 
 
         #Modify profile via hydrostatic equation to make sure the atm is in hydrostatic equilibrium
@@ -923,7 +925,7 @@ class ForwardModel_0:
         for ivar in range(self.Variables.NVAR):
 
             if self.Variables.VARIDENT[ivar,2]<=100:
-            
+
                 #Reading the atmospheric profile which is going to be changed by the current variable
                 xref = np.zeros([self.AtmosphereX.NP])
 
@@ -935,7 +937,7 @@ class ForwardModel_0:
                     jvmr = int(jvmr[0])
                     xref[:] = self.AtmosphereX.VMR[:,jvmr]
                     ipar = jvmr
-                elif self.Variables.VARIDENT[ivar,0]<0:  
+                elif self.Variables.VARIDENT[ivar,0]<0:
                     jcont = -int(self.Variables.VARIDENT[ivar,0])
                     if jcont>self.AtmosphereX.NDUST+2:
                         sys.exit('error :: Variable outside limits',self.Variables.VARIDENT[ivar,0],self.Variables.VARIDENT[ivar,1],self.Variables.VARIDENT[ivar,2])
@@ -951,7 +953,7 @@ class ForwardModel_0:
 
                     ipar = self.AtmosphereX.NVMR + jcont
 
-            x1 = np.zeros(self.AtmosphereX.NP)  
+            x1 = np.zeros(self.AtmosphereX.NP)
 
             if self.Variables.VARIDENT[ivar,2]==-1:
 #           Model -1. Continuous aerosol profile in particles cm-3
@@ -1211,7 +1213,7 @@ class ForwardModel_0:
                       for hemispheric assymmetries in exoplanet retrievals.
 
         INPUTS :
-    
+
             Measurement :: Python class defining the observation
             Variables :: Python class defining the parameterisations and state vector
             SPECMOD(NWAVE,NGEOM) :: Modelled spectrum in each geometry (not yet convolved with ILS)
@@ -1220,8 +1222,8 @@ class ForwardModel_0:
         OPTIONAL INPUTS:
 
             MakePlot :: If True, a summary plot is made
-            
-        OUTPUTS : 
+
+        OUTPUTS :
 
             SPECMOD :: Updated modelled spectrum
             dSPECMOD :: Updated gradients
@@ -1229,7 +1231,7 @@ class ForwardModel_0:
         CALLING SEQUENCE:
 
             SPECMOD = subspecret(Measurement,Variables,SPECMOD)
- 
+
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
 
         """
@@ -1253,7 +1255,7 @@ class ForwardModel_0:
                         T = np.zeros(NDEGREE+1)
                         for j in range(NDEGREE+1):
                             T[j] = self.Variables.XN[ix+j]
-                        
+
                         WAVE0 = self.MeasurementX.WAVE.min()
                         spec = np.zeros(self.MeasurementX.NWAVE)
                         spec[:] = SPECMOD[:,i]
@@ -1291,7 +1293,7 @@ class ForwardModel_0:
                     for i in range(self.MeasurementX.NGEOM):
                         TAU0 = self.Variables.XN[ix]
                         ALPHA = self.Variables.XN[ix+1]
-                        WAVE0 = self.Variables.VARPARAM[ivar,1]  
+                        WAVE0 = self.Variables.VARPARAM[ivar,1]
 
                         spec = np.zeros(self.MeasurementX.NWAVE)
                         spec[:] = SPECMOD[:,i]
@@ -1311,7 +1313,7 @@ class ForwardModel_0:
 
                 else:
 
-                
+
                     T0 = self.Variables.XN[ix]
                     ALPHA = self.Variables.XN[ix+1]
                     WAVE0 = self.Variables.VARPARAM[ivar,1]
@@ -1352,7 +1354,7 @@ class ForwardModel_0:
 
                         A0 = self.Variables.XN[ix]
                         A1 = self.Variables.XN[ix+1]
-                        A2 = self.Variables.XN[ix+2] 
+                        A2 = self.Variables.XN[ix+2]
 
                         spec = np.zeros(self.MeasurementX.NWAVE)
                         spec[:] = SPECMOD[:,i]
@@ -1426,30 +1428,30 @@ class ForwardModel_0:
     ###############################################################################################
 
     def select_Measurement(self,IGEOM,IAV):
-    
+
         """
             FUNCTION NAME : select_Measurement()
-        
+
             DESCRIPTION : This function fills the Measurement1 class with the information about
                           a specific measurement that wants to be modelled
-        
+
             INPUTS :
-        
+
                 IGEOM :: Integer defining the number of the geometry (from 0 to NGEOM - 1)
                 IAV :: Integer defining the number of the averaging point for the geometry (from 0 to NAV(IGEOM))
 
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 Updated Measurement1 class
-        
+
             CALLING SEQUENCE:
 
                 ForwardModel.select_Measurement(IGEOM,IAV)
-        
+
             MODIFICATION HISTORY : Juan Alday (25/08/2022)
-        
+
         """
 
         self.MeasurementX.NGEOM = 1
@@ -1488,7 +1490,7 @@ class ForwardModel_0:
         """
         FUNCTION NAME : calc_path()
 
-        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files), 
+        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files),
                     different parameters in the Path class are changed to perform correctly
                     the radiative transfer calculations
 
@@ -1500,15 +1502,15 @@ class ForwardModel_0:
             Scatter :: Python class defining the parameters required for scattering calculations (Default : self.ScatterX)
             Measurement :: Python class defining the measurements and observations (Default : self.MeasurementX)
             Layer :: Python class defining the atmospheric layering scheme for the calculation (Default : self.LayerX)
-            
-        OUTPUTS : 
+
+        OUTPUTS :
 
             self.PathX :: Python class defining the calculation type and the path
 
         CALLING SEQUENCE:
 
             Layer,Path = calc_path(Atmosphere,Scatter,Layer)
- 
+
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
@@ -1615,7 +1617,7 @@ class ForwardModel_0:
         """
         FUNCTION NAME : calc_path()
 
-        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files), 
+        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files),
                     different parameters in the Path class are changed to perform correctly
                     the radiative transfer calculations. This version also computes the matrices relating
                     the properties of each layer (Layer) with the properties of the input profiles (Atmosphere)
@@ -1628,15 +1630,15 @@ class ForwardModel_0:
             Scatter :: Python class defining the parameters required for scattering calculations (Default : self.ScatterX)
             Measurement :: Python class defining the measurements and observations (Default : self.MeasurementX)
             Layer :: Python class defining the atmospheric layering scheme for the calculation (Default : self.LayerX)
-            
-        OUTPUTS : 
+
+        OUTPUTS :
 
             self.PathX :: Python class defining the calculation type and the path
 
         CALLING SEQUENCE:
 
             Layer,Path = calc_pathg(Atmosphere,Scatter,Layer)
- 
+
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
@@ -1743,7 +1745,7 @@ class ForwardModel_0:
         """
         FUNCTION NAME : calc_path_SO()
 
-        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files), 
+        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files),
                       different parameters in the Path class are changed to perform correctly
                       the radiative transfer calculations
 
@@ -1755,15 +1757,15 @@ class ForwardModel_0:
             Scatter :: Python class defining the parameters required for scattering calculations (Default : self.ScatterX)
             Measurement :: Python class defining the measurements and observations (Default : self.MeasurementX)
             Layer :: Python class defining the atmospheric layering scheme for the calculation (Default : self.LayerX)
-            
-        OUTPUTS : 
+
+        OUTPUTS :
 
             self.PathX :: Python class defining the calculation type and the path
 
         CALLING SEQUENCE:
 
             ForwardModel.calc_path_SO()
- 
+
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
@@ -1805,7 +1807,7 @@ class ForwardModel_0:
                 ibasel = ibase
                 ibaseh = ibase + 1
                 if ibaseh==Layer.NLAY:
-                    ibaseh = ibase 
+                    ibaseh = ibase
             else:
                 ibasel = ibase - 1
                 ibaseh = ibase
@@ -1820,7 +1822,7 @@ class ForwardModel_0:
         for ICALC in range(NCALC):
             iAtmCalc = AtmCalc_0(Layer,LIMB=True,BOTLAY=ITANHE[ICALC],ANGLE=90.0,IPZEN=0,THERM=False)
             AtmCalc_List.append(iAtmCalc)
-    
+
         #We initialise the total Path class, indicating that the calculations can be combined
         self.PathX = Path_0(AtmCalc_List,COMBINE=True)
 
@@ -1832,7 +1834,7 @@ class ForwardModel_0:
         """
         FUNCTION NAME : calc_pathg_SO()
 
-        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files), 
+        DESCRIPTION : Based on the flags read in the different NEMESIS files (e.g., .fla, .set files),
                   different parameters in the Path class are changed to perform correctly
                   the radiative transfer calculations. This version also computes the matrices relating
                   the properties of each layer (Layer) with the properties of the input profiles (Atmosphere)
@@ -1845,15 +1847,15 @@ class ForwardModel_0:
             Scatter :: Python class defining the parameters required for scattering calculations (Default : self.ScatterX)
             Measurement :: Python class defining the measurements and observations (Default : self.MeasurementX)
             Layer :: Python class defining the atmospheric layering scheme for the calculation (Default : self.LayerX)
-            
-        OUTPUTS : 
+
+        OUTPUTS :
 
             self.PathX :: Python class defining the calculation type and the path
 
         CALLING SEQUENCE:
 
             Layer,Path = calc_pathg(Atmosphere,Scatter,Layer)
- 
+
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
@@ -1896,7 +1898,7 @@ class ForwardModel_0:
                 ibasel = ibase
                 ibaseh = ibase + 1
                 if ibaseh==Layer.NLAY:
-                    ibaseh = ibase 
+                    ibaseh = ibase
             else:
                 ibasel = ibase - 1
                 ibaseh = ibase
@@ -1911,7 +1913,7 @@ class ForwardModel_0:
         for ICALC in range(NCALC):
             iAtmCalc = AtmCalc_0(Layer,LIMB=True,BOTLAY=ITANHE[ICALC],ANGLE=90.0,IPZEN=0,THERM=False)
             AtmCalc_List.append(iAtmCalc)
-    
+
         #We initialise the total Path class, indicating that the calculations can be combined
         self.PathX = Path_0(AtmCalc_List,COMBINE=True)
 
@@ -1927,15 +1929,15 @@ class ForwardModel_0:
     ###############################################################################################
 
     def CIRSrad(self):
-    
+
         """
             FUNCTION NAME : CIRSrad()
-        
+
             DESCRIPTION : This function computes the spectrum given the calculation type
-        
+
             INPUTS :
-        
-                Measurement :: Python class defining the measurements 
+
+                Measurement :: Python class defining the measurements
                 Atmosphere :: Python class defining the reference atmosphere
                 Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
                 Scatter :: Python class defining the parameters required for scattering calculations
@@ -1944,19 +1946,19 @@ class ForwardModel_0:
                 CIA :: Python class defining the Collision-Induced-Absorption cross-sections
                 Layer :: Python class defining the layering scheme to be applied in the calculations
                 Path :: Python class defining the calculation type and the path
-        
+
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 SPECOUT(Measurement.NWAVE,Path.NPATH) :: Output spectrum (non-convolved) in the units given by IMOD
-        
+
             CALLING SEQUENCE:
-        
+
                 SPECOUT = CIRSrad(Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Path)
-        
+
             MODIFICATION HISTORY : Juan Alday (25/07/2021)
-        
+
         """
 
         import matplotlib as matplotlib
@@ -1988,7 +1990,7 @@ class ForwardModel_0:
         #   Continuum opacity due to aerosols coming from the extinction coefficient
         #   Continuum opacity from different gases like H, NH3 (flags in .fla file)
         #   Collision-Induced Absorption
-        #   Scattering opacity derived from the particle distribution and the single scattering albedo. 
+        #   Scattering opacity derived from the particle distribution and the single scattering albedo.
         #        For multiple scattering, this is passed to scattering routines
         #   Line opacity due to gaseous absorption (K-tables or LBL-tables)
 
@@ -2003,7 +2005,7 @@ class ForwardModel_0:
         #Calculating the vertical opacity by CIA
         #################################################################################################################
 
-        
+
         if CIA==None:
             TAUCIA = np.zeros((Measurement.NWAVE,Layer.NLAY))
             dTAUCIA = np.zeros((Measurement.NWAVE,Layer.NLAY,7))
@@ -2030,7 +2032,7 @@ class ForwardModel_0:
             sol_ang = Scatter.SOL_ANG
             emiss_ang = Scatter.EMISS_ANG
             azi_ang = Scatter.AZI_ANG
-    
+
             phasef = np.zeros(Scatter.NDUST+1)   #Phase angle for each aerosol type and for Rayleigh scattering
 
             #Calculating cos(alpha), where alpha is the scattering angle
@@ -2062,7 +2064,7 @@ class ForwardModel_0:
             for i in range(Spectroscopy.NGAS):
                 IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
                 IGAS = IGAS[0]
-    
+
                 #Calculating vertical column density in each layer
                 VLOSDENS = Layer.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #cm-2
 
@@ -2084,7 +2086,7 @@ class ForwardModel_0:
             for i in range(Spectroscopy.NGAS):
                 IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
                 IGAS = IGAS[0]
-    
+
                 f_gas[i,:] = Layer.PP[:,IGAS].T / Layer.PRESS                     #VMR of each radiatively active gas
                 utotl[:] = utotl[:] + Layer.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #Vertical column density of the radiatively active gases
 
@@ -2123,7 +2125,7 @@ class ForwardModel_0:
         #		1	(Atm) Absorption (useful for small transmissions)
         #		2	(Atm) Emission. Planck function evaluated at each
         #				wavenumber. NOT SUPPORTED HERE.
-        #		3	(Atm) Emission. Planck function evaluated at bin 
+        #		3	(Atm) Emission. Planck function evaluated at bin
         #				center.
         #		8	(Combined Cell,Atm) The product of two
         #				previous output paths.
@@ -2137,9 +2139,9 @@ class ForwardModel_0:
         #		23	(Atm) Limb scattering calculation using precomputed
         #			      internal radiation field.
         #		24	(Atm) Net flux calculation (scattering)
-        #		25	(Atm) Upwards flux (internal) calculation (scattering)  
-        #		26	(Atm) Upwards flux (top) calculation (scattering)  
-        #		27	(Atm) Downwards flux (bottom) calculation (scattering)  
+        #		25	(Atm) Upwards flux (internal) calculation (scattering)
+        #		26	(Atm) Upwards flux (top) calculation (scattering)
+        #		27	(Atm) Downwards flux (bottom) calculation (scattering)
         #		28	(Atm) Single scattering approximation (spherical)
 
         IMODM = np.unique(Path.IMOD)
@@ -2147,7 +2149,7 @@ class ForwardModel_0:
         if IMODM==0:
 
             #Calculating the total opacity over the path
-            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH) 
+            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
 
             #Pure transmission spectrum
             SPECOUT = np.exp(-(TAUTOT_PATH))  #(NWAVE,NG,NPATH)
@@ -2166,7 +2168,7 @@ class ForwardModel_0:
         elif IMODM==1:
 
             #Calculating the total opacity over the path
-            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH) 
+            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
 
             #Absorption spectrum (useful for small transmissions)
             SPECOUT = 1.0 - np.exp(-(TAUTOT_PATH)) #(NWAVE,NG,NPATH)
@@ -2196,7 +2198,7 @@ class ForwardModel_0:
 
                     taud[:,:] = taud[:,:] + TAUTOT_LAYINC[:,:,j,ipath]
                     tr = np.exp(-taud)
-        
+
                     bb = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[j,ipath])
                     for ig in range(Spectroscopy.NG):
                         specg[:,ig] = specg[:,ig] + (trold[:,ig]-tr[:,ig])*bb[:] * xfac
@@ -2237,17 +2239,17 @@ class ForwardModel_0:
     ###############################################################################################
 
     def CIRSradg(self):
-    
+
         """
             FUNCTION NAME : CIRSradg()
-        
+
             DESCRIPTION : This function computes the spectrum given the calculation type
-        
+
             INPUTS :
-        
+
                 runname :: Name of the Nemesis run
                 Variables :: Python class defining the parameterisations and state vector
-                Measurement :: Python class defining the measurements 
+                Measurement :: Python class defining the measurements
                 Atmosphere :: Python class defining the reference atmosphere
                 Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
                 Scatter :: Python class defining the parameters required for scattering calculations
@@ -2256,19 +2258,19 @@ class ForwardModel_0:
                 CIA :: Python class defining the Collision-Induced-Absorption cross-sections
                 Layer :: Python class defining the layering scheme to be applied in the calculations
                 Path :: Python class defining the calculation type and the path
-        
+
             OPTIONAL INPUTS: none
-        
+
             OUTPUTS :
-        
+
                 SPECOUT(Measurement.NWAVE,Path.NPATH) :: Output spectrum (non-convolved) in the units given by IMOD
-        
+
             CALLING SEQUENCE:
-        
+
                 SPECOUT = CIRSradg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Path)
-        
+
             MODIFICATION HISTORY : Juan Alday (25/07/2021)
-        
+
         """
 
         import matplotlib as matplotlib
@@ -2300,7 +2302,7 @@ class ForwardModel_0:
         #   Continuum opacity due to aerosols coming from the extinction coefficient
         #   Continuum opacity from different gases like H, NH3 (flags in .fla file)
         #   Collision-Induced Absorption
-        #   Scattering opacity derived from the particle distribution and the single scattering albedo. 
+        #   Scattering opacity derived from the particle distribution and the single scattering albedo.
         #        For multiple scattering, this is passed to scattering routines
         #   Line opacity due to gaseous absorption (K-tables or LBL-tables)
 
@@ -2359,7 +2361,7 @@ class ForwardModel_0:
             sol_ang = Scatter.SOL_ANG
             emiss_ang = Scatter.EMISS_ANG
             azi_ang = Scatter.AZI_ANG
-    
+
             phasef = np.zeros(Scatter.NDUST+1)   #Phase angle for each aerosol type and for Rayleigh scattering
 
             #Calculating cos(alpha), where alpha is the scattering angle
@@ -2379,7 +2381,7 @@ class ForwardModel_0:
 
         for i in range(Scatter.NDUST):
             dTAUCON[:,Atmosphere.NVMR+1+i,:] = dTAUCON[:,Atmosphere.NVMR+1+i,:] + dTAUDUST1[:,:,i]  #dTAUDUST/dAMOUNT (m2)
-            dTAUSCA[:,Atmosphere.NVMR+1+i,:] = dTAUSCA[:,Atmosphere.NVMR+1+i,:] + dTAUCLSCAT[:,:,i] 
+            dTAUSCA[:,Atmosphere.NVMR+1+i,:] = dTAUSCA[:,Atmosphere.NVMR+1+i,:] + dTAUCLSCAT[:,:,i]
 
         #Calculating the gaseous line opacity in each layer
         ########################################################################################################
@@ -2388,7 +2390,7 @@ class ForwardModel_0:
         if Spectroscopy.ILBL==2:  #LBL-table
 
             TAUGAS = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Layer.NLAY,Spectroscopy.NGAS])  #Vertical opacity of each gas in each layer
-            dTAUGAS = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Atmosphere.NVMR+2+Scatter.NDUST,Layer.NLAY]) 
+            dTAUGAS = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Atmosphere.NVMR+2+Scatter.NDUST,Layer.NLAY])
 
             #Calculating the cross sections for each gas in each layer
             k,dkdT = Spectroscopy.calc_klblg(Layer.NLAY,Layer.PRESS/101325.,Layer.TEMP,WAVECALC=Measurement.WAVE)
@@ -2396,7 +2398,7 @@ class ForwardModel_0:
             for i in range(Spectroscopy.NGAS):
                 IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
                 IGAS = IGAS[0]
-    
+
                 #Calculating vertical column density in each layer
                 VLOSDENS = Layer.AMOUNT[:,IGAS].T * 1.0e-20   #m-2
 
@@ -2410,7 +2412,7 @@ class ForwardModel_0:
 
         elif Spectroscopy.ILBL==0:    #K-table
 
-            dTAUGAS = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Atmosphere.NVMR+2+Scatter.NDUST,Layer.NLAY]) 
+            dTAUGAS = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Atmosphere.NVMR+2+Scatter.NDUST,Layer.NLAY])
 
             #Calculating the k-coefficients for each gas in each layer
             k_gas,dkgasdT = Spectroscopy.calc_kg(Layer.NLAY,Layer.PRESS/101325.,Layer.TEMP,WAVECALC=Measurement.WAVE) # (NWAVE,NG,NLAY,NGAS)
@@ -2420,7 +2422,7 @@ class ForwardModel_0:
             for i in range(Spectroscopy.NGAS):
                 IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
                 IGAS = IGAS[0]
-    
+
                 #When using gradients
                 f_gas[i,:] = Layer.AMOUNT[:,IGAS[0]] * 1.0e-4 * 1.0e-20  #Vertical column density of the radiatively active gases in cm-2
 
@@ -2430,13 +2432,13 @@ class ForwardModel_0:
             #Calculating the opacity of each layer
             TAUGAS = k_layer #(NWAVE,NG,NLAY)
 
-            #Calculating the gradients of each layer and for each gas 
+            #Calculating the gradients of each layer and for each gas
             for i in range(Spectroscopy.NGAS):
                 IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
                 IGAS = IGAS[0]
                 dTAUGAS[:,:,IGAS[0],:] = dk_layer[:,:,:,i] * 1.0e-4 * 1.0e-20  #dTAU/dAMOUNT (m2)
 
-            dTAUGAS[:,:,Atmosphere.NVMR,:] = dk_layer[:,:,:,Spectroscopy.NGAS] #dTAU/dT 
+            dTAUGAS[:,:,Atmosphere.NVMR,:] = dk_layer[:,:,:,Spectroscopy.NGAS] #dTAU/dT
 
 
         else:
@@ -2471,7 +2473,7 @@ class ForwardModel_0:
         #		1	(Atm) Absorption (useful for small transmissions)
         #		2	(Atm) Emission. Planck function evaluated at each
         #				wavenumber. NOT SUPPORTED HERE.
-        #		3	(Atm) Emission. Planck function evaluated at bin 
+        #		3	(Atm) Emission. Planck function evaluated at bin
         #				center.
         #		8	(Combined Cell,Atm) The product of two
         #				previous output paths.
@@ -2485,14 +2487,14 @@ class ForwardModel_0:
         #		23	(Atm) Limb scattering calculation using precomputed
         #			      internal radiation field.
         #		24	(Atm) Net flux calculation (scattering)
-        #		25	(Atm) Upwards flux (internal) calculation (scattering)  
-        #		26	(Atm) Upwards flux (top) calculation (scattering)  
-        #		27	(Atm) Downwards flux (bottom) calculation (scattering)  
+        #		25	(Atm) Upwards flux (internal) calculation (scattering)
+        #		26	(Atm) Upwards flux (top) calculation (scattering)
+        #		27	(Atm) Downwards flux (bottom) calculation (scattering)
         #		28	(Atm) Single scattering approximation (spherical)
 
-        
+
         IMODM = np.unique(Path.IMOD)
-    
+
         SPECOUT = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Path.NPATH])
         dSPECOUT = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Atmosphere.NVMR+2+Scatter.NDUST,Path.NLAYIN.max(),Path.NPATH])
         dTSURF = np.zeros((Measurement.NWAVE,Spectroscopy.NG,Path.NPATH))
@@ -2502,7 +2504,7 @@ class ForwardModel_0:
 
             print('CIRSradg :: Calculating TRANSMISSION')
             #Calculating the total opacity over the path
-            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH) 
+            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
             del TAUTOT_LAYINC
 
             #Pure transmission spectrum
@@ -2520,20 +2522,20 @@ class ForwardModel_0:
                     for ig in range(Spectroscopy.NG):
                         SPECOUT[:,ig,ipath] = SPECOUT[:,ig,ipath] * xfac
 
-        
+
             print('CIRSradg :: Calculating GRADIENTS')
             for iwave in range(Measurement.NWAVE):
                 for ig in range(Spectroscopy.NG):
                     for ipath in range(Path.NPATH):
-                        dSPECOUT[iwave,ig,:,:,ipath] = -SPECOUT[iwave,ig,ipath] * dTAUTOT_LAYINC[iwave,ig,:,:,ipath] 
+                        dSPECOUT[iwave,ig,:,:,ipath] = -SPECOUT[iwave,ig,ipath] * dTAUTOT_LAYINC[iwave,ig,:,:,ipath]
             del dTAUTOT_LAYINC
             del TAUTOT_PATH
-        
+
 
         elif IMODM==1:
 
             #Calculating the total opacity over the path
-            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH) 
+            TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
 
             #Absorption spectrum (useful for small transmissions)
             SPECOUT = 1.0 - np.exp(-(TAUTOT_PATH)) #(NWAVE,NG,NPATH)
@@ -2585,7 +2587,7 @@ class ForwardModel_0:
                                 dspecg[:,ig,k,j1] = dspecg[:,ig,k,j1] + (dtolddq[:,ig,k,j1]-dtrdq[:,ig,k,j1])*bb[:] * xfac
                             j1 = j1 + 1
 
-                        tmp = dTAUTOT_LAYINC[:,:,k,j1] 
+                        tmp = dTAUTOT_LAYINC[:,:,k,j1]
                         dtrdq[:,:,k,j1] = -tmp[:,:,0] * tlayer[:,:] * trold[:,:]
 
                         for ig in range(Spectroscopy.NG):
@@ -2654,7 +2656,7 @@ class ForwardModel_0:
         @param WAVEC: int
             Wavenumber (cm-1) or wavelength array (um)
         @param CIA: class
-            Python class defining the CIA cross sections       
+            Python class defining the CIA cross sections
         @param Atmosphere: class
             Python class defining the reference atmosphere
         @param Layer: class
@@ -2698,7 +2700,7 @@ class ForwardModel_0:
         qn2=np.zeros(Layer.NLAY)
         qch4=np.zeros(Layer.NLAY)
         qco2=np.zeros(Layer.NLAY)
-        IABSORB = np.ones(5,dtype='int32') * -1 
+        IABSORB = np.ones(5,dtype='int32') * -1
         for i in range(Atmosphere.NVMR):
 
             if Atmosphere.ID[i]==39:
@@ -2716,8 +2718,8 @@ class ForwardModel_0:
 
             if Atmosphere.ID[i]==6:
                 if((Atmosphere.ISO[i]==0) or (Atmosphere.ISO[i]==1)):
-                    qch4[:] = Layer.PP[:,i] / Layer.PRESS[:]  
-                    IABSORB[3] = i 
+                    qch4[:] = Layer.PP[:,i] / Layer.PRESS[:]
+                    IABSORB[3] = i
 
             if Atmosphere.ID[i]==2:
                 qco2[:] = Layer.PP[:,i] / Layer.PRESS[:]
@@ -2784,7 +2786,7 @@ class ForwardModel_0:
             #Cheking that interpolation can be performed to the calculation wavenumbers
             inwave = np.where( (CIA.WAVEN>=WAVEN.min()) & (CIA.WAVEN<=WAVEN.max()) )
             inwave = inwave[0]
-            if len(inwave)>0: 
+            if len(inwave)>0:
 
                 k_cia = np.zeros((NWAVEC,CIA.NPAIR))
                 dkdT_cia = np.zeros((NWAVEC,CIA.NPAIR))
@@ -2924,7 +2926,7 @@ class ForwardModel_0:
             #Calculating the opacity at each layer
             for j in range(Layer.NLAY):
                 DUSTCOLDENS = Layer.CONT[j,i]  #particles/m2
-                TAUDUST[:,j,i] =  kext * 1.0e-4 * DUSTCOLDENS 
+                TAUDUST[:,j,i] =  kext * 1.0e-4 * DUSTCOLDENS
                 TAUCLSCAT[:,j,i] = ksca * 1.0e-4 * DUSTCOLDENS
                 dTAUDUSTdq[:,j,i] = kext * 1.0e-4 #dtau/dAMOUNT (m2)
                 dTAUCLSCATdq[:,j,i] = ksca * 1.0e-4 #dtau/dAMOUNT (m2)
