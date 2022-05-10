@@ -21,8 +21,8 @@ Forward Model Class.
 class ForwardModel_0:
 
     def __init__(self, runname='wasp121', Atmosphere=None, Surface=None,
-        Measurement=None, Spectroscopy=None, Stellar=None, Scatter=None, CIA=None,
-        Layer=None, Variables=None):
+        Measurement=None, Spectroscopy=None, Stellar=None, Scatter=None,
+        CIA=None, Layer=None, Variables=None):
 
         """
         Inputs (Reference classes)
@@ -2019,7 +2019,8 @@ class ForwardModel_0:
         if Scatter.IRAY==0:
             TAURAY = np.zeros((Measurement.NWAVE,Layer.NLAY))
         elif Scatter.IRAY==1:
-            TAURAY,dTAURAY = Scatter.calc_tau_rayleighj(Measurement.ISPACE,Measurement.WAVE,Layer) #(NWAVE,NLAY)
+            TAURAY,dTAURAY = Scatter.calc_tau_rayleighj(Measurement.ISPACE,
+                Measurement.WAVE,Layer) #(NWAVE,NLAY)
         else:
             sys.exit('error in CIRSrad :: IRAY type has not been implemented yet')
 
@@ -2091,7 +2092,8 @@ class ForwardModel_0:
                 utotl[:] = utotl[:] + Layer.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #Vertical column density of the radiatively active gases
 
             #Combining the k-distributions of the different gases in each layer
-            k_layer = k_overlap(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,f_gas)  #(NWAVE,NG,NLAY)
+            k_layer = k_overlap(Measurement.NWAVE,Spectroscopy.NG,
+                Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,f_gas)  #(NWAVE,NG,NLAY)
 
             #Calculating the opacity of each layer
             TAUGAS = k_layer * utotl   #(NWAVE,NG,NLAY)

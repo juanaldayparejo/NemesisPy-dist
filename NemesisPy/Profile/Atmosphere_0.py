@@ -179,7 +179,7 @@ class Atmosphere_0:
         """
         Subroutine to adjust the vmrs at a particular level to add up to 1.0.
         ISCALE :: Flag to indicate if gas vmr can be scaled(1) or not (0).
-        """ 
+        """
 
         ISCALE = np.array(ISCALE)
         jvmr1 = np.where(ISCALE==1)
@@ -190,10 +190,10 @@ class Atmosphere_0:
         for ipro in range(self.NP):
 
             sumtot = np.sum(self.VMR[ipro,:])
-            sum1 = np.sum(self.VMR[ipro,jvmr2]) 
+            sum1 = np.sum(self.VMR[ipro,jvmr2])
 
             if sumtot!=1.0:
-                #Need to adjust the VMRs of those gases that can be scaled to 
+                #Need to adjust the VMRs of those gases that can be scaled to
                 #bring the total sum to 1.0
                 xfac = (1.0-sum1)/(sumtot-sum1)
                 vmr[ipro,jvmr1] = self.VMR[ipro,jvmr1] * xfac
@@ -204,7 +204,7 @@ class Atmosphere_0:
     def calc_molwt(self):
         """
         Subroutine to calculate the molecular weight of the atmosphere (kg/mol)
-        """      
+        """
 
         molwt = np.zeros(self.NP)
         vmrtot = np.zeros(self.NP)
@@ -223,7 +223,7 @@ class Atmosphere_0:
     def calc_rho(self):
         """
         Subroutine to calculate the atmospheric density (kg/m3) at each level
-        """      
+        """
         R = const["R"]
         rho = self.P * self.MOLWT / R / self.T
 
@@ -233,7 +233,7 @@ class Atmosphere_0:
     def calc_radius(self):
         """
         Subroutine to calculate the radius of the planet at the required latitude
-        """  
+        """
 
         #Getting the information about the planet
         data = planet_info[str(self.IPLANET)]
@@ -254,9 +254,9 @@ class Atmosphere_0:
         """
         Subroutine to calculate the gravity at each level following the method
         of Lindal et al., 1986, Astr. J., 90 (6), 1136-1146
-        """   
+        """
 
-        #Reading data and calculating some parameters   
+        #Reading data and calculating some parameters
         Grav = const["G"]
         data = planet_info[str(self.IPLANET)]
         xgm = data["mass"] * Grav * 1.0e24 * 1.0e6
@@ -289,7 +289,7 @@ class Atmosphere_0:
             Pn = legendre(i+1)
             pol[i] = Pn(slatc)
 
-        #Evaluate radial contribution from summation 
+        #Evaluate radial contribution from summation
         # for first three terms,
         #then subtract centrifugal effect.
         g = 1.
@@ -299,7 +299,7 @@ class Atmosphere_0:
 
         gradial = (g * xgm/r**2.) - (r * xomega**2. * clatc**2.)
 
-        #Evaluate latitudinal contribution for 
+        #Evaluate latitudinal contribution for
         # first three terms, then add centrifugal effects
 
         gtheta1 = 0.
@@ -320,8 +320,8 @@ class Atmosphere_0:
         the hydrostatic equation above and below a specified altitude
         given the pressure at that altitude
             htan :: specified altitude (m)
-            ptan :: Pressure at specified altitude (Pa) 
-        """   
+            ptan :: Pressure at specified altitude (Pa)
+        """
 
         #First find the level below the reference altitude
         alt0,ialt = find_nearest(self.H,htan)
@@ -336,7 +336,7 @@ class Atmosphere_0:
         scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
 
         sh =  0.5*(scale[ialt]+scale[ialt+1])
-        delh = self.H[ialt+1]-htan 
+        delh = self.H[ialt+1]-htan
         p = np.zeros(self.NP)
         p[ialt+1] = ptan*np.exp(-delh/sh)
         delh = self.H[ialt]-htan
@@ -359,7 +359,7 @@ class Atmosphere_0:
         """
         Subroutine to rescale the heights of a H/P/T profile according to
         the hydrostatic equation above and below the level where height=0.
-        """   
+        """
 
         #First find the level closest to the 0m altitude
         alt0,ialt = find_nearest(self.H,0.0)
@@ -368,13 +368,13 @@ class Atmosphere_0:
 
 
         xdepth = 100.
-        while xdepth>1:  
+        while xdepth>1:
 
             h = np.zeros(self.NP)
             p = np.zeros(self.NP)
             h[:] = self.H
             p[:] = self.P
-        
+
             #Calculating the atmospheric depth
             atdepth = h[self.NP-1] - h[0]
 
@@ -397,8 +397,8 @@ class Atmosphere_0:
 
             for i in range(ialt-1,-1,-1):
                 sh = 0.5 * (scale[i+1] + scale[i])
-                #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])  
-                h[i] = h[i+1] - sh * np.log(p[i]/p[i+1]) 
+                #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])
+                h[i] = h[i+1] - sh * np.log(p[i]/p[i+1])
 
             #atdepth1 = self.H[self.NP-1] - self.H[0]
             atdepth1 = h[self.NP-1] - h[0]
@@ -408,7 +408,7 @@ class Atmosphere_0:
             self.H = h[:]
 
             #Re-Calculate the gravity at each altitude level
-            self.calc_grav()  
+            self.calc_grav()
 
 
     def add_gas(self,gasID,isoID,vmr):
@@ -417,7 +417,7 @@ class Atmosphere_0:
             gasID :: Radtran ID of the gas
             isoID :: Radtran isotopologue ID of the gas
             vmr(NP) :: Volume mixing ratio of the gas at each altitude level
-        """  
+        """
 
         ngas = self.NVMR + 1
         if len(vmr)!=self.NP:
@@ -443,7 +443,7 @@ class Atmosphere_0:
         Subroutine to remove a gas from the reference atmosphere
             gasID :: Radtran ID of the gas
             isoID :: Radtran isotopologue ID of the gas
-        """  
+        """
 
         igas = np.where( (self.ID==gasID) & (self.ISO==isoID) )
         igas = igas[0]
@@ -475,7 +475,7 @@ class Atmosphere_0:
             gasID :: Radtran ID of the gas
             isoID :: Radtran isotopologue ID of the gas
             vmr(NP) :: Volume mixing ratio of the gas at each altitude level
-        """ 
+        """
 
         igas = np.where( (self.ID==gasID) & (self.ISO==isoID) )
         igas = igas[0]
@@ -532,13 +532,13 @@ class Atmosphere_0:
 
         #Opening file
         f = open(self.runname+'.ref','r')
-    
+
         #Reading first and second lines
-        
+
         tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
         amform = int(tmp[0])
         tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
-    
+
         #Reading third line
         tmp = f.readline().split()
         nplanet = int(tmp[0])
@@ -555,7 +555,7 @@ class Atmosphere_0:
             tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
             gasID[i] = int(tmp[0])
             isoID[i] = int(tmp[1])
-    
+
         #Reading profiles
         height = np.zeros(npro)
         press = np.zeros(npro)
@@ -599,10 +599,10 @@ class Atmosphere_0:
         """
 
         fref = open(self.runname+'.ref','w')
-        fref.write('\t %i \n' % (self.AMFORM)) 
+        fref.write('\t %i \n' % (self.AMFORM))
         nlat = 1    #Would need to be updated to include more latitudes
         fref.write('\t %i \n' % (nlat))
-    
+
         if self.AMFORM==0:
             fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR,self.MOLWT[0]))
         else:
@@ -624,9 +624,9 @@ class Atmosphere_0:
         for i in range(self.NP):
             str1 = str('{0:7.3f}'.format(self.H[i]/1.0e3))+'\t'+str('{0:7.6e}'.format(self.P[i]/101325.))+'\t'+str('{0:7.4f}'.format(self.T[i]))
             for j in range(self.NVMR):
-                str1 = str1+'\t'+str('{0:7.6e}'.format(self.VMR[i,j])) 
+                str1 = str1+'\t'+str('{0:7.6e}'.format(self.VMR[i,j]))
             fref.write(str1+'\n')
- 
+
         fref.close()
 
     def plot_Atm(self):

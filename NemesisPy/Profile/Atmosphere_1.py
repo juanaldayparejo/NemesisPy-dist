@@ -7,6 +7,7 @@ Created on Mon Mar 22 21:56:22 2021
 
 Cloudy Atmosphere Class.
 """
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from .Atmosphere_0 import Atmosphere_0
@@ -170,7 +171,7 @@ class Atmosphere_1(Atmosphere_0):
         else:
             if self.NP!=npro:
                 sys.exit('Number of altitude points in aerosol.ref must be equal to NP')
-    
+
         self.NP = npro
         self.NDUST = naero
         self.edit_H(height*1.0e3)   #m
