@@ -425,7 +425,7 @@ class Measurement_0:
         self.edit_ERRMEAS(errmeas)
         self.edit_TANHE(tanhe)
 
-        self.calc_MeasurementVector()
+        #self.calc_MeasurementVector()
 
         if MakePlot==True:
 

@@ -211,6 +211,9 @@ class Atmosphere_1(Atmosphere_0):
 
 
     def summary_info(self):
+        """
+        Subroutine to print summary of information about the class
+        """      
 
         data = planet_info[str(self.IPLANET)]
         print('Planet :: '+data['name'])

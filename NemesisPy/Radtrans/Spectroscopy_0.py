@@ -825,6 +825,61 @@ class Spectroscopy_0:
         return kret
 
 
+    def summary_info(self):
+        """
+        Subroutine to print summary of information about the class
+        """    
+
+        from NemesisPy.Data import gas_info
+
+        if self.ILBL==0:
+            print('Calculation type ILBL :: ',self.ILBL,' (k-distribution)')
+            print('Number of radiatively-active gaseous species :: ',self.NGAS)
+            gasname = ['']*self.NGAS
+            for i in range(self.NGAS):
+                gasname1 = gas_info[str(self.ID[i])]['name']
+                if self.ISO[i]!=0:
+                    gasname1 = gasname1+' ('+str(self.ISO[i])+')'
+                gasname[i] = gasname1
+            print('Gaseous species :: ',gasname)
+
+            print('Number of g-ordinates :: ',self.NG)
+
+            print('Number of spectral points :: ',self.NWAVE)
+            print('Wavelength range :: ',self.WAVE.min(),'-',self.WAVE.max())
+            print('Step size :: ',self.WAVE[1]-self.WAVE[0])
+
+            print('Spectral resolution of the k-tables (FWHM) :: ',self.FWHM)
+
+            print('Number of temperature levels :: ',self.NT)
+            print('Temperature range :: ',self.TEMP.min(),'-',self.TEMP.max(),'K')
+
+            print('Number of pressure levels :: ',self.NP)
+            print('Pressure range :: ',self.PRESS.min(),'-',self.PRESS.max(),'atm')
+
+        elif self.ILBL==2:
+            print('Calculation type ILBL :: ',self.ILBL,' (line-by-line)')
+            print('Number of radiatively-active gaseous species :: ',self.NGAS)
+            gasname = ['']*self.NGAS
+            for i in range(self.NGAS):
+                gasname1 = gas_info[str(self.ID[i])]['name']
+                if self.ISO[i]!=0:
+                    gasname1 = gasname1+' ('+str(self.ISO[i])+')'
+                gasname[i] = gasname1
+            print('Gaseous species :: ',gasname)
+
+            print('Number of spectral points :: ',self.NWAVE)
+            print('Wavelength range :: ',self.WAVE.min(),'-',self.WAVE.max())
+            print('Step size :: ',self.WAVE[1]-self.WAVE[0])
+
+            print('Number of temperature levels :: ',self.NT)
+            print('Temperature range :: ',self.TEMP.min(),'-',self.TEMP.max(),'K')
+
+            print('Number of pressure levels :: ',self.NP)
+            print('Pressure range :: ',self.PRESS.min(),'-',self.PRESS.max(),'atm')
+
+
+
 
 ###############################################################################################
 

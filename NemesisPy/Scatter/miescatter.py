@@ -31,7 +31,7 @@ def read_ref_index(filename,MakePlot=False):
         DESCRIPTION : Read a file of the refractive index using the format required by NEMESIS
 
         INPUTS :
-       
+        
             filename :: Name of the file
 
         OPTIONAL INPUTS: none

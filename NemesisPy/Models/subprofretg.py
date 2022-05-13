@@ -226,6 +226,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
             Measurement = model230(Measurement,nwindows,liml,limh,par1)
 
             ipar = -1
+            ix = ix + Variables.NXVAR[ivar]
 
         elif Variables.VARIDENT[ivar,0]==231:
 #       Model 231. Continuum addition to transmission spectra using a varying scaling factor (given a polynomial of degree N)
