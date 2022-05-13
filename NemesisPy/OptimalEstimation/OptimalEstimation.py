@@ -95,7 +95,6 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         fitr = open(runname+'.itr','w')
         fitr.write("\t %i \t %i \t %i\n" % (OptimalEstimation.NX,OptimalEstimation.NY,OptimalEstimation.NITER))
 
-
     #Calculate the first measurement vector and jacobian matrix
     #################################################################
 
@@ -199,6 +198,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
             #Check to see if any VMRs or other parameters have gone negative.
             Variables1 = copy(Variables)
             Variables1.XN = XN1
+
             ForwardModel1 = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables1)
             #Variables1 = copy(Variables)
             #Variables1.XN = XN1
@@ -233,6 +233,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         #temporary kernel matrix kk1. Does it improve the fit? 
         Variables.edit_XN(XN1)
         print('nemesis :: Calculating Jacobian matrix KK')
+
         ForwardModel = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables)
         YN1,KK1 = ForwardModel.jacobian_nemesis(NCores=NCores,nemesisSO=nemesisSO)
         #if nemesisSO==True:

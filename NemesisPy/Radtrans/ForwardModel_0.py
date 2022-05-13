@@ -22,7 +22,7 @@ class ForwardModel_0:
 
     def __init__(self, runname='wasp121', Atmosphere=None, Surface=None,
         Measurement=None, Spectroscopy=None, Stellar=None, Scatter=None,
-        CIA=None, Layer=None, Variables=None):
+        CIA=None, Layer=None, Variables=None, adjust_hydrostat=True):
 
         """
         Inputs (Reference classes)
@@ -45,6 +45,9 @@ class ForwardModel_0:
             Class defining the Layer
         @class Variables:,
             Class defining the Variables
+        @log adjust_hydrostat:,
+            Flag indicating whether the re-adjustment of the pressure or altitude leves
+            based on the hydrostatic equilibrium equation must be performed or not.
 
         Attributes (Attribute classes)
         ----------
@@ -127,6 +130,7 @@ class ForwardModel_0:
         self.Stellar = Stellar
         self.Variables = Variables
         self.Layer = Layer
+        self.adjust_hydrostat=adjust_hydrostat
 
         #Creating extra class to hold the variables class in each permutation of the Jacobian Matrix
         self.Variables1 = copy(Variables)
@@ -464,6 +468,10 @@ class ForwardModel_0:
         self.CIAX = copy(self.CIA)
         flagh2p = False
 
+        #Setting up flag not to re-compute levels based on hydrostatic equilibrium (unless pressure or tangent altitude are retrieved)
+        self.adjust_hydrostat = False
+
+        #Mapping variables into different classes
         xmap = self.subprofretg()
 
         #Calculating the atmospheric paths
@@ -570,6 +578,10 @@ class ForwardModel_0:
         self.CIAX = copy(self.CIA)
         flagh2p = False
 
+        #Setting up flag not to re-compute levels based on hydrostatic equilibrium (unless pressure or tangent altitude are retrieved)
+        self.adjust_hydrostat = False
+
+        #Mapping variables into different classes
         xmap = self.subprofretg()
 
         #Calculating the atmospheric paths
@@ -891,21 +903,27 @@ class ForwardModel_0:
             self.select_Surface(self.MeasurementX.LATITUDE,self.MeasurementX.LONGITUDE)
 
 
+        #Checking if hydrostatic equilibrium needs to be used for any parameterisation
+        if self.Variables.JPRE!=-1:
+            self.adjust_hydrostat = True
+        if self.Variables.JTAN!=-1:
+            self.adjust_hydrostat = True
 
         #Modify profile via hydrostatic equation to make sure the atm is in hydrostatic equilibrium
-        if self.Variables.JPRE==-1:
-            jhydro = 0
-            #Then we modify the altitude levels and keep the pressures fixed
-            self.AtmosphereX.adjust_hydrostatH()
-            self.AtmosphereX.calc_grav()   #Updating the gravity values at the new heights
-        else:
-            #Then we modifify the pressure levels and keep the altitudes fixed
-            jhydro = 1
-            for i in range(self.Variables.NVAR):
-                if self.Variables.VARIDENT[i,0]==666:
-                    htan = self.Variables.VARPARAM[i,0] * 1000.
-            ptan = np.exp(self.Variables.XN[self.Variables.JPRE]) * 101325.
-            self.AtmosphereX.adjust_hydrostatP(htan,ptan)
+        if self.adjust_hydrostat==True:
+            if self.Variables.JPRE==-1:
+                jhydro = 0
+                #Then we modify the altitude levels and keep the pressures fixed
+                self.AtmosphereX.adjust_hydrostatH()
+                self.AtmosphereX.calc_grav()   #Updating the gravity values at the new heights
+            else:
+                #Then we modifify the pressure levels and keep the altitudes fixed
+                jhydro = 1
+                for i in range(self.Variables.NVAR):
+                    if self.Variables.VARIDENT[i,0]==666:
+                        htan = self.Variables.VARPARAM[i,0] * 1000.
+                ptan = np.exp(self.Variables.XN[self.Variables.JPRE]) * 101325.
+                self.AtmosphereX.adjust_hydrostatP(htan,ptan)
 
         #Adjust VMRs to add up to 1 if AMFORM=1 and re-calculate molecular weight in atmosphere
         if self.AtmosphereX.AMFORM==1:
@@ -1186,13 +1204,14 @@ class ForwardModel_0:
             self.AtmosphereX.calc_molwt()
 
         #Re-scale H/P based on the hydrostatic equilibrium equation
-        if jhydro==0:
-            #Then we modify the altitude levels and keep the pressures fixed
-            self.AtmosphereX.adjust_hydrostatH()
-            self.AtmosphereX.calc_grav()   #Updating the gravity values at the new heights
-        else:
-            #Then we modifify the pressure levels and keep the altitudes fixed
-            self.AtmosphereX.adjust_hydrostatP(htan,ptan)
+        if self.adjust_hydrostat==True:
+            if jhydro==0:
+                #Then we modify the altitude levels and keep the pressures fixed
+                self.AtmosphereX.adjust_hydrostatH()
+                self.AtmosphereX.calc_grav()   #Updating the gravity values at the new heights
+            else:
+                #Then we modifify the pressure levels and keep the altitudes fixed
+                self.AtmosphereX.adjust_hydrostatP(htan,ptan)
 
         #Write out modified profiles to .prf file
         #Atmosphere.write_to_file()
