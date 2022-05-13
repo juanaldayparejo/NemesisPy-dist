@@ -6,22 +6,23 @@ import matplotlib.pyplot as plt
 
 ###############################################################################################
 
-def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,Layer,flagh2p):
+def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,
+    Stellar,Surface,Layer,flagh2p):
 
     """
     FUNCTION NAME : subprogretg()
 
     DESCRIPTION : Updates the atmosphere based on the variables and parameterisations in the
-                  state vector. Changes to other parameters in the model based on the variables 
+                  state vector. Changes to other parameters in the model based on the variables
                   and parameterisations in the state vector are also performed here. However,
                   the functional derivatives to these other parameters are not included since
                   they cannot be determined analytically.
 
     INPUTS :
-    
+
         runname :: Name of the Nemesis run
         Variables :: Python class defining the parameterisations and state vector
-        Measurement :: Python class defining the measurements 
+        Measurement :: Python class defining the measurements
         Atmosphere :: Python class defining the reference atmosphere
         Spectroscopy :: Python class defining the spectroscopic parameters
         Scatter :: Python class defining the parameters required for scattering calculations
@@ -30,16 +31,16 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
         Layer :: Python class defining the layering scheme to be applied in the calculations
 
     OPTIONAL INPUTS: none
-            
-    OUTPUTS : 
 
-        xmap(maxv,ngas+2+ncont,npro) :: Matrix relating functional derivatives calculated 
+    OUTPUTS :
+
+        xmap(maxv,ngas+2+ncont,npro) :: Matrix relating functional derivatives calculated
                                          by CIRSRADG to the elements of the state vector.
-                                         Elements of XMAP are the rate of change of 
+                                         Elements of XMAP are the rate of change of
                                          the profile vectors (i.e. temperature, vmr prf
                                          files) with respect to the change in the state
-                                         vector elements. So if X1(J) is the modified 
-                                         temperature,vmr,clouds at level J to be 
+                                         vector elements. So if X1(J) is the modified
+                                         temperature,vmr,clouds at level J to be
                                          written out to runname.prf or aerosol.prf then
                                         XMAP(K,L,J) is d(X1(J))/d(XN(K)) and where
                                         L is the identifier (1 to NGAS+1+2*NCONT)
@@ -47,7 +48,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
     CALLING SEQUENCE:
 
         xmap = subprofretg(runname,Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,Layer,flagh2p)
- 
+
     MODIFICATION HISTORY : Juan Alday (15/03/2021)
 
     """
@@ -76,7 +77,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
 
     #Calculate atmospheric density
     rho = Atmosphere.calc_rho() #kg/m3
-    
+
     #Initialising xmap
     xmap = np.zeros((Variables.NX,Atmosphere.NVMR+2+Atmosphere.NDUST,Atmosphere.NP))
 
@@ -85,7 +86,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
     for ivar in range(Variables.NVAR):
 
         if Variables.VARIDENT[ivar,2]<=100:
-            
+
             #Reading the atmospheric profile which is going to be changed by the current variable
             xref = np.zeros([Atmosphere.NP])
 
@@ -97,7 +98,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
                 jvmr = int(jvmr[0])
                 xref[:] = Atmosphere.VMR[:,jvmr]
                 ipar = jvmr
-            elif Variables.VARIDENT[ivar,0]<0:  
+            elif Variables.VARIDENT[ivar,0]<0:
                 jcont = -int(Variables.VARIDENT[ivar,0])
                 if jcont>Atmosphere.NDUST+2:
                     sys.exit('error :: Variable outside limits',Variables.VARIDENT[ivar,0],Variables.VARIDENT[ivar,1],Variables.VARIDENT[ivar,2])
@@ -113,7 +114,7 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,St
 
                 ipar = Atmosphere.NVMR + jcont
 
-        x1 = np.zeros(Atmosphere.NP)        
+        x1 = np.zeros(Atmosphere.NP)
 
         if Variables.VARIDENT[ivar,2]==-1:
 #       Model -1. Continuous aerosol profile in particles cm-3

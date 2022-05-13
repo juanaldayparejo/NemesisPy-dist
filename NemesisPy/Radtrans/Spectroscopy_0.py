@@ -28,14 +28,14 @@ class Spectroscopy_0:
         @param ISPACE: int,
             Flag indicating the units of the spectral coordinate (0) Wavenumber cm-1 (1) Wavelength um
         @param ILBL: int,
-            Flag indicating if the calculations are performed using pre-tabulated 
+            Flag indicating if the calculations are performed using pre-tabulated
             correlated-K tables (0) or line-by-line tables (2)
         @param NGAS: int,
-            Number of active gases to include in the atmosphere    
+            Number of active gases to include in the atmosphere
         @param ID: 1D array,
-            Gas ID for each active gas         
+            Gas ID for each active gas
         @param ISO: 1D array,
-            Isotope ID for each gas, default 0 for all isotopes in terrestrial relative abundance     
+            Isotope ID for each gas, default 0 for all isotopes in terrestrial relative abundance
         @param LOCATION: 1D array,
             List of strings indicating where the .lta or .kta tables are stored for each of the gases
         @param NWAVE: int,
@@ -58,7 +58,7 @@ class Spectroscopy_0:
             Intervals of g-ordinates
         @param FWHM: real,
             Full-width at half maximum (only in case of K-tables)
-        
+
 
         Methods
         -------
@@ -96,7 +96,7 @@ class Spectroscopy_0:
             K-coefficients or absorption cross sections
         """
         K_array = np.array(K_array)
-        
+
         if self.ILBL==0: #K-tables
             assert K_array.shape == (self.NWAVE, self.NG, self.NP, self.NT, self.NGAS),\
                 'K should be (NWAVE,NG,NP,NT,NGAS) if ILBL=0 (K-tables)'
@@ -118,8 +118,8 @@ class Spectroscopy_0:
         """
 
         ngasact = len(open(runname+'.lls').readlines(  ))
-    
-        #Opening .lls file 
+
+        #Opening .lls file
         f = open(runname+'.lls','r')
         strlta = [''] * ngasact
         for i in range(ngasact):
@@ -128,7 +128,7 @@ class Spectroscopy_0:
 
         self.NGAS = ngasact
         self.LOCATION = strlta
-    
+
         #Now reading the head of the binary files included in the .lls file
         nwavelta = np.zeros([ngasact],dtype='int')
         npresslta = np.zeros([ngasact],dtype='int')
@@ -172,11 +172,11 @@ class Spectroscopy_0:
         @param runname: str
             Name of the Nemesis run
         """
-        
+
         from NemesisPy import read_ktahead
 
         ngasact = len(open(runname+'.kls').readlines(  ))
-    
+
         #Opening file
         f = open(runname+'.kls','r')
         strkta = [''] * ngasact
@@ -232,7 +232,7 @@ class Spectroscopy_0:
         Optional parameters
         -----------------------
         @param wavemin: real
-            Minimum wavenumber (cm-1) or wavelength (um) 
+            Minimum wavenumber (cm-1) or wavelength (um)
         @param wavemax: real
             Maximum wavenumber (cm-1) or wavelength (um)
         """
@@ -279,7 +279,6 @@ class Spectroscopy_0:
         else:
             sys.exit('error in Spectroscopy :: ILBL must be either 0 (K-tables) or 2 (LBL-tables)')
 
-
     def calc_klblg(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
         """
         Calculate the absorption coefficient at a given pressure and temperature
@@ -294,7 +293,7 @@ class Spectroscopy_0:
         @param temp: 1D array
             Temperature levels (K)
 
-        Optional parameters 
+        Optional parameters
         ---------------------
         @param wavemin: real
             Minimum wavenumber (cm-1) or wavelength (um)
@@ -315,7 +314,7 @@ class Spectroscopy_0:
 
         #Interpolating to the correct pressure and temperature
         ########################################################
-    
+
         #K (NWAVE,NP,NT,NGAS)
 
         kgood = np.zeros([self.NWAVE,npoints,self.NGAS])
@@ -324,7 +323,7 @@ class Spectroscopy_0:
 
             press1 = press[ipoint]
             temp1 = temp[ipoint]
-        
+
             #Getting the levels just above and below the desired points
             lpress  = np.log(press1)
             press0,ip = find_nearest(self.PRESS,press1)
@@ -431,7 +430,7 @@ class Spectroscopy_0:
         @param temp: 1D array
             Temperature levels (K)
 
-        Optional parameters 
+        Optional parameters
         ---------------------
         @param wavemin: real
             Minimum wavenumber (cm-1) or wavelength (um)
@@ -451,7 +450,7 @@ class Spectroscopy_0:
 
         #Interpolating to the correct pressure and temperature
         ########################################################
-    
+
         #K (NWAVE,NP,NT,NGAS)
 
         kgood = np.zeros((self.NWAVE,npoints,self.NGAS))
@@ -459,7 +458,7 @@ class Spectroscopy_0:
 
             press1 = press[ipoint]
             temp1 = temp[ipoint]
-        
+
             #Getting the levels just above and below the desired points
             lpress  = np.log(press1)
             press0,ip = find_nearest(self.PRESS,press1)
@@ -526,7 +525,6 @@ class Spectroscopy_0:
 
         return kgood
 
-
     def calc_kg(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
         """
         Calculate the k-coefficients at a given pressure and temperature
@@ -541,7 +539,7 @@ class Spectroscopy_0:
         @param temp: 1D array
             Temperature levels (K)
 
-        Optional parameters 
+        Optional parameters
         ---------------------
         @param wavemin: real
             Minimum wavenumber (cm-1) or wavelength (um)
@@ -672,14 +670,13 @@ class Spectroscopy_0:
                     wave0,iv = find_nearest(self.WAVE,WAVECALC[i])
                     kret[i,:,:,:] = kgood[iv,:,:,:]
                     dkretdT[i,:,:,:] = dkgooddT[iv,:,:,:]
-        
+
         else:
 
             kret = kgood
             dkretdT = dkgooddT
 
         return kret,dkretdT
-
 
     def calc_k(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
         """
@@ -695,7 +692,7 @@ class Spectroscopy_0:
         @param temp: 1D array
             Temperature levels (K)
 
-        Optional parameters 
+        Optional parameters
         ---------------------
         @param wavemin: real
             Minimum wavenumber (cm-1) or wavelength (um)
@@ -817,7 +814,7 @@ class Spectroscopy_0:
                 for i in range(NWAVEC):
                     wave0,iv = find_nearest(self.WAVE,WAVECALC[i])
                     kret[i,:,:,:] = kgood[iv,:,:,:]
-        
+
         else:
 
             kret = kgood
@@ -894,7 +891,7 @@ Other functions interacting with the Spectroscopy class
 
 def read_ltahead(filename):
     """
-    Read the header information in a line-by-line look-up table 
+    Read the header information in a line-by-line look-up table
     written with the standard format of Nemesis
 
     @param filename: str
@@ -907,7 +904,7 @@ def read_ltahead(filename):
         f = open(filename,'r')
     else:
         f = open(filename+'.lta','r')
-    
+
     irec0 = int(np.fromfile(f,dtype='int32',count=1))
     nwave = int(np.fromfile(f,dtype='int32',count=1))
     vmin = float(np.fromfile(f,dtype='float32',count=1))
@@ -926,20 +923,20 @@ def read_ltahead(filename):
 ###############################################################################################
 
 def read_ktahead(filename):
-    
+
     """
         FUNCTION NAME : read_ktahead_nemesis()
-        
+
         DESCRIPTION : Read the header information in a correlated-k look-up table written with the standard format of Nemesis
-        
+
         INPUTS :
-        
+
             filename :: Name of the file (supposed to have a .kta extension)
-        
+
         OPTIONAL INPUTS: none
-        
+
         OUTPUTS :
-        
+
             nwave :: Number of wavelength points
             wave :: Wavelength (um) / Wavenumber (cm-1) array
             npress :: Number of pressure levels
@@ -948,15 +945,15 @@ def read_ktahead(filename):
             isoID :: RADTRAN isotopologue ID
             pressleves(np) :: Pressure levels (atm)
             templeves(np) :: Temperature levels (K)
-        
+
         CALLING SEQUENCE:
-        
+
             nwave,wave,fwhm,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels = read_ktahead(filename)
-        
+
         MODIFICATION HISTORY : Juan Alday (29/04/2019)
-        
+
     """
-    
+
     #Opening file
     strlen = len(filename)
     if filename[strlen-3:strlen] == 'kta':
@@ -985,9 +982,9 @@ def read_ktahead(filename):
 
     N1 = abs(ntemp)
     if ntemp < 0:
-        templevels = np.zeros([npress,n1])
+        templevels = np.zeros([npress,N1])
         for i in range(npress):
-            for j in range(n1):
+            for j in range(N1):
                 templevels[i,j] =  np.fromfile(f,dtype='float32',count=1)
     else:
         templevels = np.fromfile(f,dtype='float32',count=ntemp)
@@ -1005,22 +1002,22 @@ def read_ktahead(filename):
 
 ###############################################################################################
 def read_lbltable(filename,wavemin,wavemax):
-    
+
     """
         FUNCTION NAME : read_lbltable()
-        
+
         DESCRIPTION : Read the line-by-line look-up table written with the standard format of Nemesis
-        
+
         INPUTS :
-        
+
             filename :: Name of the file (supposed to have a .lta extension)
             wavemin :: Minimum wavenumber to read (cm-1)
             wavemax :: Maximum wavenumber to read (cm-1)
-        
+
         OPTIONAL INPUTS: none
-        
+
         OUTPUTS :
-        
+
             npress :: Number of pressure levels
             ntemp :: Number of temperature levels
             gasID :: RADTRAN gas ID
@@ -1030,25 +1027,25 @@ def read_lbltable(filename,wavemin,wavemax):
             nwave :: Number of wavenumbers
             wave :: Wavenumber array (cm-1)
             k(nwave,np,nt) :: Absorption coefficient at each p-T point (cm2)
-        
+
         CALLING SEQUENCE:
-        
+
             npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k = read_lbltable(filename,wavemin,wavemax)
-        
+
         MODIFICATION HISTORY : Juan Alday (25/09/2019)
-        
+
     """
-    
+
     #Opening file
     strlen = len(filename)
     if filename[strlen-3:strlen] == 'lta':
         f = open(filename,'rb')
     else:
         f = open(filename+'.lta','rb')
-    
+
     nbytes_int32 = 4
     nbytes_float32 = 4
-    
+
     #Reading header
     irec0 = int(np.fromfile(f,dtype='int32',count=1))
     nwavelta = int(np.fromfile(f,dtype='int32',count=1))
@@ -1063,7 +1060,7 @@ def read_lbltable(filename,wavemin,wavemax):
     templevels = np.fromfile(f,dtype='float32',count=ntemp)
 
     ioff = 8*nbytes_int32+npress*nbytes_float32+ntemp*nbytes_float32
-    
+
     #Calculating the wavenumbers to be read
     vmax = vmin + delv * (nwavelta-1)
     wavelta = np.linspace(vmin,vmax,nwavelta)
@@ -1074,17 +1071,17 @@ def read_lbltable(filename,wavemin,wavemax):
     nwave = len(ins)
     wave = np.zeros(nwave)
     wave[:] = wavelta[ins]
-    
+
     #Reading the absorption coefficients
     #######################################
-    
+
     k = np.zeros([nwave,npress,ntemp])
-    
+
     #Jumping until we get to the minimum wavenumber
     njump = npress*ntemp*(ins[0])
     ioff = njump*nbytes_float32 + (irec0-1)*nbytes_float32
     f.seek(ioff,0)
-    
+
     #Reading the coefficients we require
     k_out = np.fromfile(f,dtype='float32',count=ntemp*npress*nwave)
     il = 0
@@ -1100,22 +1097,22 @@ def read_lbltable(filename,wavemin,wavemax):
 
 ###############################################################################################
 def read_ktable(filename,wavemin,wavemax):
-    
+
     """
         FUNCTION NAME : read_ktable()
-        
+
         DESCRIPTION : Read the correlated-k look-up table written with the standard format of Nemesis
-        
+
         INPUTS :
-        
+
             filename :: Name of the file (supposed to have a .kta extension)
             wavemin :: Minimum wavenumber to read (cm-1)
             wavemax :: Maximum wavenumber to read (cm-1)
-        
+
         OPTIONAL INPUTS: none
-        
+
         OUTPUTS :
-        
+
             gasID :: Nemesis gas identifier
             isoID :: Nemesis isotopologue identifier
             nwave :: Number of wavenumbers
@@ -1129,15 +1126,15 @@ def read_ktable(filename,wavemin,wavemax):
             ntemp :: Number of temperature levels
             templevels(ntemp) :: Temperature levels (K)
             k_g(nwave,ng,npress,ntemp) :: K coefficients
-        
+
         CALLING SEQUENCE:
-        
+
             gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(filename,wavemin,wavemax)
-        
+
         MODIFICATION HISTORY : Juan Alday (05/03/2021)
-        
+
     """
-    
+
     #Opening file
     strlen = len(filename)
     if filename[strlen-3:strlen] == 'kta':
@@ -1148,7 +1145,7 @@ def read_ktable(filename,wavemin,wavemax):
     nbytes_int32 = 4
     nbytes_float32 = 4
     ioff = 0
-    
+
     #Reading header
     irec0 = int(np.fromfile(f,dtype='int32',count=1))
     nwavekta = int(np.fromfile(f,dtype='int32',count=1))
@@ -1160,7 +1157,7 @@ def read_ktable(filename,wavemin,wavemax):
     ng = int(np.fromfile(f,dtype='int32',count=1))
     gasID = int(np.fromfile(f,dtype='int32',count=1))
     isoID = int(np.fromfile(f,dtype='int32',count=1))
-    
+
     ioff = ioff + 10 * nbytes_int32
 
     g_ord = np.zeros(ng)
@@ -1169,7 +1166,7 @@ def read_ktable(filename,wavemin,wavemax):
     presslevels = np.zeros(npress)
     g_ord[:] = np.fromfile(f,dtype='float32',count=ng)
     del_g[:] = np.fromfile(f,dtype='float32',count=ng)
-    
+
     ioff = ioff + 2*ng*nbytes_float32
 
     dummy = np.fromfile(f,dtype='float32',count=1)
@@ -1179,7 +1176,7 @@ def read_ktable(filename,wavemin,wavemax):
 
     presslevels[:] = np.fromfile(f,dtype='float32',count=npress)
     templevels[:] = np.fromfile(f,dtype='float32',count=ntemp)
-    
+
     ioff = ioff + npress*nbytes_float32+ntemp*nbytes_float32
 
     #Reading central wavelengths in non-uniform grid
@@ -1207,7 +1204,7 @@ def read_ktable(filename,wavemin,wavemax):
     njump = npress*ntemp*ng*ins[0]
     ioff = njump*nbytes_float32 + (irec0-1)*nbytes_float32
     f.seek(ioff,0)
-    
+
     #Reading the coefficients we require
     k_out = np.fromfile(f,dtype='float32',count=ntemp*npress*ng*nwave)
     il = 0
@@ -1224,23 +1221,23 @@ def read_ktable(filename,wavemin,wavemax):
 ######################################################################################################
 
 def write_lbltable(filename,npress,ntemp,gasID,isoID,presslevels,templevels,nwave,vmin,delv,k,DOUBLE=False):
-    
+
     """
         FUNCTION NAME : write_lbltable()
-        
+
         DESCRIPTION : Read a .lta file (binary file) with the information about the absorption cross-section
                       of a given gas at different pressure and temperature levels
-        
+
         INPUTS :
-        
+
             filename :: Name of the file (supposed to have a .kta extension)
-        
-        OPTIONAL INPUTS: 
+
+        OPTIONAL INPUTS:
 
             DOUBLE :: If True, the parameters are written with double precision (double) rather than single (float)
-        
+
         OUTPUTS :
-        
+
             npress :: Number of pressure levels
             ntemp :: Number of temperature levels
             gasID :: NEMESIS gas ID (see manual)
@@ -1251,13 +1248,13 @@ def write_lbltable(filename,npress,ntemp,gasID,isoID,presslevels,templevels,nwav
             vmin :: Minimum wavelength/wavenumber (um/cm-1)
             delv :: Wavelength/wavenumber step (um/cm-1)
             k(nwave,npress,ntemp) :: Absorption cross-section (cm2)
-        
+
         CALLING SEQUENCE:
-        
+
             write_lbltable(filename,npress,ntemp,gasID,isoID,presslevels,templevels,nwave,vmin,delv,k)
-        
+
         MODIFICATION HISTORY : Juan Alday (06/08/2021)
-        
+
     """
 
     import struct
@@ -1315,4 +1312,3 @@ def write_lbltable(filename,npress,ntemp,gasID,isoID,presslevels,templevels,nwav
             f.write(bin)
 
     f.close()
-
