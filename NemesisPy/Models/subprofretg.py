@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 ###############################################################################################
 
 def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,
-    Stellar,Surface,Layer,flagh2p):
+    Stellar,Surface,Layer,flagh2p,adjust_hydrostat=True):
 
     """
     FUNCTION NAME : subprogretg()
@@ -53,20 +53,21 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,
 
     """
 
-    #Modify profile via hydrostatic equation to make sure the atm is in hydrostatic equilibrium
-    if Variables.JPRE==-1:
-        jhydro = 0
-        #Then we modify the altitude levels and keep the pressures fixed
-        Atmosphere.adjust_hydrostatH()
-        Atmosphere.calc_grav()   #Updating the gravity values at the new heights
-    else:
-        #Then we modifify the pressure levels and keep the altitudes fixed
-        jhydro = 1
-        for i in range(Variables.NVAR):
-            if Variables.VARIDENT[i,0]==666:
-                htan = Variables.VARPARAM[i,0] * 1000.
-        ptan = np.exp(Variables.XN[Variables.JPRE]) * 101325.
-        Atmosphere.adjust_hydrostatP(htan,ptan)
+    if adjust_hydrostat==True:
+        #Modify profile via hydrostatic equation to make sure the atm is in hydrostatic equilibrium
+        if Variables.JPRE==-1:
+            jhydro = 0
+            #Then we modify the altitude levels and keep the pressures fixed
+            Atmosphere.adjust_hydrostatH()
+            Atmosphere.calc_grav()   #Updating the gravity values at the new heights
+        else:
+            #Then we modifify the pressure levels and keep the altitudes fixed
+            jhydro = 1
+            for i in range(Variables.NVAR):
+                if Variables.VARIDENT[i,0]==666:
+                    htan = Variables.VARPARAM[i,0] * 1000.
+            ptan = np.exp(Variables.XN[Variables.JPRE]) * 101325.
+            Atmosphere.adjust_hydrostatP(htan,ptan)
 
     #Adjust VMRs to add up to 1 if AMFORM=1 and re-calculate molecular weight in atmosphere
     if Atmosphere.AMFORM==1:
@@ -346,14 +347,15 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,
         Atmosphere.adjust_VMR()
         Atmosphere.calc_molwt()
 
-    #Re-scale H/P based on the hydrostatic equilibrium equation
-    if jhydro==0:
-        #Then we modify the altitude levels and keep the pressures fixed
-        Atmosphere.adjust_hydrostatH()
-        Atmosphere.calc_grav()   #Updating the gravity values at the new heights
-    else:
-        #Then we modifify the pressure levels and keep the altitudes fixed
-        Atmosphere.adjust_hydrostatP(htan,ptan)
+    if adjust_hydrostat==True:
+        #Re-scale H/P based on the hydrostatic equilibrium equation
+        if jhydro==0:
+            #Then we modify the altitude levels and keep the pressures fixed
+            Atmosphere.adjust_hydrostatH()
+            Atmosphere.calc_grav()   #Updating the gravity values at the new heights
+        else:
+            #Then we modifify the pressure levels and keep the altitudes fixed
+            Atmosphere.adjust_hydrostatP(htan,ptan)
 
     #Write out modified profiles to .prf file
     #Atmosphere.write_to_file()
