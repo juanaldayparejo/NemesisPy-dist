@@ -53,6 +53,12 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,
 
     """
 
+    #Checking if hydrostatic equilibrium needs to be used for any parameterisation
+    if Variables.JPRE!=-1:
+        adjust_hydrostat = True
+    if Variables.JTAN!=-1:
+        adjust_hydrostat = True
+
     if adjust_hydrostat==True:
         #Modify profile via hydrostatic equation to make sure the atm is in hydrostatic equilibrium
         if Variables.JPRE==-1:
