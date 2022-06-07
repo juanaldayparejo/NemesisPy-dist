@@ -238,6 +238,7 @@ class Atmosphere_0:
         #Getting the information about the planet
         data = planet_info[str(self.IPLANET)]
         xradius = data["radius"] * 1.0e5   #cm
+        xellip=1.0/(1.0-data["flatten"])
 
         #Calculating some values to account for the latitude dependence
         lat = 2 * np.pi * self.LATITUDE/360.      #Latitude in rad
@@ -245,7 +246,6 @@ class Atmosphere_0:
         slatc = np.sin(latc)
         clatc = np.cos(latc)
         Rr = np.sqrt(clatc**2 + (xellip**2. * slatc**2.))  #ratio of radius at equator to radius at current latitude
-        r = (xradius+self.H*1.0e2)/Rr    #Radial distance of each altitude point to centre of planet (cm)
         radius = (xradius/Rr)*1.0e-5     #Radius of the planet at the given distance (km)
 
         self.RADIUS = radius * 1.0e3     #Metres
@@ -449,6 +449,10 @@ class Atmosphere_0:
         igas = igas[0]
         if len(igas)==0:
             print('error in Atmosphere.remove_gas() :: Gas ID and Iso ID not found in reference atmosphere')
+
+        if len(igas>1):
+            print('warning in Atmosphere.remove_gas() :: Two gases with same Gas ID and Iso ID. Removing the second one by default')
+            igas = igas[1]
 
         ngas = self.NVMR - 1
         vmr1 = np.zeros([self.NP,ngas])

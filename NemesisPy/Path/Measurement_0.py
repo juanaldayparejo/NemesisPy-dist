@@ -107,13 +107,24 @@ class Measurement_0:
         Measurement.edit_EMISS_ANG
         Measurement.edit_AZI_ANG
         Measurement.edit_WGEOM
+        Measurement.calc_MeasurementVector
         Measurement.read_spx_SO
         Measurement.read_spx
         Measurement.read_sha
         Measurement.read_fil
+        Measurement.write_fil
+        Measurement.write_spx
+        Measurement.write_spx_SO
+        Measurement.lblconv
+        Measurement.lblconvg
+        Measurement.conv
+        Measurement.convg
         Measurement.wavesetc     
         Measurement.wavesetb
         Measurement.remove_geometry
+        Measurement.summary_info
+        Measurement.plot_SO
+        Measurement.plot_nadir
         """
 
         #Input parameters
@@ -350,7 +361,7 @@ class Measurement_0:
             self.EMISS_ANG = np.delete(self.EMISS_ANG,IGEOM,axis=0)
         if isinstance(self.AZI_ANG,np.ndarray)==True:
             self.AZI_ANG = np.delete(self.AZI_ANG,IGEOM,axis=0)
-        if isinstance(self.WGEOM,np.ndarray)==True!=None:
+        if isinstance(self.WGEOM,np.ndarray)==True:
             self.WGEOM = np.delete(self.WGEOM,IGEOM,axis=0)
 
     def read_spx_SO(self,MakePlot=False):
@@ -381,6 +392,7 @@ class Measurement_0:
         tanhe = np.zeros([ngeom,nav])
         wgeom = np.zeros([ngeom,nav])
         nconvmax = 20000
+        emiss_ang = np.zeros((ngeom,nav))
         wavetmp = np.zeros([nconvmax,ngeom])
         meastmp = np.zeros([nconvmax,ngeom])
         errmeastmp = np.zeros([nconvmax,ngeom])
@@ -392,6 +404,7 @@ class Measurement_0:
                 flat[i,j] = float(tmp[0])
                 flon[i,j] = float(tmp[1])
                 tanhe[i,j] = float(tmp[2])
+                emiss_ang[i,j] = float(tmp[3])
                 wgeom[i,j] = float(tmp[5])
             for iconv in range(nconv[i]):
                 tmp = np.fromfile(f,sep=' ',count=3,dtype='float')
@@ -424,6 +437,7 @@ class Measurement_0:
         self.edit_MEAS(meas)
         self.edit_ERRMEAS(errmeas)
         self.edit_TANHE(tanhe)
+        self.edit_EMISS_ANG(emiss_ang)
 
         self.calc_MeasurementVector()
 
@@ -480,9 +494,9 @@ class Measurement_0:
         emiss_angtmp = np.zeros([ngeom,navmax])
         azi_angtmp = np.zeros([ngeom,navmax])
         wgeomtmp = np.zeros([ngeom,navmax])
-        wavetmp = np.zeros([nconvmax,ngeom,navmax])
-        meastmp = np.zeros([nconvmax,ngeom,navmax])
-        errmeastmp = np.zeros([nconvmax,ngeom,navmax])
+        wavetmp = np.zeros([nconvmax,ngeom])
+        meastmp = np.zeros([nconvmax,ngeom])
+        errmeastmp = np.zeros([nconvmax,ngeom])
         for i in range(ngeom):
             nconv[i] = int(f.readline().strip())
             nav[i] = int(f.readline().strip())
@@ -496,9 +510,9 @@ class Measurement_0:
                 wgeomtmp[i,j] = float(tmp[5])
             for iconv in range(nconv[i]):
                 tmp = np.fromfile(f,sep=' ',count=3,dtype='float')
-                wavetmp[iconv,i,j] = float(tmp[0])
-                meastmp[iconv,i,j] = float(tmp[1])
-                errmeastmp[iconv,i,j] = float(tmp[2])
+                wavetmp[iconv,i] = float(tmp[0])
+                meastmp[iconv,i] = float(tmp[1])
+                errmeastmp[iconv,i] = float(tmp[2])
 
         #Making final arrays for the measured spectra
         nconvmax2 = max(nconv)
@@ -513,9 +527,9 @@ class Measurement_0:
         azi_ang = np.zeros([ngeom,navmax2])
         wgeom = np.zeros([ngeom,navmax2])
         for i in range(ngeom):
-            wave[0:nconv[i],i] = wavetmp[0:nconv[i],i,0]
-            meas[0:nconv[i],i] = meastmp[0:nconv[i],i,0]
-            errmeas[0:nconv[i],i] = errmeastmp[0:nconv[i],i,0]  
+            wave[0:nconv[i],i] = wavetmp[0:nconv[i],i]
+            meas[0:nconv[i],i] = meastmp[0:nconv[i],i]
+            errmeas[0:nconv[i],i] = errmeastmp[0:nconv[i],i]  
             flat[i,0:nav[i]] = flattmp[i,0:nav[i]]
             flon[i,0:nav[i]] = flontmp[i,0:nav[i]]
             sol_ang[i,0:nav[i]] = sol_angtmp[i,0:nav[i]]
@@ -1589,35 +1603,304 @@ class Measurement_0:
         return yout,gradout
 
 
-
-    def plot_spec(self):
-    
+    def summary_info(self):
         """
-        Subroutine to make a summary plot of the spectra
+        Subroutine to print summary of information about the class
+        """      
+
+        #Defining spectral resolution
+        if self.FWHM>0.0:
+            print('Spectral resolution of the measurement (FWHM) :: ',self.FWHM)
+        elif self.FWHM<0.0:
+            print('Instrument line shape defined in .fil file')
+        else:
+            print('Spectral resolution of the measurement is account for in the k-tables')
+
+
+        #Defining geometries
+        print('Field-of-view centered at :: ','Latitude',self.LATITUDE,'- Longitude',self.LONGITUDE)
+        print('There are ',self.NGEOM,'geometries in the measurement vector')
+        for i in range(self.NGEOM):
+            print('')
+            print('GEOMETRY '+str(i+1))
+            print('Minimum wavelength/wavenumber :: ',self.VCONV[0,i],' - Maximum wavelength/wavenumber :: ',self.VCONV[self.NCONV[i]-1,i])
+            if self.NAV[i]>1:
+                print(self.NAV[i],' averaging points')
+                for j in range(self.NAV[i]):
+                
+                    if self.EMISS_ANG[i,j]<0.0:
+                        if isinstance(self.TANHE,np.ndarray)==True:
+                            print('Averaging point',j+1,' - Weighting factor ',self.WGEOM[i,j])
+                            print('Limb-viewing or solar occultation measurement. Latitude :: ',self.FLAT[i,j],' - Longitude :: ',self.FLON[i,j],' - Tangent height :: ',self.TANHE[i,j])
+                        else:
+                            print('Averaging point',j+1,' - Weighting factor ',self.WGEOM[i,j])
+                            print('Limb-viewing or solar occultation measurement. Latitude :: ',self.FLAT[i,j],' - Longitude :: ',self.FLON[i,j],' - Tangent height :: ',self.SOL_ANG[i,j])
+                    
+                    else:
+                        print('Averaging point',j+1,' - Weighting factor ',self.WGEOM[i,j])
+                        print('Nadir-viewing geometry. Latitude :: ',self.FLAT[i,j],' - Longitude :: ',self.FLON[i,j],' - Emission angle :: ',self.EMISS_ANG[i,j],' - Solar Zenith Angle :: ',self.SOL_ANG[i,j],' - Azimuth angle :: ',self.AZI_ANG[i,j])
+
+            else:
+                j = 0
+                if self.EMISS_ANG[i,j]<0.0:
+                    if isinstance(self.TANHE,np.ndarray)==True:
+                        print('Limb-viewing or solar occultation measurement. Latitude :: ',self.FLAT[i,j],' - Longitude :: ',self.FLON[i,j],' - Tangent height :: ',self.TANHE[i,j])
+                    else:
+                        print('Limb-viewing or solar occultation measurement. Latitude :: ',self.FLAT[i,j],' - Longitude :: ',self.FLON[i,j],' - Tangent height :: ',self.SOL_ANG[i,j])
+                else:
+                    print('Nadir-viewing geometry. Latitude :: ',self.FLAT[i,j],' - Longitude :: ',self.FLON[i,j],' - Emission angle :: ',self.EMISS_ANG[i,j],' - Solar Zenith Angle :: ',self.SOL_ANG[i,j],' - Azimuth angle :: ',self.AZI_ANG[i,j])
+
+
+
+    def plot_SO(self):
+        """
+        Subroutine to make a summary plot of a solar occultation observation
         """
 
-        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True,figsize=(10,6))
-        wavemin = self.VCONV.min()
-        wavemax = self.VCONV.max()
-        ax1.set_xlim(wavemin,wavemax)
-        ax1.ticklabel_format(useOffset=False)
-        ax2.set_xlim(wavemin,wavemax)
-        ax2.ticklabel_format(useOffset=False)
-        ax2.set_yscale('log')
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-        ax2.set_xlabel('Wavenumber/Wavelength')
-        ax1.set_ylabel('Radiance')  
-        ax2.set_ylabel('Radiance')
+        fig,ax1 = plt.subplots(1,1,figsize=(12,4))
 
-        for i in range(self.NGEOM):
-            im = ax1.plot(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i])
-            ax1.fill_between(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]-self.ERRMEAS[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]+self.ERRMEAS[0:self.NCONV[i],i],alpha=0.4)
+        colormap = 'nipy_spectral'
+        norm = matplotlib.colors.Normalize(vmin=self.TANHE.min(),vmax=self.TANHE.max())
+        c_m = plt.cm.get_cmap(colormap,101)
+        # create a ScalarMappable and initialize a data structure
+        s_m = matplotlib.cm.ScalarMappable(cmap=c_m, norm=norm)
+        s_m.set_array([])
 
-        for i in range(self.NGEOM):
-            im = ax2.plot(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]) 
-            ax2.fill_between(self.VCONV[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]-self.ERRMEAS[0:self.NCONV[i],i],self.MEAS[0:self.NCONV[i],i]+self.ERRMEAS[0:self.NCONV[i],i],alpha=0.4)
-        
+        for igeom in range(self.NGEOM):
+            ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom],c=s_m.to_rgba([self.TANHE[igeom,0]]))
+
+        if np.mean(self.VCONV)>30.:
+            ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
+        else:
+            ax1.set_xlabel('Wavelength ($\mu$m)')
+        ax1.set_ylabel('Transmission')
+        ax1.set_title('Latitude = '+str(np.round(self.LATITUDE,1))+' - Longitude = '+str(np.round(self.LONGITUDE,1)))
         ax1.grid()
-        ax2.grid()
+
+        # create an axes on the right side of ax. The width of cax will be 5%
+        # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+        divider = make_axes_locatable(ax1)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar2 = plt.colorbar(s_m,cax=cax,orientation='vertical')
+        cbar2.set_label('Altitude (km)')
         plt.tight_layout()
+        plt.show()
+
+
+    def plot_nadir(self,subobs_lat=None,subobs_lon=None):
+        """
+        Subroutine to make a summary plot of a nadir-viewing observation
+        """
+
+        from mpl_toolkits.basemap import Basemap
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        #Making a figure for each geometry
+        for igeom in range(self.NGEOM):
+
+            fig = plt.figure(figsize=(12,7))
+
+            #Plotting the geometry
+            ax1 = plt.subplot2grid((2,3),(0,0),rowspan=2,colspan=1)
+            if((subobs_lat!=None) & (subobs_lon!=None)):
+                map = Basemap(projection='ortho', resolution=None,
+                    lat_0=subobs_lat, lon_0=subobs_lon)
+            else:
+                map = Basemap(projection='ortho', resolution=None,
+                    lat_0=self.LATITUDE, lon_0=self.LONGITUDE)
+
+            
+            lats = map.drawparallels(np.linspace(-90, 90, 13))
+            lons = map.drawmeridians(np.linspace(-180, 180, 13))
+
+            if self.NAV[igeom]>1:
+                im = map.scatter(self.FLON[igeom,:],self.FLAT[igeom,:],latlon=True,c=self.WGEOM[igeom,:])
+
+                # create an axes on the right side of ax. The width of cax will be 5%
+                # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+                divider = make_axes_locatable(ax1)
+                cax = divider.append_axes("bottom", size="5%", pad=0.15)
+                cbar2 = plt.colorbar(im,cax=cax,orientation='horizontal')
+                cbar2.set_label('Weight')
+            else:
+                im = map.scatter(self.FLON[igeom,:],self.FLAT[igeom,:],latlon=True)
+
+            ax1.set_title('Geometry '+str(igeom+1))
+
+            #Plotting the spectra in linear scale
+            ax2 = plt.subplot2grid((2,3),(0,1),rowspan=1,colspan=2)
+            ax2.fill_between(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]-self.ERRMEAS[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]+self.ERRMEAS[0:self.NCONV[igeom],igeom],alpha=0.3)
+            ax2.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
+
+            ax2.grid()
+
+            #Plotting the spectra in log scale
+            ax3 = plt.subplot2grid((2,3),(1,1),rowspan=1,colspan=2,sharex=ax2)
+            ax3.fill_between(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]-self.ERRMEAS[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]+self.ERRMEAS[0:self.NCONV[igeom],igeom],alpha=0.3)
+            ax3.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
+            ax3.set_yscale('log')
+
+            if np.mean(self.VCONV)>30.:
+                ax3.set_xlabel('Wavenumber (cm$^{-1}$)')
+                ax3.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+                ax2.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+            else:
+                ax3.set_xlabel('Wavelength ($\mu$m)')
+                ax3.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+                ax2.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+
+            ax3.grid()
+
+            plt.tight_layout()
+        plt.show()
+
+
+
+
+    def plot_disc_averaging(self,subobs_lat=None,subobs_lon=None, colormap='cividis'):
+        """
+        Subroutine to make a summary plot of a nadir-viewing observation
+        """
+
+        from mpl_toolkits.basemap import Basemap
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        #Making a figure for each geometry
+        for igeom in range(self.NGEOM):
+
+            fig = plt.figure(figsize=(15,7))
+
+
+
+            #Plotting the geometry
+            ax1 = plt.subplot2grid((2,4),(0,0),rowspan=1,colspan=1)
+            if((subobs_lat!=None) & (subobs_lon!=None)):
+                map1 = Basemap(projection='ortho', resolution=None,
+                    lat_0=subobs_lat, lon_0=subobs_lon)
+            else:
+                map1 = Basemap(projection='ortho', resolution=None,
+                    lat_0=self.LATITUDE, lon_0=self.LONGITUDE)
+
+
+            lats = map1.drawparallels(np.linspace(-90, 90, 13))
+            lons = map1.drawmeridians(np.linspace(-180, 180, 13))
+            im1 = map1.scatter(self.FLON[igeom,:],self.FLAT[igeom,:],latlon=True,c=self.WGEOM[igeom,:],cmap=colormap)
+
+            # create an axes on the right side of ax. The width of cax will be 5%
+            # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+            divider = make_axes_locatable(ax1)
+            cax = divider.append_axes("bottom", size="5%", pad=0.15)
+            cbar1 = plt.colorbar(im1,cax=cax,orientation='horizontal')
+            cbar1.set_label('Weight')
+
+
+
+
+
+
+            ax2 = plt.subplot2grid((2,4),(0,1),rowspan=1,colspan=1)
+            if((subobs_lat!=None) & (subobs_lon!=None)):
+                map2 = Basemap(projection='ortho', resolution=None,
+                    lat_0=subobs_lat, lon_0=subobs_lon)
+            else:
+                map2 = Basemap(projection='ortho', resolution=None,
+                    lat_0=self.LATITUDE, lon_0=self.LONGITUDE)
+
+            
+            lats = map2.drawparallels(np.linspace(-90, 90, 13))
+            lons = map2.drawmeridians(np.linspace(-180, 180, 13))
+            im2 = map2.scatter(self.FLON[igeom,:],self.FLAT[igeom,:],latlon=True,c=self.EMISS_ANG[igeom,:],cmap=colormap)
+
+            # create an axes on the right side of ax. The width of cax will be 5%
+            # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+            divider = make_axes_locatable(ax2)
+            cax = divider.append_axes("bottom", size="5%", pad=0.15)
+            cbar2 = plt.colorbar(im2,cax=cax,orientation='horizontal')
+            cbar2.set_label('Emission angle')
+
+
+
+
+
+
+            ax3 = plt.subplot2grid((2,4),(1,0),rowspan=1,colspan=1)
+            if((subobs_lat!=None) & (subobs_lon!=None)):
+                map3 = Basemap(projection='ortho', resolution=None,
+                    lat_0=subobs_lat, lon_0=subobs_lon)
+            else:
+                map3 = Basemap(projection='ortho', resolution=None,
+                    lat_0=self.LATITUDE, lon_0=self.LONGITUDE)
+
+            
+            lats = map3.drawparallels(np.linspace(-90, 90, 13))
+            lons = map3.drawmeridians(np.linspace(-180, 180, 13))
+            im3 = map3.scatter(self.FLON[igeom,:],self.FLAT[igeom,:],latlon=True,c=self.SOL_ANG[igeom,:],cmap=colormap)
+
+            # create an axes on the right side of ax. The width of cax will be 5%
+            # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+            divider = make_axes_locatable(ax3)
+            cax = divider.append_axes("bottom", size="5%", pad=0.15)
+            cbar2 = plt.colorbar(im3,cax=cax,orientation='horizontal')
+            cbar2.set_label('Solar Zenith angle')
+
+
+
+
+
+
+            ax4 = plt.subplot2grid((2,4),(1,1),rowspan=1,colspan=1)
+            if((subobs_lat!=None) & (subobs_lon!=None)):
+                map4 = Basemap(projection='ortho', resolution=None,
+                    lat_0=subobs_lat, lon_0=subobs_lon)
+            else:
+                map4 = Basemap(projection='ortho', resolution=None,
+                    lat_0=self.LATITUDE, lon_0=self.LONGITUDE)
+
+            
+            lats = map4.drawparallels(np.linspace(-90, 90, 13))
+            lons = map4.drawmeridians(np.linspace(-180, 180, 13))
+            im4 = map4.scatter(self.FLON[igeom,:],self.FLAT[igeom,:],latlon=True,c=self.AZI_ANG[igeom,:],cmap=colormap)
+
+            # create an axes on the right side of ax. The width of cax will be 5%
+            # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+            divider = make_axes_locatable(ax4)
+            cax = divider.append_axes("bottom", size="5%", pad=0.15)
+            cbar2 = plt.colorbar(im4,cax=cax,orientation='horizontal')
+            cbar2.set_label('Solar Zenith angle')
+            
+
+
+
+
+
+
+
+            #Plotting the spectra in linear scale
+            ax5 = plt.subplot2grid((2,4),(0,2),rowspan=1,colspan=2)
+            ax5.fill_between(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]-self.ERRMEAS[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]+self.ERRMEAS[0:self.NCONV[igeom],igeom],alpha=0.3)
+            ax5.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
+
+            ax5.grid()
+
+            #Plotting the spectra in log scale
+            ax6 = plt.subplot2grid((2,4),(1,2),rowspan=1,colspan=2,sharex=ax5e)
+            ax6.fill_between(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]-self.ERRMEAS[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]+self.ERRMEAS[0:self.NCONV[igeom],igeom],alpha=0.3)
+            ax6.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
+            ax6.set_yscale('log')
+
+            if np.mean(self.VCONV)>30.:
+                ax6.set_xlabel('Wavenumber (cm$^{-1}$)')
+                ax6.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+                ax5.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+            else:
+                ax6.set_xlabel('Wavelength ($\mu$m)')
+                ax6.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+                ax5.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+
+            ax6.grid()
+            ax5.set_title('Geometry '+str(igeom+1))
+
+            plt.tight_layout()
         plt.show()

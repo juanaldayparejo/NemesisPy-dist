@@ -114,7 +114,10 @@ def read_mre(runname,MakePlot=False):
 
     #Reading the retrieved state vector
     s = f.readline().split()
-    nvar = int(s[1])
+    if len(s)==2:
+        nvar = int(s[1])
+    else:
+        nvar = int(s[2])
     nxvar = np.zeros([nvar],dtype='int')
     Var = Variables_0()
     Var.NVAR = nvar
@@ -627,7 +630,7 @@ def read_drv(runname,MakePlot=False):
         for il in range(ncont):
             cont_coldens[i,il] = var[ix]
             ix = ix + 1
-        
+
         #Reading if FLAGH2P is set
         if flagh2p==1:
             var1 = f.readline().split()
@@ -636,7 +639,7 @@ def read_drv(runname,MakePlot=False):
 
         #Reading if FLAGC is set
         if flagc==1:
-            var = np.zeros([ncont])
+            var = np.zeros([ncont+1])
             ix = 0
             for il in range(ncont):
                 var1 = f.readline().split()
@@ -648,6 +651,7 @@ def read_drv(runname,MakePlot=False):
             for il in range(ncont):
                 hfc[i,il] = var[ix]
                 ix = ix + 1
+
                     
     #Reading the atmospheric paths
     #########################################
