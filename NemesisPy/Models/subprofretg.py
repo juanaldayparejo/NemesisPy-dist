@@ -177,6 +177,30 @@ def subprofretg(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,
 
             ix = ix + Variables.NXVAR[ivar]
 
+        elif Variables.VARIDENT[ivar,2]==49:
+#       Model 49. Continuous profile in linear scale (not like model 0)
+#       ***************************************************************
+
+            xprof = np.zeros(Variables.NXVAR[ivar])
+            xprof[:] = Variables.XN[ix:ix+Variables.NXVAR[ivar]]
+            Atmosphere,xmap1 = model49(Atmosphere,ipar,xprof)
+            xmap[ix:ix+Variables.NXVAR[ivar],:,0:Atmosphere.NP] = xmap1[:,:,:]
+
+            ix = ix + Variables.NXVAR[ivar]
+
+
+        elif Variables.VARIDENT[ivar,2]==50:
+#       Model 50. Continuous profile of scaling factors
+#       ***************************************************************
+
+            xprof = np.zeros(Variables.NXVAR[ivar])
+            xprof[:] = Variables.XN[ix:ix+Variables.NXVAR[ivar]]
+            Atmosphere,xmap1 = model50(Atmosphere,ipar,xprof)
+            xmap[ix:ix+Variables.NXVAR[ivar],:,0:Atmosphere.NP] = xmap1[:,:,:]
+
+            ix = ix + Variables.NXVAR[ivar]
+
+
         elif Variables.VARIDENT[ivar,0]==228:
 #       Model 228. Retrieval of instrument line shape for ACS-MIR and wavelength calibration
 #       **************************************************************************************

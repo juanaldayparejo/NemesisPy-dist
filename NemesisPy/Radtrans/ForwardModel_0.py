@@ -1005,7 +1005,7 @@ class ForwardModel_0:
                 ix = ix + self.Variables.NXVAR[ivar]
 
             elif self.Variables.VARIDENT[ivar,2]==3:
-#           Model 2. Log scaling factor
+#           Model 3. Log scaling factor
 #           ***************************************************************
 
                 self.AtmosphereX,xmap1 = model3(self.AtmosphereX,ipar,self.Variables.XN[ix])
@@ -1023,6 +1023,28 @@ class ForwardModel_0:
                 href = self.Variables.XN[ix+2] #Base height (km)
 
                 self.AtmosphereX,xmap1 = model9(self.AtmosphereX,ipar,href,fsh,tau)
+                xmap[ix:ix+self.Variables.NXVAR[ivar],:,0:self.AtmosphereX.NP] = xmap1[:,:,:]
+
+                ix = ix + self.Variables.NXVAR[ivar]
+
+            elif self.Variables.VARIDENT[ivar,2]==49:
+#           Model 50. Continuous profile in linear scale
+#           ***************************************************************
+
+                xprof = np.zeros(self.Variables.NXVAR[ivar])
+                xprof[:] = self.Variables.XN[ix:ix+self.Variables.NXVAR[ivar]]
+                self.AtmosphereX,xmap1 = model49(self.AtmosphereX,ipar,xprof)
+                xmap[ix:ix+self.Variables.NXVAR[ivar],:,0:self.AtmosphereX.NP] = xmap1[:,:,:]
+
+                ix = ix + self.Variables.NXVAR[ivar]
+
+            elif self.Variables.VARIDENT[ivar,2]==50:
+#           Model 50. Continuous profile of scaling factors
+#           ***************************************************************
+
+                xprof = np.zeros(self.Variables.NXVAR[ivar])
+                xprof[:] = self.Variables.XN[ix:ix+self.Variables.NXVAR[ivar]]
+                self.AtmosphereX,xmap1 = model50(self.AtmosphereX,ipar,xprof)
                 xmap[ix:ix+self.Variables.NXVAR[ivar],:,0:self.AtmosphereX.NP] = xmap1[:,:,:]
 
                 ix = ix + self.Variables.NXVAR[ivar]

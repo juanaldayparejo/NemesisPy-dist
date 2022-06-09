@@ -221,6 +221,10 @@ class Variables_0:
                 nxvar[i] = 3
             elif imod == 28:
                 nxvar[i] = 1
+            elif imod == 49:
+                nxvar[i] = NPRO
+            elif imod == 50:
+                nxvar[i] = NPRO
             elif imod == 228:
                 nxvar[i] = 8
             elif imod == 229:
@@ -667,6 +671,88 @@ class Variables_0:
                     sx[ix,ix] = eknee**2.
 
                     ix = ix + 1
+
+                elif varident[i,2] == 49:
+#               ********* continuous profile in linear scale ************************
+                    s = f.readline().split()
+                    f1 = open(s[0],'r')
+                    tmp = np.fromfile(f1,sep=' ',count=2,dtype='float')
+                    nlevel = int(tmp[0])
+                    if nlevel != npro:
+                        sys.exit('profiles must be listed on same grid as .prf')
+                    clen = float(tmp[1])
+                    pref = np.zeros([nlevel])
+                    ref = np.zeros([nlevel])
+                    eref = np.zeros([nlevel])
+                    for j in range(nlevel):
+                        tmp = np.fromfile(f1,sep=' ',count=3,dtype='float')
+                        pref[j] = float(tmp[0])
+                        ref[j] = float(tmp[1])
+                        eref[j] = float(tmp[2])
+                    f1.close()
+
+                    #inum[ix:ix+nlevel] = 1
+                    x0[ix:ix+nlevel] = ref[:]
+                    for j in range(nlevel):
+                        sx[ix+j,ix+j] = eref[j]**2.
+
+                    #Calculating correlation between levels in continuous profile
+                    for j in range(nlevel):
+                        for k in range(nlevel):
+                            if pref[j] < 0.0:
+                                sys.exit('Error in read_apr_nemesis().  A priori file must be on pressure grid')
+                        
+                            delp = np.log(pref[k])-np.log(pref[j])
+                            arg = abs(delp/clen)
+                            xfac = np.exp(-arg)
+                            if xfac >= sxminfac:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
+                        
+                    ix = ix + nlevel
+
+
+
+                elif varident[i,2] == 50:
+#               ********* continuous profile of a scaling factor ************************
+                    s = f.readline().split()
+                    f1 = open(s[0],'r')
+                    tmp = np.fromfile(f1,sep=' ',count=2,dtype='float')
+                    nlevel = int(tmp[0])
+                    if nlevel != npro:
+                        sys.exit('profiles must be listed on same grid as .prf')
+                    clen = float(tmp[1])
+                    pref = np.zeros([nlevel])
+                    ref = np.zeros([nlevel])
+                    eref = np.zeros([nlevel])
+                    for j in range(nlevel):
+                        tmp = np.fromfile(f1,sep=' ',count=3,dtype='float')
+                        pref[j] = float(tmp[0])
+                        ref[j] = float(tmp[1])
+                        eref[j] = float(tmp[2])
+                    f1.close()
+
+                    x0[ix:ix+nlevel] = ref[:]
+                    for j in range(nlevel):
+                        sx[ix+j,ix+j] = eref[j]**2.
+
+                    #Calculating correlation between levels in continuous profile
+                    for j in range(nlevel):
+                        for k in range(nlevel):
+                            if pref[j] < 0.0:
+                                sys.exit('Error in read_apr_nemesis().  A priori file must be on pressure grid')
+                        
+                            delp = np.log(pref[k])-np.log(pref[j])
+                            arg = abs(delp/clen)
+                            xfac = np.exp(-arg)
+                            if xfac >= sxminfac:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
+                        
+                    ix = ix + nlevel
+
+
+
             
                 else:
                     sys.exit('error in read_apr() :: Variable ID not included in this function')

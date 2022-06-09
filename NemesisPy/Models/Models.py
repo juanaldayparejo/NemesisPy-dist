@@ -267,26 +267,32 @@ def model2(atm,ipar,scf,MakePlot=False):
     xmap = np.zeros([1,npar,atm.NP])
 
     x1 = np.zeros(atm.NP)
+    xref = np.zeros(atm.NP)
     if ipar<atm.NVMR:  #Gas VMR
         jvmr = ipar
+        xref[:] = atm.VMR[:,jvmr]
         x1[:] = atm.VMR[:,jvmr] * scf
         atm.VMR[:,jvmr] =  x1
     elif ipar==atm.NVMR: #Temperature
+        xref[:] = atm.T[:]
         x1[:] = atm.T[:] * scf
         atm.T[:] = x1 
     elif ipar>atm.NVMR:
         jtmp = ipar - (atm.NVMR+1)
         if jtmp<atm.NDUST:
+            xref[:] = atm.DUST[:,jtmp]
             x1[:] = atm.DUST[:,jtmp] * scf
             atm.DUST[:,jtmp] = x1
         elif jtmp==atm.NDUST:
+            xref[:] = atm.PARAH2
             x1[:] = atm.PARAH2 * scf
             atm.PARAH2 = x1
         elif jtmp==atm.NDUST+1:
+            xref[:] = atm.FRAC
             x1[:] = atm.FRAC * scf
             atm.FRAC = x1
 
-    xmap[0,ipar,:] = x1[:]
+    xmap[0,ipar,:] = xref[:]
     
     if MakePlot==True:
         fig,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(10,5))
@@ -534,6 +540,187 @@ def model9(atm,ipar,href,fsh,tau,MakePlot=False):
     atm.DUST[0:atm.NP,icont] = xprof
 
     return atm,xmap
+
+
+###############################################################################################
+
+def model49(atm,ipar,xprof,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model0()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 49 in NEMESIS.
+            In this model, the atmospheric parameters are modelled as continuous profiles
+             in linear space. This parameterisation allows the retrieval of negative VMRs.
+        
+        INPUTS :
+        
+            atm :: Python class defining the atmosphere
+
+            ipar :: Atmospheric parameter to be changed
+                    (0 to NVMR-1) :: Gas VMR
+                    (NVMR) :: Temperature
+                    (NVMR+1 to NVMR+NDUST-1) :: Aerosol density
+                    (NVMR+NDUST) :: Para-H2
+                    (NVMR+NDUST+1) :: Fractional cloud coverage
+
+            xprof(npro) :: Scaling factor at each altitude level
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            atm :: Updated atmospheric class
+            xmap(npro,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
+                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,xmap = model50(atm,ipar,xprof)
+        
+        MODIFICATION HISTORY : Juan Alday (08/06/2022)
+        
+    """
+
+    npro = len(xprof)
+    if npro!=atm.NP:
+        sys.exit('error in model 49 :: Number of levels in atmosphere and scaling factor profile does not match')
+
+    npar = atm.NVMR+2+atm.NDUST
+    xmap = np.zeros((npro,npar,npro))
+
+    x1 = np.zeros(atm.NP)
+    xref = np.zeros(atm.NP)
+    if ipar<atm.NVMR:  #Gas VMR
+        jvmr = ipar
+        xref[:] = atm.VMR[:,jvmr]
+        x1[:] = xprof
+        vmr = np.zeros((atm.NP,atm.NVMR))
+        vmr[:,:] = atm.VMR
+        vmr[:,jvmr] = x1[:]
+        atm.edit_VMR(vmr)
+    elif ipar==atm.NVMR: #Temperature
+        xref = atm.T
+        x1 = xprof
+        atm.edit_T(x1)
+    elif ipar>atm.NVMR:
+        jtmp = ipar - (atm.NVMR+1)
+        if jtmp<atm.NDUST: #Dust in m-3
+            xref[:] = atm.DUST[:,jtmp]
+            x1[:] = xprof
+            dust = np.zeros((atm.NP,atm.NDUST))
+            dust[:,:] = atm.DUST
+            dust[:,jtmp] = x1
+            atm.edit_DUST(dust)
+        elif jtmp==atm.NDUST:
+            xref[:] = atm.PARAH2
+            x1[:] = xprof
+            atm.PARAH2 = x1
+        elif jtmp==atm.NDUST+1:
+            xref[:] = atm.FRAC
+            x1[:] = xprof
+            atm.FRAC = x1
+
+    for j in range(npro):
+        xmap[j,ipar,j] = 1.
+
+    return atm,xmap
+
+
+###############################################################################################
+
+def model50(atm,ipar,xprof,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model0()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 50 in NEMESIS.
+            In this model, the atmospheric parameters are modelled as continuous profiles
+            multiplied by a scaling factor in linear space. Each element of the state vector
+            corresponds to this scaling factor at each altitude level. This parameterisation
+            allows the retrieval of negative VMRs.
+        
+        INPUTS :
+        
+            atm :: Python class defining the atmosphere
+
+            ipar :: Atmospheric parameter to be changed
+                    (0 to NVMR-1) :: Gas VMR
+                    (NVMR) :: Temperature
+                    (NVMR+1 to NVMR+NDUST-1) :: Aerosol density
+                    (NVMR+NDUST) :: Para-H2
+                    (NVMR+NDUST+1) :: Fractional cloud coverage
+
+            xprof(npro) :: Scaling factor at each altitude level
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            atm :: Updated atmospheric class
+            xmap(npro,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
+                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,xmap = model50(atm,ipar,xprof)
+        
+        MODIFICATION HISTORY : Juan Alday (08/06/2022)
+        
+    """
+
+    npro = len(xprof)
+    if npro!=atm.NP:
+        sys.exit('error in model 50 :: Number of levels in atmosphere and scaling factor profile does not match')
+
+    npar = atm.NVMR+2+atm.NDUST
+    xmap = np.zeros((npro,npar,npro))
+
+    x1 = np.zeros(atm.NP)
+    xref = np.zeros(atm.NP)
+    if ipar<atm.NVMR:  #Gas VMR
+        jvmr = ipar
+        xref[:] = atm.VMR[:,jvmr]
+        x1[:] = atm.VMR[:,jvmr] * xprof
+        vmr = np.zeros((atm.NP,atm.NVMR))
+        vmr[:,:] = atm.VMR
+        vmr[:,jvmr] = x1[:]
+        atm.edit_VMR(vmr)
+    elif ipar==atm.NVMR: #Temperature
+        xref = atm.T
+        x1 = atm.T * xprof
+        atm.edit_T(x1)
+    elif ipar>atm.NVMR:
+        jtmp = ipar - (atm.NVMR+1)
+        if jtmp<atm.NDUST: #Dust in m-3
+            xref[:] = atm.DUST[:,jtmp]
+            x1[:] = atm.DUST[:,jtmp] * xprof
+            dust = np.zeros((atm.NP,atm.NDUST))
+            dust[:,:] = atm.DUST
+            dust[:,jtmp] = x1
+            atm.edit_DUST(dust)
+        elif jtmp==atm.NDUST:
+            xref[:] = atm.PARAH2
+            x1[:] = atm.PARAH2 * xprof
+            atm.PARAH2 = x1
+        elif jtmp==atm.NDUST+1:
+            xref[:] = atm.FRAC
+            x1[:] = atm.FRAC * xprof
+            atm.FRAC = x1
+
+    for j in range(npro):
+        xmap[j,ipar,j] = xref[j]
+
+    return atm,xmap
+
 
 
 ###############################################################################################

@@ -170,8 +170,8 @@ class Atmosphere_0:
         except:
             assert VMR_array.shape == (self.NP,) and self.NVMR==1,\
                 'VMR should be NP by NVMR.'
-        assert (VMR_array>=0).all() == True,\
-            'VMR should be non-negative'
+        #assert (VMR_array>=0).all() == True,\
+        #    'VMR should be non-negative'
         self.VMR = VMR_array
 
     def adjust_VMR(self, ISCALE=[1,1,1,1,1,1]):
