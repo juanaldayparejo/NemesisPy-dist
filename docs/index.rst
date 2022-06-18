@@ -53,7 +53,6 @@ Dependencies on other Python packages
 
 .. toctree::
    :maxdepth: 2
-   :caption: NemesisPy 
 
 .. toctree::
    :caption: Radiative transfer
