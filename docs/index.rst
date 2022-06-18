@@ -1,5 +1,5 @@
 NemesisPy
-======================================================================
+==========
 
 .. image:: https://img.shields.io/badge/readthedocs-latest-blue
    :target: https://nemesispy.readthedocs.io
@@ -10,6 +10,8 @@ NemesisPy
 .. image:: https://img.shields.io/badge/NEMESIS-reference-yellow
    :target: https://doi.org/10.1016/j.jqsrt.2007.11.006
 
+
+__________
 
 This website includes the documentation regarding the Python version of the NEMESIS (Non-linear Optimal Estimator for MultivariatE
 Spectral analySIS) planetary atmosphere radiative transfer and retrieval code. 
