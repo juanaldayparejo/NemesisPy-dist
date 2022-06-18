@@ -1,5 +1,15 @@
-The NEMESIS radiative transfer and retrieval code
+NemesisPy
 ======================================================================
+
+.. image:: https://img.shields.io/badge/readthedocs-latest-blue
+   :target: https://nemesispy.readthedocs.io
+
+.. image:: https://img.shields.io/badge/github-code-green
+   :target: https://github.com/juanaldayparejo/NemesisPy-dist
+
+.. image:: https://img.shields.io/badge/NEMESIS-reference-yellow
+   :target: https://doi.org/10.1016/j.jqsrt.2007.11.006
+
 
 This website includes the documentation regarding the Python version of the NEMESIS (Non-linear Optimal Estimator for MultivariatE
 Spectral analySIS) planetary atmosphere radiative transfer and retrieval code. 
@@ -34,7 +44,7 @@ Revision history
 Dependencies on other Python packages
 -----------------------------
 
-- `Numpy <https://numpy.org/>`_: Used widely throughout the code to define N-dimensional arrays and perform mathematical operations (e.g., matrix multiplication).
+- `numpy <https://numpy.org/>`_: Used widely throughout the code to define N-dimensional arrays and perform mathematical operations (e.g., matrix multiplication).
 - `matplotlib <https://matplotlib.org/>`_: Used to create visualizations. 
 - `miepython <https://miepython.readthedocs.io/en/latest/>`_: Used to calculate the optical properties of spherical particles using Mie Theory.
 - `numba <https://numba.pydata.org/>`_: Used in specific functions to include the JIT compiler decorator and speed up the radiative transfer calculations.
