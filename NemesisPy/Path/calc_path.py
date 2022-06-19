@@ -101,7 +101,7 @@ def calc_path(Atmosphere,Scatter,Measurement,Layer):
     elif Scatter.ISCAT==3: #Single scattering in plane-parallel atmosphere
         therm=False
         single=True
-    elif Scatter.ISCAT==4: #Single scattering in spherical atmosphere
+    elif Scatter.ISCAT==4: #Single scattering Layerin spherical atmosphere
         therm=False
         sphsingle=True
 

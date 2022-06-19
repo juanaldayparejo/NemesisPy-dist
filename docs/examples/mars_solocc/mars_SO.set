@@ -1,0 +1,20 @@
+********************************************************* 
+Number of zenith angles : 5 
+	 0.165278957666 	 0.327539761184 
+	 0.477924949810 	 0.292042683680 
+	 0.738773865105 	 0.224889342063 
+	 0.919533908166 	 0.133305990851 
+	 1.000000000000 	 0.022222222222 
+Number of Fourier components : 1 
+Number of azimuth angles for fourier analysis : 1 
+Sunlight on(1) or off(0) : 0 
+Distance from Sun (AU) : 1.5 
+Lower boundary cond. Thermal(0) Lambert(1) : 0 
+Ground albedo : 1.0 
+Surface temperature : 220.0 
+********************************************************* 
+Alt. at base of bot.layer (not limb) : 0.0 
+Number of atm layers : 35 
+Layer type : 5 
+Layer integration : 1 
+********************************************************* 

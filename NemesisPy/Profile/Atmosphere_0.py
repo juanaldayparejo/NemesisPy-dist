@@ -450,7 +450,7 @@ class Atmosphere_0:
         if len(igas)==0:
             print('error in Atmosphere.remove_gas() :: Gas ID and Iso ID not found in reference atmosphere')
 
-        if len(igas>1):
+        if len(igas)>1:
             print('warning in Atmosphere.remove_gas() :: Two gases with same Gas ID and Iso ID. Removing the second one by default')
             igas = igas[1]
 

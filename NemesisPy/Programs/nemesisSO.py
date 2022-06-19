@@ -100,8 +100,11 @@ if( (Measurement.IFORM==1) or (Measurement.IFORM==2) or (Measurement.IFORM==3) o
 #Initialise CIA class and read files (.cia)
 ##############################################################
 
-CIA = CIA_0(runname=runname)
-CIA.read_cia()
+if os.path.exists(runname+'.cia')==True:
+    CIA = CIA_0(runname=runname)
+    CIA.read_cia()
+else:
+    CIA = None
 
 
 #Reading .fla file
@@ -109,7 +112,9 @@ CIA.read_cia()
 
 inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla(runname)
 
-CIA.INORMAL = inormal
+if CIA is not None:
+    CIA.INORMAL = inormal
+    
 Scatter.IRAY = iray
 Scatter.IMIE = imie
 

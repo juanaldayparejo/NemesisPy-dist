@@ -1,7 +1,7 @@
-Gallery
---------
+Reference classes
+------------------
 
-In this section, we include several Jupyter notebooks with examples showing how the NemesisPy code can be used to perform radiative transfer calculations or perform retrievals on measured spectra.
+This section includes Jupyter notebooks with examples showing how NemesisPy can be used to read/write the NEMESIS input files, as well as how the reference classes can be used to modify the forward model/retrieval parameters as required by the user.
 
 .. nbgallery::
  
@@ -10,3 +10,14 @@ In this section, we include several Jupyter notebooks with examples showing how 
    examples/Spectroscopy/spectroscopy.ipynb
    examples/MieScattering/MieScattering.ipynb
    examples/Stellar/StellarExample.ipynb
+
+Forward models
+------------------
+
+This sections includes Jupyter notebookes with examples showing how NemesisPy can be used to calculate the forward model for different planetary atmosphere and in several observing geometries.
+
+.. nbgallery::
+
+   examples/mars_solocc/mars_SO.ipynb
+
+

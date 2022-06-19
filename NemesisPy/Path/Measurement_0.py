@@ -113,6 +113,7 @@ class Measurement_0:
         Measurement.read_sha
         Measurement.read_fil
         Measurement.write_fil
+        Measurement.write_sha
         Measurement.write_spx
         Measurement.write_spx_SO
         Measurement.lblconv
@@ -550,6 +551,7 @@ class Measurement_0:
         self.edit_FLON(flon)
         self.edit_WGEOM(wgeom)
         self.edit_SOL_ANG(sol_ang)
+        self.edit_TANHE(sol_ang)
         self.edit_EMISS_ANG(emiss_ang)
         self.edit_AZI_ANG(azi_ang)
 
@@ -670,6 +672,23 @@ class Measurement_0:
             f.write("%i \n" %  (self.NFIL[i]))
             for j in range(self.NFIL[i]):
                 f.write("%10.10f %10.10e\n" % (self.VFIL[j,i], self.AFIL[j,i]) )
+        f.close()
+
+    def write_sha(self):
+    
+        """
+        Write the .sha file to define the shape of the Instrument function
+        (Only valid if FWHM>0.0)
+
+        @param runname: string
+            Name of the Nemesis run 
+        """
+
+        if self.FWHM<0.0:
+            sys.exit('error in write_sha() :: The .sha file is only used if FWHM>0')
+
+        f = open(self.runname+'.sha','w')
+        f.write("%i \n" %  (self.ISHAPE))
         f.close()
 
     def write_spx(self):

@@ -1842,7 +1842,6 @@ def read_gcn(runname):
 
 ###############################################################################################
 
-
 def write_hlay(nlayer,heightlay):
 
 
@@ -1880,3 +1879,150 @@ def write_hlay(nlayer,heightlay):
     for i in range(nlayer):
         f.write('\t %7.3f \n' % (heightlay[i]))
     f.close()
+
+
+    ###############################################################################################
+
+def read_input_files(runname):
+
+    """
+        FUNCTION NAME : read_input_files()
+        
+        DESCRIPTION : 
+
+            Reads the NEMESIS input files and fills the parameters in the reference classes.
+ 
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            Variables :: Python class defining the parameterisations and state vector
+            Measurement :: Python class defining the measurements 
+            Atmosphere :: Python class defining the reference atmosphere
+            Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
+            Scatter :: Python class defining the parameters required for scattering calculations
+            Stellar :: Python class defining the stellar spectrum
+            Surface :: Python class defining the surface
+            CIA :: Python class defining the Collision-Induced-Absorption cross-sections
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        CALLING SEQUENCE:
+        
+            Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables = read_input_files(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (29/04/2019)
+    """
+
+    #Initialise Atmosphere class and read file (.ref, aerosol.ref)
+    ##############################################################
+
+    Atm = Atmosphere_1(runname=runname)
+
+    #Read gaseous atmosphere
+    Atm.read_ref()
+
+    #Read aerosol profiles
+    Atm.read_aerosol()
+
+    #Reading .set file and starting Scatter, Stellar, Surface and Layer Classes
+    #############################################################################
+
+    Layer = Layer_0(Atm.RADIUS)
+    Scatter,Stellar,Surface,Layer = read_set(runname,Layer=Layer)
+
+    #Reading .inp file and starting Measurement,Scatter and Spectroscopy classes
+    #############################################################################
+
+    Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Scatter=Scatter)
+
+    #Reading .sur file if planet has surface
+    #############################################################################
+
+    isurf = planet_info[str(Atm.IPLANET)]["isurf"]
+    if isurf==1:
+        Surface.GASGIANT=False
+        Surface.read_sur(runname)
+    else:
+        Surface.GASGIANT=True
+
+    #Reading Spectroscopy parameters from .lls or .kls files
+    ##############################################################
+
+    if Spec.ILBL==0:
+        Spec.read_kls(runname)
+    elif Spec.ILBL==2:
+        Spec.read_lls(runname)
+    else:
+        sys.exit('error :: ILBL has to be either 0 or 2')
+
+    #Reading extinction and scattering cross sections
+    #############################################################################
+
+    Scatter.read_xsc(runname)
+
+    if Scatter.NDUST!=Atm.NDUST:
+        sys.exit('error :: Number of aerosol populations must be the same in .xsc and aerosol.ref files')
+
+
+    #Initialise Measurement class and read files (.spx, .sha)
+    ##############################################################
+
+    Measurement.runname = runname
+    Measurement.read_spx()
+
+    #Reading .sha file if FWHM>0.0
+    if Measurement.FWHM>0.0:
+        Measurement.read_sha(runname)
+    #Reading .fil if FWHM<0.0
+    elif Measurement.FWHM<0.0:
+        Measurement.read_fil(runname)
+
+    #Calculating the 'calculation wavelengths'
+    if Spec.ILBL==0:
+        Measurement.wavesetb(Spec,IGEOM=0)
+    elif Spec.ILBL==2:
+        Measurement.wavesetc(Spec,IGEOM=0)
+    else:
+        sys.exit('error :: ILBL has to be either 0 or 2')
+
+    #Now, reading k-tables or lbl-tables for the spectral range of interest
+    Spec.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
+
+
+    #Reading stellar spectrum if required by Measurement units
+    if( (Measurement.IFORM==1) or (Measurement.IFORM==2) or (Measurement.IFORM==3) or (Measurement.IFORM==4)):
+        Stellar.read_sol(runname)
+
+    #Initialise CIA class and read files (.cia)
+    ##############################################################
+
+    if os.path.exists(runname+'.cia')==True:
+        CIA = CIA_0(runname=runname)
+        CIA.read_cia()
+    else:
+        CIA = None
+
+    #Reading .fla file
+    #############################################################################
+
+    inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla(runname)
+ 
+    if CIA is not None:
+        CIA.INORMAL = inormal
+
+    Scatter.IRAY = iray
+    Scatter.IMIE = imie
+
+    #Reading .apr file and Variables Class
+    #################################################################
+
+    Variables = Variables_0()
+    Variables.read_apr(runname,Atm.NP)
+    Variables.XN = copy(Variables.XA)
+    Variables.SX = copy(Variables.SA)
+
+    return Atm,Measurement,Spec,Scatter,Stellar,Surface,CIA,Layer,Variables
