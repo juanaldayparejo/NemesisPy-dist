@@ -1,5 +1,5 @@
 NemesisPy
-==========
+=========
 
 .. image:: https://img.shields.io/badge/readthedocs-latest-blue
    :target: https://nemesispy.readthedocs.io
