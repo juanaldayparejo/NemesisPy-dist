@@ -2121,7 +2121,7 @@ class ForwardModel_0:
         elif Spectroscopy.ILBL==0:    #K-table
 
             #Calculating the k-coefficients for each gas in each layer
-            k_gas = Spectroscopy.calc_k(Layer.NLAY,Layer.PRESS/101325.,Layer.TEMP,WAVECALC=Measurement.WAVE) # (NWAVE,NG,NLAY,NGAS)
+            k_gas,dkgasdT = Spectroscopy.calc_kg(Layer.NLAY,Layer.PRESS/101325.,Layer.TEMP,WAVECALC=Measurement.WAVE) # (NWAVE,NG,NLAY,NGAS)
 
             f_gas = np.zeros([Spectroscopy.NGAS,Layer.NLAY])
             utotl = np.zeros(Layer.NLAY)
@@ -2129,15 +2129,25 @@ class ForwardModel_0:
                 IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
                 IGAS = IGAS[0]
 
-                f_gas[i,:] = Layer.PP[:,IGAS].T / Layer.PRESS                     #VMR of each radiatively active gas
-                utotl[:] = utotl[:] + Layer.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #Vertical column density of the radiatively active gases
+                #When using gradients
+                f_gas[i,:] = Layer.AMOUNT[:,IGAS[0]] * 1.0e-4 * 1.0e-20  #Vertical column density of the radiatively active gases in cm-2
+
+            #f_gas = np.zeros([Spectroscopy.NGAS,Layer.NLAY])
+            #utotl = np.zeros(Layer.NLAY)
+            #for i in range(Spectroscopy.NGAS):
+            #    IGAS = np.where( (Atmosphere.ID==Spectroscopy.ID[i]) & (Atmosphere.ISO==Spectroscopy.ISO[i]) )
+            #    IGAS = IGAS[0]
+
+            #    f_gas[i,:] = Layer.PP[:,IGAS].T / Layer.PRESS                     #VMR of each radiatively active gas
+            #    utotl[:] = utotl[:] + Layer.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #Vertical column density of the radiatively active gases
 
             #Combining the k-distributions of the different gases in each layer
-            k_layer = k_overlap(Measurement.NWAVE,Spectroscopy.NG,
-                Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,f_gas)  #(NWAVE,NG,NLAY)
+            k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)
 
             #Calculating the opacity of each layer
-            TAUGAS = k_layer * utotl   #(NWAVE,NG,NLAY)
+            TAUGAS = k_layer #(NWAVE,NG,NLAY)
+            #Calculating the opacity of each layer
+            #TAUGAS = k_layer * utotl   #(NWAVE,NG,NLAY)
 
             del k_gas
             del k_layer
