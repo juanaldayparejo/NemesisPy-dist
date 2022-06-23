@@ -3,6 +3,7 @@ project = 'NemesisPy'
 extensions = [
     "nbsphinx",
     "sphinx_gallery.load_style",
+    "sphinx_copybutton",
 ]
 
 
@@ -21,15 +22,3 @@ nbsphinx_thumbnails = {
 html_theme = 'sphinx_rtd_theme'
 
 
-#For changing the style of the jupyter notebooks
-nbsphinx_prolog = """
-{% set docname = env.doc2path(env.docname, base=None) %}
-
-.. only:: html
-
-    Go there: https://example.org/notebooks/{{ docname }}
-
-.. only:: latex
-
-    The following section was created from :file:`{{ docname }}`.
-"""
