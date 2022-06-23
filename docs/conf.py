@@ -23,11 +23,13 @@ html_theme = 'sphinx_rtd_theme'
 
 #For changing the style of the jupyter notebooks
 nbsphinx_prolog = """
-.. raw:: html
+{% set docname = env.doc2path(env.docname, base=None) %}
 
-    <style>
-        h1 {
-            color: chartreuse;
-        }
-    </style>
+.. only:: html
+
+    Go there: https://example.org/notebooks/{{ docname }}
+
+.. only:: latex
+
+    The following section was created from :file:`{{ docname }}`.
 """
