@@ -15,3 +15,8 @@ nbsphinx_thumbnails = {
 }
 
 html_theme = 'sphinx_rtd_theme'
+
+# This is processed by Jinja2 and inserted before each notebook
+nbsphinx_prolog = r"""
+{% set docname = 'doc/' + env.doc2path(env.docname, base=None) %}
+
