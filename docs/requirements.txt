@@ -3,3 +3,5 @@ sphinx-gallery
 sphinx-copybutton
 ipython_genutils
 sphinx-rtd-theme
+pandoc
+numpydoc

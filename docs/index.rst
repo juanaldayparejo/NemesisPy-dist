@@ -59,7 +59,7 @@ Dependencies on other Python packages
    :hidden:
    
    radiative_transfer.ipynb
-
+ 
 .. toctree::
    :caption: Retrievals
    :hidden:
@@ -71,3 +71,11 @@ Dependencies on other Python packages
    :hidden:
    
    examples
+
+.. toctree::
+   :caption: Package Details
+   :hidden:
+   
+   documentation
+
+

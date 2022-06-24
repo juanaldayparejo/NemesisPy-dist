@@ -20,113 +20,98 @@ State Vector Class.
 
 class Measurement_0:
 
-    def __init__(self, runname='', NGEOM=1, FWHM=0.0, ISHAPE=2, IFORM=0, ISPACE=0, LATITUDE=0.0, LONGITUDE=0.0, NCONV=[1], NAV=[1]):
+    """Measurement class.
 
-        """
-        Inputs
-        ------
-        @param runname: str,
-            Name of the Nemesis run
-        @param NGEOM: int,
-            Number of observing geometries
-        @param FWHM: real,
-            Full-width at half-maximum of the instrument  
-        @param ISHAPE: int,
-            Instrument lineshape.
+    This class includes all information required to model the specification of the measurement, such as the geometry of the observation
+    or the instrument characteristics. 
+
+    Attributes
+    ----------
+    runname : str
+        Name of the Nemesis run
+    NGEOM : int       
+        Number of observing geometries
+    FWHM : float
+        Full-width at half-maximum of the instrument
+    ISHAPE : int
+        Instrument lineshape (only used if FWHM>0)
             (0) Square lineshape
             (1) Triangular
             (2) Gaussian
             (3) Hamming
-            (4) Hanning      
-        @param ISPACE: int,
-            Spectral units 
+            (4) Hanning
+    ISPACE : int
+        Spectral units
             (0) Wavenumber (cm-1)
             (1) Wavelength (um)
-        @param IFORM: int,
-            Units of the spectra
+    IFORM : int
+        Units of the spectra
             (0) Radiance - W cm-2 sr-1 (cm-1)-1 if ISPACE=0 ---- W cm-2 sr-1 μm-1 if ISPACE=1
             (1) F_planet/F_star - Dimensionsless
             (2) A_planet/A_star - 100.0 * A_planet/A_star (dimensionsless)
             (3) Integrated spectral power of planet - W (cm-1)-1 if ISPACE=0 ---- W um-1 if ISPACE=1
             (4) Atmospheric transmission multiplied by solar flux
-        @param LATITUDE: int,
-            Planetocentric latitude at centre of the field of view  
-        @param LONGITUDE: int,
-            Planetocentric longitude at centre of the field of view     
-        @param NCONV: 1D array
-            Number of convolution spectral points in each spectrum     
-        @attribute NAV: 1D array
-            For each geometry, number of individual geometries need to be calculated
-            and averaged to reconstruct the field of view 
-        
-        Attributes
-        ----------
-        @attribute VCONV: 2D array
-            Convolution spectral points (wavelengths/wavenumbers) in each spectrum
-        @attribute MEAS: 2D array
-            Measured spectrum for each geometry
-        @attribute ERRMEAS: 2D array
-            Noise in the measured spectrum for each geometry        
-        @attribute FLAT: 2D array
-            Latitude of each averaging point needed to reconstruct the FOV (when NAV > 1)
-        @attribute FLON: 2D array
-            Longitude of each averaging point needed to reconstruct the FOV (when NAV > 1)
-        @attribute SOL_ANG: 2D array
-            Solar indicent angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
-        @attribute EMISS_ANG: 2D array
-            Emission angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
-        @attribute AZI_ANG: 2D array
-            Azimuth angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
-        @attribute TANHE: 2D array
-            Tangent height of each averaging point needed to reconstruct the FOV (when NAV > 1) 
-            (For limb or solar occultation observations)   
-        @attribute WGEOM: 2D array
-            Weights of each point for the averaging of the FOV (when NAV > 1)
-        @attribute NWAVE: int
-            Number of calculation wavelengths required to model the convolution wavelengths 
-        @attribute VWAVE: int
-            Calculation wavenumbers for one particular geometry
-        @attribute NFIL: 1D array
-            If FWHM<0.0, the ILS is expected to be defined separately for each convolution wavenumber.
-            NFIL represents the number of spectral points to defined the ILS for each convolution wavenumber.
-        @attribute VFIL: 2D array
-            If FWHM<0.0, the ILS is expected to be defined separately for each convolution wavenumber.
-            VFIL represents the calculation wavenumbers at which the ILS is defined for each each convolution wavenumber.
-        @attribute AFIL: 2D array
-            If FWHM<0.0, the ILS is expected to be defined separately for each convolution wavenumber.
-            AFIL represents the value of the ILS at each VFIL for each convolution wavenumber.
+    LATITUDE : float
+        Planetocentric latitude at centre of the field of view
+    LONGITUDE : float
+        Planetocentric longitude at centre of the field of view
+    NCONV : 1D array, int (NGEOM)
+        Number of convolution spectral points in each spectrum
+    NAV : 1D array, int (NGEOM)
+        For each geometry, number of individual geometries need to be calculated and averaged to reconstruct the field of view
+    VCONV : 2D array, float (NCONV,NGEOM)
+        Convolution spectral points (wavelengths/wavenumbers) in each spectrum
+    MEAS : 2D array, float (NCONV,NGEOM)
+        Measured spectrum for each geometry
+    ERRMEAS : 2D array, float (NCONV,NGEOM)
+        Noise in the measured spectrum for each geometry
+    FLAT : 2D array, float (NAV,NGEOM)
+        Latitude of each averaging point needed to reconstruct the FOV (when NAV > 1)
+    FLON : 2D array, float (NAV,NGEOM)
+        Longitude of each averaging point needed to reconstruct the FOV (when NAV > 1)
+    SOL_ANG : 2D array, float (NAV,NGEOM)
+        Solar indicent angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
+    EMISS_ANG : 2D array, float (NAV,NGEOM)
+        Emission angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
+    AZI_ANG : 2D array, float (NAV,NGEOM)
+        Azimuth angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
+    TANHE : 2D array, float (NAV,NGEOM)
+        Tangent height of each averaging point needed to reconstruct the FOV (when NAV > 1)
+        (For limb or solar occultation observations)
+    WGEOM : 2D array, float (NAV,NGEOM)
+        Weights of each point for the averaging of the FOV (when NAV > 1)
+    NWAVE : int
+        Number of calculation wavelengths required to model the convolution wavelengths
+    WAVE : 1D array (NWAVE)
+        Calculation wavenumbers for one particular geometry
+    NFIL : 1D array, int (NCONV)
+        If FWHM<0.0, the ILS is expected to be defined separately for each convolution wavenumber.
+        NFIL represents the number of spectral points to defined the ILS for each convolution wavenumber.
+    VFIL : 2D array, int (NFIL,NCONV)
+        If FWHM<0.0, the ILS is expected to be defined separately for each convolution wavenumber.
+        VFIL represents the calculation wavenumbers at which the ILS is defined for each each convolution wavenumber.
+    AFIL : 2D array, int (NFIL,NCONV)
+        If FWHM<0.0, the ILS is expected to be defined separately for each convolution wavenumber.
+        AFIL represents the value of the ILS at each VFIL for each convolution wavenumber.
+    NY : int
+        Number of points in the Measurement vector (sum of all NCONV)
+    Y : 1D array, float (NY)
+        Measurement vector (concatenation of all spectra in the class)
+    SE : 2D array, float (NY,NY)
+        Measurement uncertainty covariance matrix (assumed to be diagonal)
 
-        Methods
-        -------
-        Measurement.edit_VCONV
-        Measurement.edit_MEAS
-        Measurement.edit_ERRMEAS
-        Measurement.edit_FLAT
-        Measurement.edit_FLON
-        Measurement.edit_SOL_ANG
-        Measurement.edit_EMISS_ANG
-        Measurement.edit_AZI_ANG
-        Measurement.edit_WGEOM
-        Measurement.calc_MeasurementVector
-        Measurement.read_spx_SO
-        Measurement.read_spx
-        Measurement.read_sha
-        Measurement.read_fil
-        Measurement.write_fil
-        Measurement.write_sha
-        Measurement.write_spx
-        Measurement.write_spx_SO
-        Measurement.lblconv
-        Measurement.lblconvg
-        Measurement.conv
-        Measurement.convg
-        Measurement.wavesetc     
-        Measurement.wavesetb
-        Measurement.remove_geometry
-        Measurement.summary_info
-        Measurement.plot_SO
-        Measurement.plot_nadir
-        """
+    Examples
+    --------
+
+    Initialising the Measurement class
+
+    >>> from NemesisPy import *
+    >>> Measurement = Measurement_0(runname='example')
+
+
+    """
+
+    def __init__(self, runname='', NGEOM=1, FWHM=0.0, ISHAPE=2, IFORM=0, ISPACE=0, LATITUDE=0.0, LONGITUDE=0.0, NCONV=[1], NAV=[1]):
 
         #Input parameters
         self.runname = runname
@@ -153,11 +138,18 @@ class Measurement_0:
         self.Y = None #np.zeros(NY)
         self.SE = None #np.zeros(NY,NY)
 
+        self.NWAVE = None
+        self.WAVE = None #np.zeros(NWAVE)
+
     def edit_VCONV(self, VCONV_array):
         """
         Edit the convolution wavelengths/wavenumbers array in each geometry
-        @param VCONV_array: 2D array
-            Convolution wavelengths/wavenumbers in each geometry
+
+        Parameters
+        ----------
+        VCONV_array : 2D array, float (NCONV,NGEOM)
+            Convolution wavelengths/wavenumbers of the spectrum in each geometry
+
         """
         VCONV_array = np.array(VCONV_array)
         try:
@@ -172,8 +164,12 @@ class Measurement_0:
     def edit_MEAS(self, MEAS_array):
         """
         Edit the measured spectrum in each geometry in each geometry
-        @param MEAS_array: 2D array
+
+        Parameters
+        ----------
+        MEAS_array : 2D array, float (NCONV,NGEOM)
             Measured spectrum in each geometry
+
         """
         MEAS_array = np.array(MEAS_array)
         try:
@@ -188,7 +184,10 @@ class Measurement_0:
     def edit_ERRMEAS(self, ERRMEAS_array):
         """
         Edit the measured uncertainty of the spectrum in each geometry
-        @param ERRMEAS_array: 2D array
+
+        Parameters
+        ----------
+        ERRMEAS_array : 2D array, float (NCONV,NGEOM)
             Measured uncertainty of the spectrum in each geometry
         """
         ERRMEAS_array = np.array(ERRMEAS_array)
@@ -203,12 +202,15 @@ class Measurement_0:
 
     def edit_FLAT(self, FLAT_array):
         """
-        Edit the latitude of each averaging point needed to 
-            reconstruct the FOV (when NAV > 1)
-        @param FLAT_array: 2D array
-            Latitude of each averaging point needed to reconstruct 
-            the FOV (when NAV > 1)
+        Edit the latitude of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        FLAT_array : 2D array, float (NAV,NGEOM)
+            Latitude of each averaging point needed
+            to reconstruct the FOV (when NAV > 1)
         """
+
         FLAT_array = np.array(FLAT_array)
         try:
             assert FLAT_array.shape == (self.NGEOM, self.NAV.max()),\
@@ -221,12 +223,15 @@ class Measurement_0:
 
     def edit_FLON(self, FLON_array):
         """
-        Edit the longitude of each averaging point needed to 
-            reconstruct the FOV (when NAV > 1)
-        @param FLON_array: 2D array
-            Longitude of each averaging point needed to reconstruct 
-            the FOV (when NAV > 1)
+        Edit the longitude of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        FLON_array : 2D array, float (NAV,NGEOM)
+            Longitude of each averaging point needed
+            to reconstruct the FOV (when NAV > 1)
         """
+
         FLON_array = np.array(FLON_array)
 
         assert FLON_array.shape == (self.NGEOM, self.NAV.max()),\
@@ -236,12 +241,15 @@ class Measurement_0:
 
     def edit_SOL_ANG(self, SOL_ANG_array):
         """
-        Edit the solar indicent angle of each averaging point 
-            needed to reconstruct the FOV (when NAV > 1)
-        @param SOL_ANG_array: 2D array
-            Solar indicent angle of each averaging point needed 
+        Edit the solar zenith angle of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        SOL_ANG_array : 2D array, float (NAV,NGEOM)
+            Solar zenith angle of each averaging point needed
             to reconstruct the FOV (when NAV > 1)
         """
+
         SOL_ANG_array = np.array(SOL_ANG_array)
         
         assert SOL_ANG_array.shape == (self.NGEOM, self.NAV.max()),\
@@ -251,12 +259,15 @@ class Measurement_0:
 
     def edit_EMISS_ANG(self, EMISS_ANG_array):
         """
-        Edit the emission angle of each averaging point 
-            needed to reconstruct the FOV (when NAV > 1)
-        @param EMISS_ANG_array: 2D array
-            Emission angle of each averaging point needed 
+        Edit the emission angle of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        EMISS_ANG_array : 2D array, float (NAV,NGEOM)
+            Azimuth angle of each averaging point needed
             to reconstruct the FOV (when NAV > 1)
         """
+
         EMISS_ANG_array = np.array(EMISS_ANG_array)
         
         assert EMISS_ANG_array.shape == (self.NGEOM, self.NAV.max()),\
@@ -266,12 +277,15 @@ class Measurement_0:
 
     def edit_AZI_ANG(self, AZI_ANG_array):
         """
-        Edit the azimuth angle of each averaging point 
-            needed to reconstruct the FOV (when NAV > 1)
-        @param AZI_ANG_array: 2D array
-            Azimuth angle of each averaging point needed 
+        Edit the azimuth angle of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        AZI_ANG_array : 2D array, float (NAV,NGEOM)
+            Azimuth angle of each averaging point needed
             to reconstruct the FOV (when NAV > 1)
         """
+
         AZI_ANG_array = np.array(AZI_ANG_array)
         
         assert AZI_ANG_array.shape == (self.NGEOM, self.NAV.max()),\
@@ -281,13 +295,13 @@ class Measurement_0:
 
     def edit_TANHE(self, TANHE_array):
         """
-        Edit the tangent height of each averaging point 
-            needed to reconstruct the FOV (when NAV > 1)
-            for limb or solar occultation observations
-        @param AZI_ANG_array: 2D array
-            Tangent height of each averaging point needed 
-            to reconstruct the FOV (when NAV > 1) for
-            limb or solar occultation observations
+        Edit the tangent height of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        TANHE_array : 2D array, float (NAV,NGEOM)
+            Tangent height of each averaging point needed
+            to reconstruct the FOV (when NAV > 1)
         """
         TANHE_array = np.array(TANHE_array)
         
@@ -298,11 +312,14 @@ class Measurement_0:
 
     def edit_WGEOM(self, WGEOM_array):
         """
-        Edit the weights of each point for the averaging 
-            of the FOV (when NAV > 1)
-        @param AZI_ANG_array: 2D array
-            Weights of each point for the averaging of 
-            the FOV (when NAV > 1)
+        Edit the weight of each sub-geometry needed to reconstruct the FOV (when NAV > 1)
+
+        Parameters 
+        ----------
+        WGEOM_array : 2D array, float (NAV,NGEOM)
+            Weight of each averaging point needed
+            to reconstruct the FOV (when NAV > 1)
+
         """
         WGEOM_array = np.array(WGEOM_array)
         
@@ -336,10 +353,24 @@ class Measurement_0:
 
     def remove_geometry(self,IGEOM):
         """
-        Remove one spectrum from the Measurement class
+        Remove one spectrum (i.e., one geometry) from the Measurement class
 
-        @param IGEOM: int
-            Integer indicating the geometry to be erased (from 0 to NGEOM)
+        Parameters
+        ----------
+        IGEOM : int
+            Integer indicating the geometry to be erased (from 0 to NGEOM-1)
+
+        Examples
+        --------
+
+        We first read the .spx file and then we remove the second geometry.
+        Note that the first geometry has an index equal to zero.
+
+        >>> from NemesisPy import *
+        >>> Measurement = Measurement_0(runname='example')
+        >>> Measurement.read_spx()
+        >>> Measurement.remove_geometry(1)
+
         """
 
         if IGEOM>self.NGEOM-1:
@@ -365,14 +396,10 @@ class Measurement_0:
         if isinstance(self.WGEOM,np.ndarray)==True:
             self.WGEOM = np.delete(self.WGEOM,IGEOM,axis=0)
 
-    def read_spx_SO(self,MakePlot=False):
-    
+    def read_spx_SO(self):
         """
-        Fill the attribute and parameters of the Measurement class for a retrieval
-        of solar occultation or limb observations
-
-        @param Runname: string
-            Name of the Nemesis run 
+        Read the .spx file and fill the attributes and parameters of the Measurement class.
+        This routine is specific for solar occultation and limb observations
         """
 
         #Opening file
@@ -442,36 +469,10 @@ class Measurement_0:
 
         self.calc_MeasurementVector()
 
-        if MakePlot==True:
-
-            fig,ax1 = plt.subplots(1,1,figsize=(13,4))
-
-            colormap = 'nipy_spectral'
-            norm = matplotlib.colors.Normalize(vmin=0.,vmax=self.TANHE.max())
-            c_m = plt.cm.get_cmap(colormap,360)
-            # create a ScalarMappable and initialize a data structure
-            s_m = matplotlib.cm.ScalarMappable(cmap=c_m, norm=norm)
-            s_m.set_array([])
-
-            for igeom in range(self.NGEOM):
-                ax1.plot(self.VCONV[0:self.NCONV[i],igeom],self.MEAS[0:self.NCONV[i],igeom],c=s_m.to_rgba([self.TANHE[igeom,0]]))
-
-            ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
-            ax1.set_ylabel('Transmission')
-            ax1.grid()
-
-            cax = plt.axes([0.92, 0.15, 0.02, 0.7])   #Bottom
-            cbar2 = plt.colorbar(s_m,cax=cax,orientation='vertical')
-            cbar2.set_label('Altitude (km)')
-
-
-    def read_spx(self,MakePlot=False):
+    def read_spx(self):
     
         """
-        Fill the attribute and parameters of the Measurement class for a retrieval
-
-        @param Runname: string
-            Name of the Nemesis run 
+        Read the .spx file and fill the attributes and parameters of the Measurement class.
         """
 
         #Opening file
@@ -557,18 +558,15 @@ class Measurement_0:
 
         self.calc_MeasurementVector()
 
-    def read_sha(self,runname):
-    
+    def read_sha(self):
         """
-        Read the .sha file to see what the Instrument Lineshape is:
+        Read the .sha file to see what the Instrument Lineshape.
+        This file is only read if FWHM>0.
             (0) Square lineshape
             (1) Triangular
             (2) Gaussian
             (3) Hamming
             (4) Hanning 
-
-        @param runname: string
-            Name of the Nemesis run 
         """
 
         #Opening file
@@ -582,10 +580,7 @@ class Measurement_0:
     
         """
         Read the .fil file to see what the Instrument Lineshape for each convolution wavenumber 
-        (Only valid if FWHM<0.0)
-
-        @param runname: string
-            Name of the Nemesis run 
+        This file is only read if FWHM<0.
         """
 
         #Opening file
@@ -652,14 +647,11 @@ class Measurement_0:
             plt.tight_layout()
             plt.show()
 
-    def write_fil(self,MakePlot=False,IGEOM=0):
+    def write_fil(self,IGEOM=0):
     
         """
         Write the .fil file to see what the Instrument Lineshape for each convolution wavenumber 
         (Only valid if FWHM<0.0)
-
-        @param runname: string
-            Name of the Nemesis run 
         """
 
         f = open(self.runname+'.fil','w')
@@ -679,9 +671,6 @@ class Measurement_0:
         """
         Write the .sha file to define the shape of the Instrument function
         (Only valid if FWHM>0.0)
-
-        @param runname: string
-            Name of the Nemesis run 
         """
 
         if self.FWHM<0.0:
@@ -694,7 +683,7 @@ class Measurement_0:
     def write_spx(self):
     
         """
-        Write the .spx file
+        Write the .spx file based on the information on the Measurement class
         """
 
         fspx = open(self.runname+'.spx','w')
@@ -714,9 +703,6 @@ class Measurement_0:
     
         """
         Write the .spx file for a solar occultation measurement
-
-        @param runname: string
-            Name of the Nemesis run 
         """
 
         fspx = open(self.runname+'.spx','w')
@@ -740,8 +726,12 @@ class Measurement_0:
         Subroutine to calculate which 'calculation' wavelengths are needed to 
         cover the required 'convolution wavelengths' (In case of line-by-line calculation).
 
-        @param Spectroscopy: Python class object
-            Spectroscopy class indicating the grid of calculation wavelengths 
+        Parameters
+        ----------
+        Spectroscopy : class 
+            Spectroscopy class indicating the grid of calculation wavelengths
+        IGEOM : int, optional
+            Integer defining the geometry at which the calculation numbers will be computed
         """
 
         if self.FWHM>0.0:
@@ -791,8 +781,12 @@ class Measurement_0:
         Subroutine to calculate which 'calculation' wavelengths are needed to 
         cover the required 'convolution wavelengths' (In case of correlated-k calculation).
 
-        @param Spectroscopy: Python class object
-            Spectroscopy class indicating the grid of calculation wavelengths 
+        Parameters
+        ----------
+        Spectroscopy : class
+            Spectroscopy class indicating the grid of calculation wavelengths
+        IGEOM : int, optional
+            Integer defining the geometry at which the calculation numbers will be computed
         """
 
         from NemesisPy import find_nearest
@@ -876,15 +870,25 @@ class Measurement_0:
             sys.exit('error :: Measurement FWHM is not defined')
 
     def lblconv(self,ModSpec,IGEOM='All'):
-    
         """
         Subroutine to convolve the Modelled spectrum with the Instrument Line Shape 
 
-        @param ModSpec: 1D or 2D array (NWAVE,NGEOM)
+        Parameters
+        ----------
+        ModSpec : 1D or 2D array (NWAVE,NGEOM)
             Modelled spectrum
-        @param IGEOM: int
+
+        Other Parameters
+        ----------------
+        IGEOM : int
             If All, it is assumed all geometries cover exactly the same spetral range and ModSpec is expected to be (NWAVE,NGEOM)
             If not, IGEOM should be an integer indicating the geometry it corresponds to in the Measurement class (or .spx file)
+
+        Returns
+        -------
+        SPECONV : 1D or 2D array (NCONV,NGEOM)
+            Convolved spectrum with the instrument lineshape
+
         """
 
         if IGEOM=='All':
@@ -1052,13 +1056,25 @@ class Measurement_0:
         """
         Subroutine to convolve the Modelled spectrum and the gradients with the Instrument Line Shape 
 
-        @param ModSpec: 1D or 2D array (NWAVE,NGEOM)
+        Parameters
+        ----------
+        ModSpec : 1D or 2D array (NWAVE,NGEOM)
             Modelled spectrum
-        @param ModGrad: 1D or 2D array (NWAVE,NGEOM,NX)
+        ModGrad: 2D or 3D array (NWAVE,NGEOM,NX)
             Modelled gradients
-        @param IGEOM: int
+
+        Other Parameters
+        ----------------
+        IGEOM : int
             If All, it is assumed all geometries cover exactly the same spetral range and ModSpec is expected to be (NWAVE,NGEOM)
             If not, IGEOM should be an integer indicating the geometry it corresponds to in the Measurement class (or .spx file)
+
+        Returns
+        -------
+        SPECONV : 1D or 2D array (NCONV,NGEOM)
+            Convolved spectrum with the instrument lineshape
+        dSPECONV : 2D or 3D array (NCONV,NGEOM,NX)
+            Convolved gradients with the instrument lineshape
         """
 
         if IGEOM=='All':
@@ -1243,14 +1259,24 @@ class Measurement_0:
         """
         Subroutine to convolve the Modelled spectrum with the Instrument Line Shape 
 
-        @param ModSpec: 1D or 2D array (NWAVE,NGEOM)
+        Parameters
+        ----------
+        ModSpec : 1D or 2D array (NWAVE,NGEOM)
             Modelled spectrum
-        @param IGEOM: int
+
+        Other Parameters
+        ----------------
+        IGEOM : int
             If All, it is assumed all geometries cover exactly the same spetral range and ModSpec is expected to be (NWAVE,NGEOM)
             If not, IGEOM should be an integer indicating the geometry it corresponds to in the Measurement class (or .spx file)
-        @param FWHMEXIST: str
-            If != '', then FWHMEXIST indicates that the .fwhm exists (that includes the variation of FWHM for each wave) and 
+        FWHMEXIST : int
+            If not '', then FWHMEXIST indicates that the .fwhm exists (that includes the variation of FWHM for each wave) and
             FWHMEXIST is expected to be the name of the Nemesis run
+
+        Returns
+        -------
+        SPECONV : 1D or 2D array (NCONV,NGEOM)
+            Convolved spectrum with the instrument lineshape
         """
 
         import os.path
@@ -1419,16 +1445,28 @@ class Measurement_0:
         """
         Subroutine to convolve the Modelled spectrum and the gradients with the Instrument Line Shape 
 
-        @param ModSpec: 1D or 2D array (NWAVE,NGEOM)
+        Parameters
+        ----------
+        ModSpec : 1D or 2D array (NWAVE,NGEOM)
             Modelled spectrum
-        @param ModGrad: 1D or 2D array (NWAVE,NGEOM,NX)
+        ModGrad: 2D or 3D array (NWAVE,NGEOM,NX)
             Modelled gradients
-        @param IGEOM: int
+        
+        Other Parameters
+        ----------------
+        IGEOM : int
             If All, it is assumed all geometries cover exactly the same spetral range and ModSpec is expected to be (NWAVE,NGEOM)
             If not, IGEOM should be an integer indicating the geometry it corresponds to in the Measurement class (or .spx file)
-        @param FWHMEXIST: str
-            If != '', then FWHMEXIST indicates that the .fwhm exists (that includes the variation of FWHM for each wave) and 
+        FWHMEXIST : int
+            If not '', then FWHMEXIST indicates that the .fwhm exists (that includes the variation of FWHM for each wave) and
             FWHMEXIST is expected to be the name of the Nemesis run
+
+        Returns
+        -------
+        SPECONV : 1D or 2D array (NCONV,NGEOM)
+            Convolved spectrum with the instrument lineshape
+        dSPECONV : 2D or 3D array (NCONV,NGEOM,NX)
+            Convolved gradients with the instrument lineshape
         """
 
         import os.path
@@ -1711,6 +1749,14 @@ class Measurement_0:
     def plot_nadir(self,subobs_lat=None,subobs_lon=None):
         """
         Subroutine to make a summary plot of a nadir-viewing observation
+
+        Other Parameters
+        ----------
+        subobs_lat : float, optional
+            Sub-observer latitude (degrees)
+        subobs_lon : float, optional
+            Sub-observer longitude (degrees)
+
         """
 
         from mpl_toolkits.basemap import Basemap
@@ -1780,7 +1826,15 @@ class Measurement_0:
 
     def plot_disc_averaging(self,subobs_lat=None,subobs_lon=None, colormap='cividis'):
         """
-        Subroutine to make a summary plot of a nadir-viewing observation
+        Subroutine to make a summary plot of a disc averaging observation 
+
+        Parameters
+        ----------
+        subobs_lat : float, optional
+            Sub-observer latitude (degrees)
+        subobs_lon : float, optional
+            Sub-observer longitude (degrees)
+
         """
 
         from mpl_toolkits.basemap import Basemap
@@ -1923,3 +1977,5 @@ class Measurement_0:
 
             plt.tight_layout()
         plt.show()
+
+

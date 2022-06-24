@@ -24,7 +24,13 @@ class ForwardModel_0:
         Measurement=None, Spectroscopy=None, Stellar=None, Scatter=None,
         CIA=None, Layer=None, Variables=None, adjust_hydrostat=True):
 
-        """
+        """Forward Model class
+
+        The Forward Model class compiles different function required to perform the radiative transfer calculations.
+        It takes as arguments the different Reference Classes, which provide all the required information to compute
+        the forward model. The Forward Model class then modifies and uses this information to perform the calculations.
+
+
         Inputs (Reference classes)
         ------
         @class Atmosphere:,
@@ -46,7 +52,7 @@ class ForwardModel_0:
         @class Variables:,
             Class defining the Variables
         @log adjust_hydrostat:,
-            Flag indicating whether the re-adjustment of the pressure or altitude leves
+            Flag indicating whether the re-adjustment of the pressure or altitude levels
             based on the hydrostatic equilibrium equation must be performed or not.
 
         Attributes (Attribute classes)
@@ -81,7 +87,7 @@ class ForwardModel_0:
         -------
 
         Forward Models and Jacobeans
-        --------------------------------
+        ##########################################
 
             ForwardModel_0.nemesisfm()
             ForwardModel_0.nemesisfmg()
@@ -90,13 +96,13 @@ class ForwardModel_0:
             ForwardModel_0.jacobian_nemesis(nemesisSO=False)
 
         Mapping models into reference classes
-        -----------------------------------------
+        ##########################################
 
             ForwardModel_0.subprofretg()
             ForwardModel_0.subspecret()
 
         Path calculation and geometry
-        -----------------------------------------
+        ##########################################
 
             ForwardModel_0.select_Measurement()
             ForwardModel_0.calc_path()
@@ -105,14 +111,12 @@ class ForwardModel_0:
             ForwardModel_0.calc_pathg_SO()
 
         Radiative transfer calculations
-        -----------------------------------------
+        ##########################################
 
             ForwardModel_0.CIRSrad()
             ForwardModel_0.CIRSradg()
             ForwardModel_0.calc_tau_cia()
             ForwardModel_0.calc_tau_dust()
-
-
 
         """
 
