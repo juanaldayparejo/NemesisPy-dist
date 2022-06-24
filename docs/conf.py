@@ -12,6 +12,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
 #    "sphinx.ext.viewcode",
+    "IPython.sphinxext.ipython_console_highlighting",
     ]
 
 
@@ -43,8 +44,8 @@ nbsphinx_thumbnails = {
     'examples/MieScattering/MieScattering': '_static/mars_sunset2.jpg'
 }
 
-
 #Defining the actual appearance of the website
 html_theme = 'sphinx_rtd_theme'
 
 
+exclude_patterns = ['_build', '**.ipynb_checkpoints']

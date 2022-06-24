@@ -72,10 +72,3 @@ Dependencies on other Python packages
    
    examples
 
-.. toctree::
-   :caption: Package Details
-   :hidden:
-   
-   documentation
-
-
