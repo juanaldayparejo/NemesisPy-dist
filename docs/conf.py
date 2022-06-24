@@ -2,7 +2,7 @@ import sys
 import os
 import NemesisPy
 
-sys.path.insert(0,os.path.abspath('../NemesisPy/'))
+sys.path.insert(0,os.path.abspath('../NemesisPy/Path/'))
 
 project = 'NemesisPy'
 

@@ -4,7 +4,7 @@ Reference classes
 Measurement
 -----------
 
-.. automodule:: NemesisPy.Path.Measurement_0
+.. automodule:: Measurement_0
    :members:    #option to generate document for the members of the target module, class or exception
    :undoc-members:      #option to generate document for the members not having docstrings
    :inherited-members:  #option to include members inherited from base classes
