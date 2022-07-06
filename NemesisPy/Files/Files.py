@@ -1976,10 +1976,10 @@ def read_input_files(runname):
 
     #Reading .sha file if FWHM>0.0
     if Measurement.FWHM>0.0:
-        Measurement.read_sha(runname)
+        Measurement.read_sha()
     #Reading .fil if FWHM<0.0
     elif Measurement.FWHM<0.0:
-        Measurement.read_fil(runname)
+        Measurement.read_fil()
 
     #Calculating the 'calculation wavelengths'
     if Spec.ILBL==0:

@@ -570,13 +570,13 @@ class Measurement_0:
         """
 
         #Opening file
-        f = open(runname+'.sha','r')
+        f = open(self.runname+'.sha','r')
         s = f.readline().split()
         lineshape = int(s[0])
 
         self.ISHAPE = lineshape
 
-    def read_fil(self,runname,MakePlot=False):
+    def read_fil(self,MakePlot=False):
     
         """
         Read the .fil file to see what the Instrument Lineshape for each convolution wavenumber 
@@ -584,7 +584,7 @@ class Measurement_0:
         """
 
         #Opening file
-        f = open(runname+'.fil','r')
+        f = open(self.runname+'.fil','r')
     
         #Reading first and second lines
         nconv = int(np.fromfile(f,sep=' ',count=1,dtype='int'))
