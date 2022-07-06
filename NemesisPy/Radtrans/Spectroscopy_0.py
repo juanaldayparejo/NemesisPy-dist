@@ -406,12 +406,14 @@ class Spectroscopy_0:
             igood = np.where( (klo1>0.0) & (klo2>0.0) & (khi1>0.0) & (khi2>0.0) )
             kgood[igood[0],ipoint,igood[1]] = (1.0-v)*(1.0-u)*np.log(klo1[igood[0],igood[1]]) + v*(1.0-u)*np.log(khi1[igood[0],igood[1]]) + v*u*np.log(khi2[igood[0],igood[1]]) + (1.0-v)*u*np.log(klo2[igood[0],igood[1]])
             kgood[igood[0],ipoint,igood[1]] = np.exp(kgood[igood[0],ipoint,igood[1]])
-            dxdt = -np.log(klo1[igood[0],igood[1]])*(1.0-v) - np.log(khi1[igood[0],igood[1]])*v + np.log(khi2[igood[0],igood[1]])*v + np.log(klo2[igood[0],igood[1]]) * (1.0-v)
+            #dxdt = -np.log(klo1[igood[0],igood[1]])*(1.0-v) - np.log(khi1[igood[0],igood[1]])*v + np.log(khi2[igood[0],igood[1]])*v + np.log(klo2[igood[0],igood[1]]) * (1.0-v)
+            dxdt = (-np.log(klo1[igood[0],igood[1]])*(1.0-v) - np.log(khi1[igood[0],igood[1]])*v + np.log(khi2[igood[0],igood[1]])*v + np.log(klo2[igood[0],igood[1]])*(1.0-v))*dudt
             dkgooddT[igood[0],ipoint,igood[1]] = kgood[igood[0],ipoint,igood[1]] * dxdt
 
             ibad = np.where( (klo1<=0.0) & (klo2<=0.0) & (khi1<=0.0) & (khi2<=0.0) )
             kgood[ibad[0],ipoint,ibad[1]] = (1.0-v)*(1.0-u)*klo1[ibad[0],ibad[1]] + v*(1.0-u)*khi1[ibad[0],ibad[1]] + v*u*khi2[ibad[0],ibad[1]] + (1.0-v)*u*klo2[ibad[0],ibad[1]]
-            dxdt = -klo1[ibad[0],ibad[1]]*(1.0-v) - khi1[ibad[0],ibad[1]]*v + khi2[ibad[0],ibad[1]]*v + klo2[ibad[0],ibad[1]] * (1.0-v)
+            #dxdt = -klo1[ibad[0],ibad[1]]*(1.0-v) - khi1[ibad[0],ibad[1]]*v + khi2[ibad[0],ibad[1]]*v + klo2[ibad[0],ibad[1]] * (1.0-v)
+            dxdt = (-klo1[ibad[0],ibad[1]]*(1.0-v) - khi1[ibad[0],ibad[1]]* v + khi2[ibad[0],ibad[1]]*v + klo2[ibad[0],ibad[1]]*(1.0-v))*dudt
             dkgooddT[ibad[0],ipoint,ibad[1]] = dxdt
 
         return kgood,dkgooddT
