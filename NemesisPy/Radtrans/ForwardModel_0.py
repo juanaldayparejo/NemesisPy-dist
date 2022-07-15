@@ -184,11 +184,9 @@ class ForwardModel_0:
 
         from NemesisPy.Models import subprofretg
         from NemesisPy.Path import AtmCalc_0,Path_0,calc_path
-        from NemesisPy.Radtrans import lblconv
         from NemesisPy import find_nearest,subspecret
         from scipy import interpolate
         from copy import copy
-        from NemesisPy.Radtrans.Radtrans import CIRSrad
 
         #Estimating the number of calculations that will need to be computed to model the spectra
         #included in the Measurement class (taking into account al geometries and averaging points)
@@ -518,7 +516,7 @@ class ForwardModel_0:
         if self.SpectroscopyX.ILBL==0:
             SPECONV,dSPECONV = self.MeasurementX.convg(SPECMOD,dSPECMOD,IGEOM='All')
         elif self.SpectroscopyX.ILBL==2:
-            SPECONV,dSPECONV = self.MeasurementX.lblconvg(SPECMOD,dSPECMOD,IGEOM='All')
+            SPECONV = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
 
         return SPECONV
 
