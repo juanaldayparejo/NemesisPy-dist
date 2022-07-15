@@ -106,7 +106,7 @@ class Scatter_0:
         Scatter_0.read_refind_file()
         Scatter_0.read_refind()
         Scatter_0.miescat()
-        Scatter_0.initialise_variables()
+        Scatter_0.initialise_arrays()
         """
 
         #Input parameters
@@ -426,6 +426,61 @@ class Scatter_0:
         self.KSCA[:,:] = self.KEXT[:,:] * self.SGLALB[:,:]
         self.KABS[:,:] = self.KEXT[:,:] - self.KSCA[:,:]
         self.PHASE[:,:,:] = phase[0:self.NWAVE,0:self.NTHETA,0:self.NDUST]
+
+
+    def write_phase(self,IDUST):
+        """
+        Write a file with the format of the PHASE*.DAT using the format required by NEMESIS
+
+        Inputs
+        ----------------
+
+        @IDUST: int
+            Aerosol population whose properties will be written in the PHASE.DAT file
+        """
+
+        f = open('PHASE'+str(IDUST+1)+'.DAT','w')
+        
+        #First buffer
+        if self.ISPACE==0:
+            wavetype='wavenumber'
+        elif self.ISPACE==1:
+            wavetype='wavelength'
+
+        str1 = "{:<512}".format(' %s  %8.2f  %8.2f  %8.4f  %4i  %4i' % (wavetype,self.WAVE.min(),self.WAVE.max(),self.WAVE[1]-self.WAVE[0],self.NWAVE,self.NTHETA))
+ 
+        #Second buffer
+        comment = 'Mie scattering  - Particle size distribution not known'
+        str2 = "{:<512}".format(' %s' % (comment)  )
+
+        #Third buffer
+        strxx = ''
+        for i in range(self.NTHETA):
+            strx = ' %8.3f' % (self.THETA[i])
+            strxx = strxx+strx
+
+        str3 = "{:<512}".format(strxx)
+        if len(str3)>512:
+            sys.exit('error writing PHASEN.DAT file :: File format does not support so many scattering angles (NTHETA)')
+
+        #Fourth buffer
+        str4 = ''
+        for i in range(self.NWAVE):
+            strxx = ''
+            strx1 = ' %8.6f %12.5e %12.5e' % (self.WAVE[i],self.KEXT[i,IDUST],self.SGLALB[i,IDUST])
+            strx2 = ''
+            for j in range(self.NTHETA):
+                strx2 = strx2+' %10.4f' % (self.PHASE[i,j,IDUST])
+            strxx = "{:<512}".format(strx1+strx2)
+            if len(strxx)>512:
+                sys.exit('error while writing PHASEN.DAT :: File format does not support so many scattering angles (NTHETA)')
+            str4=str4+strxx
+
+        f.write(str1+str2+str3+str4)
+        f.close()
+
+
+
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
