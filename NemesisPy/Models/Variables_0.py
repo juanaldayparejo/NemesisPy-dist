@@ -825,49 +825,49 @@ class Variables_0:
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
         
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #wavenumber offset at wavenumber in the middle
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #wavenumber offset at highest wavenumber
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Offset of the second gaussian with respect to the first one (assumed spectrally constant)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #FWHM of the main gaussian (assumed to be constant in wavelength units)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Relative amplitude of the second gaussian with respect to the gaussian at lowest wavenumber
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
                 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')   #Relative amplitude of the second gaussian with respect to the gaussian at highest wavenumber (linear variation)
                     x0[ix] = float(tmp[0])
                     sx[ix,ix] = float(tmp[1])**2.
                     lx[ix] = 0
-                    inum[ix] = 1
+                    inum[ix] = 0
                     ix = ix + 1
 
 

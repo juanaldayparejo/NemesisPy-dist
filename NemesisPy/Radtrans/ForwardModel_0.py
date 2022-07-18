@@ -560,7 +560,6 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy.Models import subprofretg,subspecret
         from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg_SO
         from NemesisPy import find_nearest
         from scipy import interpolate
@@ -652,6 +651,8 @@ class ForwardModel_0:
         elif self.SpectroscopyX.ILBL==2:
             SPECONV,dSPECONV = self.MeasurementX.lblconvg(SPECMOD,dSPECMOD,IGEOM='All')
 
+        #Calculating the gradients of any parameterisations involving the convolution
+        dSPECONV = self.subspeconv(SPECMOD,dSPECONV)
 
         return SPECONV,dSPECONV
 
@@ -1460,6 +1461,104 @@ class ForwardModel_0:
 
         return SPECMOD,dSPECMOD
 
+
+    ###############################################################################################
+
+    def subspeconv(self,SPECMOD,dSPECONV):
+
+        """
+        FUNCTION NAME : subspeconv()
+
+        DESCRIPTION : Calculate the gradients for any model parameterisation that involves the convolution
+                       of the modelled spectrum with the instrument lineshape. These parameterisations can 
+                       include for example the retrieval of the spectral resolution of the instrument function,
+                       in case it is not well characterised. 
+
+        INPUTS :
+
+            Measurement :: Python class defining the observation
+            Variables :: Python class defining the parameterisations and state vector
+            SPECMOD(NWAVE,NGEOM) :: Modelled spectrum in each geometry (not yet convolved with ILS)
+            dSPECONV(NCONV,NGEOM,NX) :: Modelled gradients in each geometry (previously convolved with ILS)
+
+        OPTIONAL INPUTS: none
+
+        OUTPUTS :
+
+            dSPECONV :: Updated gradients in each geometry
+
+        CALLING SEQUENCE:
+
+            SPECONV = subspecret(Measurement,Variables,SPECMOD,dSPECONV)
+
+        MODIFICATION HISTORY : Juan Alday (15/07/2022)
+
+        """
+
+        #Going through the different variables an updating the spectra and gradients accordingly
+        ix = 0
+        for ivar in range(self.Variables.NVAR):
+
+            if self.Variables.VARIDENT[ivar,0]==229:
+#           Model 229. Retrieval of instrument line shape for ACS-MIR (v2)
+#           ***************************************************************
+
+                #Getting the reference values for the ILS parameterisation
+                par1 = self.Variables.XN[ix]
+                par2 = self.Variables.XN[ix+1]
+                par3 = self.Variables.XN[ix+2]
+                par4 = self.Variables.XN[ix+3]
+                par5 = self.Variables.XN[ix+4]
+                par6 = self.Variables.XN[ix+5]
+                par7 = self.Variables.XN[ix+6]
+
+                self.MeasurementX = model229(self.MeasurementX,par1,par2,par3,par4,par5,par6,par7)
+
+                #Performing first convolution of the spectra
+                SPECONV_ref = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+
+                #Going through each of the parameters to calculate the gradients
+
+                par11 = self.Variables.XN[ix]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par11,par2,par3,par4,par5,par6,par7)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix] = (SPECONV1-SPECONV_ref)/(par11-par1)
+
+                par21 = self.Variables.XN[ix+1]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par1,par21,par3,par4,par5,par6,par7)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix+1] = (SPECONV1-SPECONV_ref)/(par21-par2)
+
+                par31 = self.Variables.XN[ix+2]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par1,par2,par31,par4,par5,par6,par7)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix+2] = (SPECONV1-SPECONV_ref)/(par31-par3)
+
+                par41 = self.Variables.XN[ix+3]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par1,par2,par3,par41,par5,par6,par7)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix+3] = (SPECONV1-SPECONV_ref)/(par41-par4)
+
+                par51 = self.Variables.XN[ix+4]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par1,par2,par3,par4,par51,par6,par7)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix+4] = (SPECONV1-SPECONV_ref)/(par51-par5)
+
+                par61 = self.Variables.XN[ix+5]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par1,par2,par3,par4,par5,par61,par7)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix+5] = (SPECONV1-SPECONV_ref)/(par61-par6)
+
+                par71 = self.Variables.XN[ix+6]*1.05
+                self.MeasurementX = model229(self.MeasurementX,par1,par2,par3,par4,par5,par6,par71)
+                SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                dSPECONV[:,:,ix+6] = (SPECONV1-SPECONV_ref)/(par71-par7)
+
+                ipar = -1
+                ix = ix + self.Variables.NXVAR[ivar]
+
+            else:
+                ix = ix + self.Variables.NXVAR[ivar]
 
     ###############################################################################################
     ###############################################################################################
