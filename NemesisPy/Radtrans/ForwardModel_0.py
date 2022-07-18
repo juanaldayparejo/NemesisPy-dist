@@ -1560,6 +1560,8 @@ class ForwardModel_0:
             else:
                 ix = ix + self.Variables.NXVAR[ivar]
 
+        return dSPECONV
+
     ###############################################################################################
     ###############################################################################################
     # PATH CALCULATION AND DEFINITION OF GEOMETRY
