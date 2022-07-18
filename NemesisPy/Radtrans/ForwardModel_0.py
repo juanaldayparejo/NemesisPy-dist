@@ -1557,6 +1557,48 @@ class ForwardModel_0:
                 ipar = -1
                 ix = ix + self.Variables.NXVAR[ivar]
 
+            elif self.Variables.VARIDENT[ivar,0]==230:
+#           Model 230. Retrieval of multiple instrument line shapes for ACS-MIR (multiple spectral windows)
+#           ***************************************************************
+
+                #Getting reference values and calculating the reference convolved spectrum
+                nwindows = int(self.Variables.VARPARAM[ivar,0])
+                liml = np.zeros(nwindows)
+                limh = np.zeros(nwindows)
+                i0 = 1
+                for iwin in range(nwindows):
+                    liml[iwin] = self.Variables.VARPARAM[ivar,i0]
+                    limh[iwin] = self.Variables.VARPARAM[ivar,i0+1]
+                    i0 = i0 + 2
+
+                par1 = np.zeros((7,nwindows))
+                il = 0
+                for iwin in range(nwindows):
+                    for jwin in range(7):
+                        par1[jwin,iwin] = self.Variables.XN[ix+il]
+                        il = il + 1
+
+                self.MeasurementX = model230(self.MeasurementX,nwindows,liml,limh,par1)
+
+                #Performing first convolution of the spectra
+                SPECONV_ref = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+
+                il = 0
+                for iwin in range(nwindows):
+                    for jwin in range(7):
+                        par2 = np.zeros(par1.shape)
+                        par2[:,:] = par1[:,:]
+                        par2[jwin,iwin] = par1[jwin,iwin] * 1.05
+
+                        self.MeasurementX = model230(self.MeasurementX,nwindows,liml,limh,par2)
+
+                        SPECONV1 = self.MeasurementX.lblconv(SPECMOD,IGEOM='All')
+                        dSPECONV[:,:,ix+il] = (SPECONV1-SPECONV_ref)/(par2[jwin,iwin]-par1[jwin,iwin])
+
+                        il = il + 1
+
+                ix = ix + self.Variables.NXVAR[ivar]
+
             else:
                 ix = ix + self.Variables.NXVAR[ivar]
 

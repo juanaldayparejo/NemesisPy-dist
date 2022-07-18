@@ -897,7 +897,7 @@ class Variables_0:
                             parerr[j,iw] = float(s[1])
                             x0[ix] = par[j,iw]
                             sx[ix,ix] = (parerr[j,iw])**2.
-                            inum[ix] = 1
+                            inum[ix] = 0
                             ix = ix + 1
 
                 elif varident[i,2] == 231:
