@@ -65,6 +65,8 @@ class Atmosphere_0:
             VMR[i,j] is Volume Mixing Ratio of gas j at vertical point i
             the column j corresponds to the gas with RADTRANS ID ID[j]
             and RADTRANS isotope ID ISO[j]
+        @attribute MOLWT: float
+            Molecular weight of the atmosphere in kg/m3
 
         Methods
         -------
@@ -113,8 +115,8 @@ class Atmosphere_0:
         self.NLOCATIONS = NLOCATIONS
 
         # Input the following profiles using the edit_ methods.
-        self.H = None # np.zeros(NP)
-        self.P = None # np.zeros(NP)
+        self.H = None # np.zeros(NP)  #m
+        self.P = None # np.zeros(NP)  #Pa
         self.T =  None # np.zeros(NP)
         self.MOLWT = None #np.zeros(NP)
         self.GRAV = None #np.zeros(NP)
@@ -592,10 +594,9 @@ class Atmosphere_0:
         else:
             molwt1 = np.zeros(npro)
             molwt1[:] = molwt
-            self.MOLWT = molwt1 / 1000.   #kg/m3
+            self.MOLWT = molwt1 / 1000.   #kg/mole
 
         self.calc_grav()
-
 
     def write_ref(self):
         """
@@ -608,7 +609,7 @@ class Atmosphere_0:
         fref.write('\t %i \n' % (nlat))
 
         if self.AMFORM==0:
-            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR,self.MOLWT[0]))
+            fref.write('\t %i \t %7.4f \t %i \t %i \t %7.4f \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR,self.MOLWT[0]*1.0e3))
         else:
             fref.write('\t %i \t %7.4f \t %i \t %i \n' % (self.IPLANET,self.LATITUDE,self.NP,self.NVMR))
 

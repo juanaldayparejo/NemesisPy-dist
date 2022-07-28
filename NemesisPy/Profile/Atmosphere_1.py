@@ -194,6 +194,24 @@ class Atmosphere_1(Atmosphere_0):
                 f.write('{:<15.3E}'.format(self.DUST[i]))
         f.close()
 
+
+    def write_fcloud(self):
+        """
+        Write current fractional cloud coverage profile to a fcloud.ref file in Nemesis format.
+        """ 
+
+        f = open('fcloud.ref','w')
+
+        f.write('%i \t %i \n' % (self.NP,self.NDUST))
+    
+        for i in range(self.NP):
+            str1 = str('{0:7.6f}'.format(self.H[i]/1.0e3))+'\t'+str('{0:7.3f}'.format(self.FRAC[i]))
+            for j in range(self.NDUST):
+                str1 = str1+'\t'+str('{0:d}'.format(self.ICLOUD[i,j]))
+            f.write(str1+'\n')
+        f.close()
+
+
     def plot_Dust(self):
         """
         Make a summary plot of the current dust profiles
