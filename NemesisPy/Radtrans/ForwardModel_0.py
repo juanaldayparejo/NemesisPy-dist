@@ -1300,7 +1300,8 @@ class ForwardModel_0:
                         for j in range(NDEGREE+1):
                             T[j] = self.Variables.XN[ix+j]
 
-                        WAVE0 = self.MeasurementX.WAVE.min()
+                        #WAVE0 = self.MeasurementX.WAVE.min()
+                        WAVE0 = self.MeasurementX.VCONV[0,0]
                         spec = np.zeros(self.MeasurementX.NWAVE)
                         spec[:] = SPECMOD[:,i]
 

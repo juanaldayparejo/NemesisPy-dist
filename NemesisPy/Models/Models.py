@@ -872,11 +872,12 @@ def model228(Measurement,Spectroscopy,V0,C0,C1,C2,P0,P1,P2,P3,MakePlot=False):
     #3. Defining new calculations wavelengths and reading again lbl-tables in correct range
     ###########################################################################################
 
-    Spectroscopy.read_lls(Spectroscopy.RUNNAME)
-    Measurement.wavesetc(Spectroscopy,IGEOM=0)
-    Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
+    #Spectroscopy.read_lls(Spectroscopy.RUNNAME)
+    #Measurement.wavesetc(Spectroscopy,IGEOM=0)
+    #Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
 
     return Measurement,Spectroscopy
+
 
 ###############################################################################################
 
@@ -1051,13 +1052,14 @@ def model229(Measurement,par1,par2,par3,par4,par5,par6,par7,MakePlot=False):
 def model230(Measurement,nwindows,liml,limh,par,MakePlot=False):
     
     """
-        FUNCTION NAME : model2()
+        FUNCTION NAME : model230()
         
         DESCRIPTION :
         
-            Function defining the model parameterisation 229 in NEMESIS.
+            Function defining the model parameterisation 230 in NEMESIS.
             In this model, the ILS of the measurement is defined from every convolution wavenumber
-            using the double-Gaussian parameterisation created for analysing ACS MIR spectra
+            using the double-Gaussian parameterisation created for analysing ACS MIR spectra.
+            However, we can define several spectral windows where the ILS is different
         
         INPUTS :
         
