@@ -18,7 +18,7 @@ State Vector Class.
 
 class Stellar_0:
 
-    def __init__(self, SOLEXIST=True, DIST=1.0, RADIUS=1.0, ISPACE=0, NCONV=2):
+    def __init__(self, SOLEXIST=True, DIST=None, RADIUS=None, ISPACE=None, NCONV=None):
 
         """
         Inputs
@@ -151,8 +151,58 @@ class Stellar_0:
         Calculate the stellar flux at the planet's distance
         """
 
-        from NemesisPy.Data import ref_data
-
         AU = 1.49598e11
         area = 4.*np.pi*(self.DIST * AU * 100. )**2.
         self.SOLFLUX = self.SOLSPEC / area   #W cm-2 (cm-1)-1 or W cm-2 um-1
+
+
+    def calc_solar_power(self):
+        """
+        Calculate the stellar power based on the solar flux measured at a given distance
+        """
+
+        AU = 1.49598e11
+        area = 4.*np.pi*(self.DIST * AU * 100. )**2.
+        self.SOLSPEC = self.SOLFLUX * area   #W (cm-1)-1 or W um-1
+
+
+    def write_solar_file(self,filename,header=None):
+        """
+        Write the solar power into a file with the format required by NEMESIS
+        """
+
+        f = open(filename,'w')
+
+        #Defining errors while writing file
+        if self.ISPACE is None:
+            sys.exit('error :: ISPACE must be defined in Stellar class to write Stellar power to file')
+
+        if self.RADIUS is None:
+            sys.exit('error :: RADIUS must be defined in Stellar class to write Stellar power to file')
+
+        if self.NCONV is None:
+            sys.exit('error :: NCONV must be defined in Stellar class to write Stellar power to file')
+
+        if self.VCONV is None:
+            sys.exit('error :: VCONV must be defined in Stellar class to write Stellar power to file')
+
+        if self.SOLSPEC is None:
+            sys.exit('error :: SOLSPEC Must be defined in Stellar class to write Stellar power to file')
+
+
+        if header==None:
+            if self.ISPACE==0:
+                header = '# Stellar power in W (cm-1)-1'
+            elif self.ISPACE==1:
+                header = '# Stellar power in W um-1' 
+        else:
+            if header[0]!='#':
+                header = '#'+header
+        
+        f.write(header+' \n')
+        f.write('\t %i \n' % (self.ISPACE))
+        f.write('\t %7.3e \n' % (self.RADIUS))
+        for i in range(self.NCONV):
+            f.write('\t %7.6f \t %7.5e \n' % (self.VCONV[i],self.SOLSPEC[i]))
+
+        f.close()
