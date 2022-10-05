@@ -87,6 +87,8 @@ class Scatter_0:
         @attribute G2: 2D array,
             Parameter defining the second assymetry factor of the double Henyey-Greenstein phase function
             See Irvine (1965)
+        @attribute WLPOL: 2D array
+            Weights of the Legendre polynomials used to model the phase function
         @attribute MU: 1D array,
             Cosine of the zenith angles corresponding to the Gauss-Lobatto quadrature points
         @attribute WTMU: 1D array,
@@ -101,8 +103,10 @@ class Scatter_0:
         Scatter_0.write_xsc()
         Scatter_0.read_hgphase()
         Scatter_0.calc_hgphase()
+        Scatter_0.calc_phase()
         Scatter_0.calc_tau_dust()
         Scatter_0.calc_tau_rayleighj()
+        Scatter_0.calc_tau_rayleighv()
         Scatter_0.read_refind_file()
         Scatter_0.read_refind()
         Scatter_0.miescat()
@@ -140,6 +144,10 @@ class Scatter_0:
         self.G1 = None  #np.zeros(NWAVE,NDUST)
         self.G2 = None #np.zeros(NWAVE,NDUST)
         self.F = None #np.zeros(NWAVE,NDUST)
+
+        #Legendre polynomials phase function parameters
+        self.NLPOL = None #int
+        self.WLPOL = None #np.zeros(NWAVE,NLPOL,NDUST)
 
         #Refractive index of a given aerosol population
         self.NWAVER = None 
@@ -323,19 +331,131 @@ class Scatter_0:
         """
 
         if np.isscalar(Theta)==True:
-            phase = np.zeros([self.NWAVE,self.NDUST])
-            phase[:,:] = t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Theta/180.*np.pi) + self.G1**2.)**1.5
-        elif np.isscalar(Theta)==False:
-            ntheta = len(Theta)
-            phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
-            for i in range(ntheta):
-                t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Theta[i]/180.*np.pi) + self.G1**2.)**1.5
-                t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(Theta[i]/180.*np.pi) + self.G2**2.)**1.5
-                phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
+            ntheta = 1
+            Thetax = [Theta]
+        else:
+            Thetax = Theta
+
+        ntheta = len(Thetax)
+        phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
+        for i in range(ntheta):
+            t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Thetax[i]/180.*np.pi) + self.G1**2.)**1.5
+            t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(Thetax[i]/180.*np.pi) + self.G2**2.)**1.5
+            phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
 
         return phase
-        
-        
+
+    def interp_phase(self,Theta):
+        """
+        Interpolate the phase function at Theta angles fiven the phase function in the Scatter class
+
+        Input
+        ______
+
+        @param Theta: 1D array
+            Scattering angle (degrees)
+
+
+        Output
+        _______
+
+        @param phase(NWAVE,NTHETA,NDUST) : 3D array
+            Phase function interpolated at the correct Theta angles
+
+        """
+
+        from scipy.interpolate import interp1d
+
+        s = interp1d(self.THETA,self.PHASE,axis=1)
+        phase = s(Theta)
+
+        return phase
+
+    def calc_phase(self,Theta,Wave):
+        """
+        Calculate the phase function of each aerosol type at a given  scattering angle Theta and a given set of Wavelengths/Wavenumbers
+        If IMIE=0 in the Scatter class, then the phase function is calculated using the Henyey-Greenstein parameters.
+        If IMIE=1 in the Scatter class, then the phase function is interpolated from the values stored in the PHASE array
+
+        Input
+        ______
+
+        @param Theta: real or 1D array
+            Scattering angle (degrees)
+        @param Wave: 1D array
+            Wavelengths (um) or wavenumbers (cm-1) ; It must be the same units as given by the ISPACE
+
+        Outputs
+        ________
+
+        @param phase(NWAVE,NTHETA,NDUST) : 3D array
+            Phase function at each wavelength, angle and for each aerosol type
+
+        """
+
+        from scipy.interpolate import interp1d
+
+        nwave = len(Wave)
+
+        if np.isscalar(Theta)==True:
+            Thetax = [Theta]
+        else:
+            Thetax = Theta
+
+        ntheta = len(Thetax)
+
+        phase2 = np.zeros((nwave,ntheta,self.NDUST))
+
+        if self.IMIE==0:
+            
+            #Calculating the phase function at the wavelengths defined in the Scatter class
+            phase1 = self.calc_hgphase(Thetax)
+
+        elif self.IMIE==1:
+
+            #Interpolate the phase function to the Scattering angle at the wavelengths defined in the Scatter class
+            phase1 = self.interp_phase(Thetax)
+
+        elif self.IMIE==2:
+
+            #Calculating the phase function at the wavelengths defined in the Scatter class
+            #using the Legendre polynomials
+            phase1 = self.lpphase(Thetax)
+
+        else:
+            sys.exit('error :: IMIE value not valid in Scatter class')
+
+
+        #Interpolating the phase function to the wavelengths defined in Wave
+        s = interp1d(self.WAVE,phase1,axis=0)
+        phase = s(Wave)
+
+        return phase
+
+
+    def calc_phase_ray(self,Theta):
+        """
+        Calculate the phase function of Rayleigh scattering at a given scattering angle (Dipole scattering)
+
+        Input
+        ______
+
+        @param Theta: real or 1D array
+            Scattering angle (degrees)
+
+        Outputs
+        ________
+
+        @param phase(NTHETA) : 1D array
+            Phase function at each angle
+
+        """
+
+        phase = 0.75 * ( 1.0 + np.cos(Theta/180.*np.pi) * np.cos(Theta/180.*np.pi) )
+
+        return phase
+
+
     def read_phase(self,NDUST=None):
         """
         Read a file with the format of the PHASE*.DAT using the format required by NEMESIS
@@ -365,9 +485,9 @@ class Scatter_0:
             f.close()
             #Getting the spectral unit
             if s[0]=='wavenumber':
-                self.ISCAT = 0
+                self.ISPACE = 0
             elif s[1]=='wavelength':
-                self.ISCAT = 1
+                self.ISPACE = 1
 
             #Calculating the wave array
             vmin = float(s[1])
@@ -480,7 +600,61 @@ class Scatter_0:
         f.close()
 
 
+    def read_lpphase(self,NDUST=None):
+        """
+        Read the weights of the Legendre polynomials used to model the phase function (stored in the lpphaseN.dat files)
+        These files are assumed to be pickle files with the correct format
+        """
 
+        import pickle
+
+        if NDUST!=None:
+            self.NDUST = NDUST
+
+        #Reading the first file to read dimensions of the data
+        filen = open('lpphase1.dat','rb')
+        wave = pickle.load(filen)
+        wlegpol = pickle.load(filen)
+
+        self.NWAVE = len(wave)
+        self.NLPOL = wlegpol.shape[1]
+
+        wlpol = np.zeros((self.NWAVE,self.NLPOL,self.NDUST))
+        for IDUST in range(self.NDUST):
+            filen = open('lpphase'+str(IDUST+1)+'.dat','rb')
+            wave = pickle.load(filen)
+            wlegpol = pickle.load(filen)            
+            wlpol[:,:,IDUST] = wlegpol[:,:]
+
+        self.WAVE = wave
+        self.WLPOL = wlpol
+
+    def calc_lpphase(self,Theta):
+        """
+        Calculate the phase function at Theta angles given the weights of the Legendre polynomials
+        @param Theta: 1D array or real scalar
+            Scattering angle (degrees)
+        """
+
+        from scipy.special import legendre
+
+        if np.isscalar(Theta)==True:
+            ntheta = 1
+            Thetax = [Theta]
+        else:
+            Thetax = Theta
+
+        ntheta = len(Thetax)
+        phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
+
+        for IDUST in range(self.NDUST):
+            for IL in range(self.NLPOL):
+                leg = legendre(IL)
+                P_n = leg(np.cos(Thetax/180.*np.pi))
+                for IWAVE in range(self.NWAVE):
+                    phase[IWAVE,:,IDUST] = phase[IWAVE,:,IDUST] + P_n[:] * self.WLPOL[IWAVE,IL,IDUST]
+        
+        return phase
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
@@ -602,6 +776,123 @@ class Scatter_0:
             plt.show()
 
         return tau_ray,dtau_ray
+
+    def calc_tau_rayleighv(self,ISPACE,WAVEC,Layer,MakePlot=False):
+        """
+        Function to calculate the Rayleigh scattering opacity in each atmospheric layer,
+        for CO2-domunated atmospheres using data from Allen (1976) Astrophysical Quantities
+
+        @ISPACE: int
+            Flag indicating the spectral units (0) Wavenumber in cm-1 (1) Wavelegnth (um)
+        @param WAVEC: int
+            Wavenumber (cm-1) or wavelength array (um)
+        @param Layer: class
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        Outputs
+        ________
+
+        TAURAY(NWAVE,NLAY) :: Rayleigh scattering opacity in each layer
+        dTAURAY(NWAVE,NLAY) :: Rate of change of Rayleigh scattering opacity in each layer
+
+        """
+
+        if ISPACE==0:
+            LAMBDA = 1./WAVEC * 1.0e-2 * 1.0e6  #Wavelength in microns
+            x = 1.0/(LAMBDA*1.0e6)
+        else:
+            LAMBDA = WAVEC #Wavelength in microns
+
+        C = 8.8e-28   #provided by B. Bezard
+
+        #Calculating the scattering cross sections in m2
+        k_rayleighv = C/LAMBDA**4. * 1.0e-4 #(NWAVE)
+        
+
+        #Calculating the Rayleigh opacities in each layer
+        tau_ray = np.zeros((len(WAVEC),Layer.NLAY))
+        dtau_ray = np.zeros((len(WAVEC),Layer.NLAY))
+        for ilay in range(Layer.NLAY):
+            tau_ray[:,ilay] = k_rayleighv[:] * Layer.TOTAM[ilay] #(NWAVE,NLAY) 
+            dtau_ray[:,ilay] = k_rayleighv[:] #dTAURAY/dTOTAM (m2)
+
+        if MakePlot==True:
+
+            fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+            for i in range(Layer.NLAY):
+                ax1.plot(WAVEC,tau_ray[:,i])
+            ax1.grid()
+            plt.tight_layout()
+            plt.show()
+
+        return tau_ray,dtau_ray
+
+    def calc_tau_rayleighv2(self,ISPACE,WAVEC,Layer,MakePlot=False):
+        """
+        Function to calculate the Rayleigh scattering opacity in each atmospheric layer,
+        for CO2-dominated atmospheres using Ityaksov, Linnartz, Ubachs 2008, 
+        Chemical Physics Letters, 462, 31-34
+
+        @ISPACE: int
+            Flag indicating the spectral units (0) Wavenumber in cm-1 (1) Wavelegnth (um)
+        @param WAVEC: int
+            Wavenumber (cm-1) or wavelength array (um)
+        @param Layer: class
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        Outputs
+        ________
+
+        TAURAY(NWAVE,NLAY) :: Rayleigh scattering opacity in each layer
+        dTAURAY(NWAVE,NLAY) :: Rate of change of Rayleigh scattering opacity in each layer
+
+        """
+
+        if ISPACE==0:
+            LAMBDA = 1./WAVEC * 1.0e-2 * 1.0e6  #Wavelength in microns
+            x = 1.0/(LAMBDA*1.0e6)
+        else:
+            LAMBDA = WAVEC #Wavelength in microns
+
+        #dens = 1.01325d6 / (288.15 * 1.3803e-16)
+        dens = 2.5475605e+19
+
+        #wave in microns -> cm
+        lam = LAMBDA*1.0e-4
+
+        #King factor (taken from Ityaksov et al.)
+        f_king = 1.14 + (25.3e-12)/(lam*lam)
+
+        nu2 = 1./lam/lam
+        term1 = 5799.3 / (16.618e9-nu2) + 120.05/(7.9609e9-nu2) + 5.3334 / (5.6306e9-nu2) + 4.3244 / (4.6020e9-nu2) + 1.218e-5 / (5.84745e6 - nu2)
+        
+        #refractive index
+        n = 1.0 + 1.1427e3*term1
+
+        factor1 = ( (n*n-1)/(n*n+2.0) )**2.
+
+        k_rayleighv = (24.*np.pi**3./lam**4./dens**2.) * factor1 * f_king  #cm2
+        k_rayleighv = k_rayleighv * 1.0e-4
+
+        #Calculating the Rayleigh opacities in each layer
+        tau_ray = np.zeros((len(WAVEC),Layer.NLAY))
+        dtau_ray = np.zeros((len(WAVEC),Layer.NLAY))
+        for ilay in range(Layer.NLAY):
+            tau_ray[:,ilay] = k_rayleighv[:] * Layer.TOTAM[ilay] #(NWAVE,NLAY) 
+            dtau_ray[:,ilay] = k_rayleighv[:] #dTAURAY/dTOTAM (m2)
+
+        if MakePlot==True:
+
+            fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+            for i in range(Layer.NLAY):
+                ax1.plot(WAVEC,tau_ray[:,i])
+            ax1.grid()
+            plt.tight_layout()
+            plt.show()
+
+        return tau_ray,dtau_ray
+
+
 
     def read_refind(self,aeroID):
         """
