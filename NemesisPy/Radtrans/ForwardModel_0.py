@@ -1125,6 +1125,21 @@ class ForwardModel_0:
                 ipar = -1
                 ix = ix + self.Variables.NXVAR[ivar]
 
+            elif self.Variables.VARIDENT[ivar,0]==2310:
+#           Model 2310. Continuum addition to transmission spectra using a varying scaling factor (given a polynomial of degree N)
+#                       in several spectral windows
+#           ***************************************************************
+
+                #The computed transmission spectra is multiplied by R = R0 * POL
+                #Where POL is given by POL = A0 + A1*(WAVE-WAVE0) + A2*(WAVE-WAVE0)**2. + ...
+
+                #The effect of this model takes place after the computation of the spectra in CIRSrad!
+                if int(self.Variables.VARPARAM[ivar,0])!=self.MeasurementX.NGEOM:
+                    sys.exit('error using Model 2310 :: The number of levels for the addition of continuum must be the same as NGEOM')
+
+                ipar = -1
+                ix = ix + self.Variables.NXVAR[ivar]
+
             elif self.Variables.VARIDENT[ivar,0]==232:
 #           Model 232. Continuum addition to transmission spectra using the angstrom coefficient
 #           ***************************************************************
@@ -1319,6 +1334,57 @@ class ForwardModel_0:
                         #Defining the analytical gradients for this parameterisation
                         for j in range(NDEGREE+1):
                             dSPECMOD[:,i,ix+j] = spec[:] * (self.Measurement.WAVE[:]-WAVE0)**j
+
+                        ix = ix + (NDEGREE+1)
+
+            elif self.Variables.VARIDENT[ivar,0]==2310:
+#           Model 2310. Scaling of spectra using a varying scaling factor (following a polynomial of degree N)
+#                       in multiple spectral windows
+#           ****************************************************************************************************
+
+                NGEOM = int(self.Variables.VARPARAM[ivar,0])
+                NDEGREE = int(self.Variables.VARPARAM[ivar,1])
+                NWINDOWS = int(self.Variables.VARPARAM[ivar,2])
+
+                lowin = np.zeros(NWINDOWS)
+                hiwin = np.zeros(NWINDOWS)
+                i0 = 0
+                for IWIN in range(NWINDOWS):
+                    lowin[IWIN] = float(self.Variables.VARPARAM[ivar,3+i0])
+                    i0 = i0 + 1
+                    hiwin[IWIN] = float(self.Variables.VARPARAM[ivar,3+i0])
+                    i0 = i0 + 1
+
+                for IWIN in range(NWINDOWS):
+
+                    ivin = np.where( (self.MeasurementX.WAVE>=lowin[IWIN]) & (self.MeasurementX.WAVE<hiwin[IWIN]) )[0]
+                    nvin = len(ivin)
+
+                    for i in range(self.MeasurementX.NGEOM):
+
+                        #Getting the coefficients
+                        T = np.zeros(NDEGREE+1)
+                        for j in range(NDEGREE+1):
+                            T[j] = self.Variables.XN[ix+j]
+
+                        WAVE0 = self.MeasurementX.WAVE[ivin].min()
+                        spec = np.zeros(nvin)
+                        spec[:] = SPECMOD[ivin,i]
+
+                        #Changing the state vector based on this parameterisation
+                        POL = np.zeros(nvin)
+                        for j in range(NDEGREE+1):
+                            POL[:] = POL[:] + T[j]*(self.MeasurementX.WAVE[ivin]-WAVE0)**j
+
+                        SPECMOD[ivin,i] = SPECMOD[ivin,i] * POL[:]
+
+                        #Changing the rest of the gradients based on the impact of this parameterisation
+                        for ixn in range(self.Variables.NX):
+                            dSPECMOD[ivin,i,ixn] = dSPECMOD[ivin,i,ixn] * POL[:]
+
+                        #Defining the analytical gradients for this parameterisation
+                        for j in range(NDEGREE+1):
+                            dSPECMOD[ivin,i,ix+j] = spec[:] * (self.Measurement.WAVE[ivin]-WAVE0)**j
 
                         ix = ix + (NDEGREE+1)
 

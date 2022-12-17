@@ -149,10 +149,12 @@ class Variables_0:
                 imod = self.VARIDENT[2]
                 ipar = self.VARPARAM[0]
                 ipar2 = self.VARPARAM[1]
+                ipar3 = self.VARPARAM[2]
             else:
                 imod = self.VARIDENT[0,2]
                 ipar = self.VARPARAM[0,0]
                 ipar2 = self.VARPARAM[0,1]
+                ipar3 = self.VARPARAM[0,2]
 
         for i in range(self.NVAR):
 
@@ -160,6 +162,7 @@ class Variables_0:
                 imod = self.VARIDENT[i,2]
                 ipar = self.VARPARAM[i,0]
                 ipar2 = self.VARPARAM[i,1]
+                ipar3 = self.VARPARAM[i,3]
 
             if imod == -1:
                 nxvar[i] = NPRO
@@ -233,6 +236,8 @@ class Variables_0:
                 nxvar[i] = 7*int(ipar)
             elif imod == 231:
                 nxvar[i] = int(ipar)*int(ipar2+1)
+            elif imod == 2310:
+                nxvar[i] = int(ipar)*int(ipar2+1)*int(ipar3)
             elif imod == 232:
                 nxvar[i] = 2*int(ipar)
             elif imod == 233:
@@ -923,6 +928,45 @@ class Variables_0:
                             sx[ix,ix] = (err0)**2.
                             inum[ix] = 0
                             ix = ix + 1
+
+                elif varident[i,2] == 2310:
+#               ******** Continuum addition to transmission spectra using a varying scaling factor (following polynomial of degree N)
+#                        in several spectral windows 
+
+                    #The computed spectra is multiplied by R = R0 * (T0 + POL)
+                    #Where the polynomial function POL depends on the wavelength given by:
+                    # POL = A0 + A1*(WAVE-WAVE0) + A2*(WAVE-WAVE0)**2. + ...
+
+                    s = f.readline().split()
+                    f1 = open(s[0],'r')
+                    tmp = np.fromfile(f1,sep=' ',count=3,dtype='int')
+                    nlevel = int(tmp[0])
+                    ndegree = int(tmp[1])
+                    nwindows = int(tmp[2])
+                    varparam[i,0] = nlevel
+                    varparam[i,1] = ndegree
+                    varparam[i,2] = nwindows
+
+                    i0 = 0
+                    #Defining the boundaries of the spectral windows
+                    for iwin in range(nwindows):
+                        tmp = f1.readline().split()
+                        varparam[i,3+i0] = float(tmp[0])
+                        i0 = i0 + 1
+                        varparam[i,3+i0] = float(tmp[1])
+                        i0 = i0 + 1
+
+                    #Reading the coefficients for the polynomial in each geometry and spectral window
+                    for iwin in range(nwindows):
+                        for ilevel in range(nlevel):
+                            tmp = np.fromfile(f1,sep=' ',count=2*(ndegree+1),dtype='float')
+                            for ic in range(ndegree+1):
+                                r0 = float(tmp[2*ic])
+                                err0 = float(tmp[2*ic+1])
+                                x0[ix] = r0
+                                sx[ix,ix] = (err0)**2.
+                                inum[ix] = 0
+                                ix = ix + 1
 
                 elif varident[i,2] == 232:
 #               ******** Continuum addition to transmission spectra using the Angstrom coefficient
