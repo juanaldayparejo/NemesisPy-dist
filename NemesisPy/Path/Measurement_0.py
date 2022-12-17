@@ -720,6 +720,51 @@ class Measurement_0:
 
         fspx.close()
 
+    def select_TANHE_SO(self,TANHE_min,TANHE_max):
+    
+        """
+        Based on the information of the Measurement class, update it based on selected tangent heights
+        (Applicable to Solar Occultation measurements)
+        """
+
+        #Selecting the tangent heights
+        iTANHE = np.where( (self.TANHE[:,0]>=TANHE_min) & (self.TANHE[:,0]<=TANHE_max) )[0]
+
+        #Defining arrays
+        ngeom = len(iTANHE)
+        nav = 1 #it needs to be generalized to read more than one NAV per observation geometry
+        nconv = np.zeros([ngeom],dtype='int')
+        flat = np.zeros([ngeom,nav])
+        flon = np.zeros([ngeom,nav])
+        tanhe = np.zeros([ngeom,nav])
+        wgeom = np.zeros([ngeom,nav])
+        emiss_ang = np.zeros((ngeom,nav))
+        wavetmp = np.zeros([self.NCONV.max(),ngeom])
+        meastmp = np.zeros([self.NCONV.max(),ngeom])
+        errmeastmp = np.zeros([self.NCONV.max(),ngeom])
+
+        #Filling arrays
+        nconv[:] = self.NCONV[iTANHE]
+        flat[:,:] = self.FLAT[iTANHE,:]
+        flon[:,:] = self.FLON[iTANHE,:]
+        tanhe[:,:] = self.TANHE[iTANHE,:]
+        wgeom[:,:] = self.WGEOM[iTANHE,:]
+        emiss_ang[:,:] = self.EMISS_ANG[iTANHE,:]
+        wavetmp[:,:] = self.VCONV[:,iTANHE]
+        meastmp[:,:] = self.MEAS[:,iTANHE]
+        errmeastmp[:,:] = self.ERRMEAS[:,iTANHE]
+
+        #Updating class
+        self.NGEOM = ngeom
+        self.NCONV = nconv
+        self.edit_FLAT(flat)
+        self.edit_FLON(flon)
+        self.edit_TANHE(tanhe)
+        self.edit_WGEOM(wgeom)
+        self.edit_EMISS_ANG(emiss_ang)
+        self.edit_VCONV(wavetmp)
+        self.edit_MEAS(meastmp)
+        self.edit_ERRMEAS(errmeastmp)
 
     def wavesetc(self,Spectroscopy,IGEOM=0):
         """
