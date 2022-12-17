@@ -94,9 +94,9 @@ class Atmosphere_0:
             ISO = np.array(ISO)
         assert len(ID) == NVMR, "len(ID) should be equal to NVMR"
         for i in range(NVMR):
-            assert type(ID[i]) == np.int64,\
+            assert type(ID[i]) == np.int32,\
                 'RADTRANS gas IDs should be integers'
-            assert type(ISO[i]) == np.int64,\
+            assert type(ISO[i]) == np.int32,\
                 'RADTRANS isotope IDs should be integers'
         assert len(ID) == len(ISO),\
             "len(ID) should be equal to len(ISO)"
