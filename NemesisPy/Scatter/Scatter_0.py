@@ -376,6 +376,7 @@ class Scatter_0:
         Calculate the phase function of each aerosol type at a given  scattering angle Theta and a given set of Wavelengths/Wavenumbers
         If IMIE=0 in the Scatter class, then the phase function is calculated using the Henyey-Greenstein parameters.
         If IMIE=1 in the Scatter class, then the phase function is interpolated from the values stored in the PHASE array
+        If IMIE=2 in the Scatter class, then the phase function is calculated using Legendre Polynomials
 
         Input
         ______
