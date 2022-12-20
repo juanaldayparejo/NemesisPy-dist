@@ -135,6 +135,10 @@ Variables.read_apr(runname,Atm.NP)
 Variables.XN = copy(Variables.XA)
 Variables.SX = copy(Variables.SA)
 
+#If scattering is required, all elements in the jacobian
+#are calculated numerically
+if Scatter.ISCAT>0:
+    Variables.NUM[:] = 1
 
 
 ######################################################

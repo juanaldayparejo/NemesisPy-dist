@@ -1266,8 +1266,10 @@ def read_set(runname,Layer=None,Surface=None,Stellar=None,Scatter=None):
         Scatter.NMU = nmu
         Scatter.NF = nf
         Scatter.NPHI = nphi
+        Scatter.calc_GAUSS_LOBATTO()
     else:
         Scatter.NMU = nmu
+        Scatter.calc_GAUSS_LOBATTO()
         Scatter.NF = nf
         Scatter.NPHI = nphi
 

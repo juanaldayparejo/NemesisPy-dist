@@ -760,7 +760,7 @@ class ForwardModel_0:
 
         if len(ian1)>0:
 
-            print('Calculating analytical part of the Jacobian :: Calling nemesisSOfmg ')
+            print('Calculating analytical part of the Jacobian :: Calling nemesisfmg ')
 
             if nemesisSO==True:
                 SPECMOD,dSPECMOD = self.nemesisSOfmg()
@@ -2276,8 +2276,11 @@ class ForwardModel_0:
 
         if Scatter.IRAY==0:
             TAURAY = np.zeros((Measurement.NWAVE,Layer.NLAY))
-        elif Scatter.IRAY==1:
+        elif Scatter.IRAY==1:  #Gas giant atmosphere
             TAURAY,dTAURAY = Scatter.calc_tau_rayleighj(Measurement.ISPACE,
+                Measurement.WAVE,Layer) #(NWAVE,NLAY)
+        elif Scatter.IRAY==2:  #CO2-dominated atmosphere
+            TAURAY,dTAURAY = Scatter.calc_tau_rayleighv2(Measurement.ISPACE,
                 Measurement.WAVE,Layer) #(NWAVE,NLAY)
         else:
             sys.exit('error in CIRSrad :: IRAY type has not been implemented yet')
@@ -2497,66 +2500,72 @@ class ForwardModel_0:
 
         elif IMODM==15: #Multiple scattering calculation
 
-            #Calculating the thermal emission of each atmospheric layer
-            bb = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[0:Path.NLAYIN[ipath],ipath])  #(NWAVE,NLAYIN)
+            #Calculating spectrum
+            for ipath in range(Path.NPATH):
+
+                #Calculating the thermal emission of each atmospheric layer
+                bb = np.zeros((Measurement.NWAVE,Path.NLAYIN[ipath]))
+                for ilay in range(Path.NLAYIN[ipath]):
+                    bb[:,ilay] = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[ilay,ipath])  #(NWAVE,NLAYIN)
 
 
-            #Calculating the surface properties at each wavelength (emissivity, albedo and thermal emission)
-            radground = np.zeros(Measurement.NWAVE)
-            galb = np.zeros(Measurement.NWAVE)
-            if Surface.TSURF<=0.0:  #No surface
-                radground = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[Path.NLAYIN[ipath]-1,ipath])
-            else:
-                #Calculating the blackbody at given temperature
-                bbsurf = planck(Measurement.ISPACE,Measurement.WAVE,Surface.TSURF)
-
-                #Calculating the emissivity
-                f = interpolate.interp1d(Surface.VEM,Surface.EMISSIVITY)
-                emissivity = f(Measurement.WAVE)
-
-                #Calculating thermal emission from surface
-                radground = bbsurf * emissivity
-
-                #Calculating ground albedo
-                if Surface.GALB<0.0:
-                    galb[:] = 1.0 - emissivity[:]
+                #Calculating the surface properties at each wavelength (emissivity, albedo and thermal emission)
+                radground = np.zeros(Measurement.NWAVE)
+                galb = np.zeros(Measurement.NWAVE)
+                if Surface.TSURF<=0.0:  #No surface
+                    radground = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[Path.NLAYIN[ipath]-1,ipath])
                 else:
-                    galb[:] = Surface.GALB
-            
+                    #Calculating the blackbody at given temperature
+                    bbsurf = planck(Measurement.ISPACE,Measurement.WAVE,Surface.TSURF)
 
-            #Calculating the single scattering albedo of each layer
-            # and the contribution from each aerosol species to the total 
-            omega = np.zeros((Measurement.NWAVE,Path.NLAYIN[ipath]))  #Single scattering albedo
-            eps = np.ones((Measurement.NWAVE,Path.NLAYIN[ipath]))
-            lfrac = np.zeros((Measurement.NWAVE,Path.NLAYIN[ipath]))  #Fraction of scattering of each aerosol type to the total
-            for ilay in range(Path.NLAYIN[ipath]):
-                iiscat = np.where( (TAUSCAT[:,Path.LAYINC[ilay,ipath]]+TAURAY[:,Path.LAYINC[ilay,ipath]])>0.0 )[0]
+                    #Calculating the emissivity
+                    f = interpolate.interp1d(Surface.VEM,Surface.EMISSIVITY)
+                    emissivity = f(Measurement.WAVE)
+
+                    #Calculating thermal emission from surface
+                    radground = bbsurf * emissivity
+
+                    #Calculating ground albedo
+                    if Surface.GALB<0.0:
+                        galb[:] = 1.0 - emissivity[:]
+                    else:
+                        galb[:] = Surface.GALB
                 
-                omega[iiscat,ilay] = (TAUSCAT[iiscat,Path.LAYINC[ilay,ipath]]+TAURAY[iiscat,Path.LAYINC[ilay,ipath]])/(TAUTOT[iiscat,Path.LAYINC[ilay,ipath]])
-                lfrac[iiscat,ilay] = TAUCLSCAT[iiscat,Path.LAYINC[ilay,ipath],:] / TAUSCAT[iiscat,Path.LAYINC[ilay,ipath]]
-                eps[iiscat,ilay] = 1.0 - omega[iiscat,ilay]
+
+                #Calculating the single scattering albedo of each layer
+                # and the contribution from each aerosol species to the total 
+                omega = np.zeros((Measurement.NWAVE,Spectroscopy.NG,Path.NLAYIN[ipath]))  #Single scattering albedo
+                eps = np.ones((Measurement.NWAVE,Spectroscopy.NG,Path.NLAYIN[ipath]))
+                lfrac = np.zeros((Measurement.NWAVE,Path.NLAYIN[ipath],Scatter.NDUST))  #Fraction of scattering of each aerosol type to the total
+                for ilay in range(Path.NLAYIN[ipath]):
+                    iiscat = np.where( (TAUSCAT[:,Path.LAYINC[ilay,ipath]]+TAURAY[:,Path.LAYINC[ilay,ipath]])>0.0 )[0]
+                    omega[iiscat,:,ilay] = np.transpose((TAUSCAT[iiscat,Path.LAYINC[ilay,ipath]]+TAURAY[iiscat,Path.LAYINC[ilay,ipath]])/(np.transpose(TAUTOT[iiscat,:,Path.LAYINC[ilay,ipath]])))
+                    lfrac[iiscat,ilay,:] = np.transpose(np.transpose(TAUCLSCAT[iiscat,Path.LAYINC[ilay,ipath],:]) / TAUSCAT[iiscat,Path.LAYINC[ilay,ipath]])
+                    eps[iiscat,:,ilay] = 1.0 - omega[iiscat,:,ilay]
 
 
-            #Calculating the solar flux at the top of the atmosphere
-            solar = np.zeros(Measurement.NWAVE)
-            if Stellar.SOLEXIST==True:
-                Stellar.calc_solar_flux()
-                solar[:] = Stellar.SOLFLUX   #W cm-2 (cm-1)-1 or W cm-2 um-1
+                #Calculating the solar flux at the top of the atmosphere
+                solar = np.zeros(Measurement.NWAVE)
+                if Stellar.SOLEXIST==True:
+                    Stellar.calc_solar_flux()
+                    f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLFLUX)
+                    solar[:] = f(Measurement.WAVE)  #W cm-2 (cm-1)-1 or W cm-2 um-1
 
 
-            #Defining the units of the output spectrum
-            xfac = 1.
-            if Measurement.IFORM==1:
-                xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
-                f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLSPEC)
-                solpspec = f(Measurement.WAVE)  #Stellar power spectrum (W (cm-1)-1 or W um-1)
-                xfac = xfac / solpspec
-            elif Measurement.IFORM==3:
-                xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
+
+                #Defining the units of the output spectrum
+                xfac = 1.
+                if Measurement.IFORM==1:
+                    xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
+                    f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLSPEC)
+                    solpspec = f(Measurement.WAVE)  #Stellar power spectrum (W (cm-1)-1 or W um-1)
+                    xfac = xfac / solpspec
+                elif Measurement.IFORM==3:
+                    xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
 
 
-            #Calculating the radiance
-            SPECOUT = scloud11wave(sol_ang,emiss_ang,azi_ang)
+                #Calculating the radiance
+                SPECOUT = self.scloud11wave(Scatter,Surface,Measurement.WAVE,Layer.NLAY)
 
             '''
       		  	call scloud11wave(rad1, sol_ang, emiss_ang,
@@ -2686,10 +2695,14 @@ class ForwardModel_0:
             dTAURAY = np.zeros([Measurement.NWAVE,Layer.NLAY])
         elif Scatter.IRAY==1:
             TAURAY,dTAURAY = Scatter.calc_tau_rayleighj(Measurement.ISPACE,Measurement.WAVE,Layer) #(NWAVE,NLAY)
-            for i in range(Atmosphere.NVMR):
-                dTAUCON[:,i,:] = dTAUCON[:,i,:] + dTAURAY[:,:] #dTAURAY/dAMOUNT (m2)
+        elif Scatter.IRAY==2:  #CO2-dominated atmosphere
+            TAURAY,dTAURAY = Scatter.calc_tau_rayleighv2(Measurement.ISPACE,
+                Measurement.WAVE,Layer) #(NWAVE,NLAY)
         else:
             sys.exit('error in CIRSrad :: IRAY type has not been implemented yet')
+ 
+        for i in range(Atmosphere.NVMR):
+            dTAUCON[:,i,:] = dTAUCON[:,i,:] + dTAURAY[:,:] #dTAURAY/dAMOUNT (m2)
 
         #Calculating the vertical opacity by aerosols from the extinction coefficient and single scattering albedo
         #################################################################################################################
@@ -3283,7 +3296,7 @@ class ForwardModel_0:
     ###############################################################################################
 
 
-    def scloud11wave(self,Scatter,Surface,WAVE):
+    def scloud11wave(self,Scatter,Surface,vwave,nlay):
         """
 
         Compute emergent intensity at top of multilayer cloud using the
@@ -3309,6 +3322,9 @@ class ForwardModel_0:
 
         Scatter :: Python class defining the scattering setup
         Surface :: Python class defining the surface setup
+        wave(nwave) :: Calculation wavenumbers/wavelengths
+        nlay :: Number of layers in atmosphere
+
 
         Outputs
         ________
@@ -3320,13 +3336,17 @@ class ForwardModel_0:
         #INITIALISING VARIABLES AND PERFORMING INITIAL CALCULATIONS
         ##############################################################################
 
-        NWAVE = len(WAVE)
+        nwave = len(vwave)
+
+        print(Scatter.NMU)
+        print(Scatter.MU)
+        print(Scatter.WTMU)
 
         #Find correction for any quadrature errors
         xfac = np.sum(Scatter.MU*Scatter.WTMU)
         xfac = 0.5/xfac
 
-        LTOT = NLAY     # Set internal number of layers
+        LTOT = nlay     # Set internal number of layers
         LT1 = LTOT
 
         #In case of surface reflection, add extra dummy layer at bottom,
@@ -3337,20 +3357,21 @@ class ForwardModel_0:
             LTOT = LTOT + 1
 
         #Reset the order of angles
-        Scatter.MU = Scatter.MU.reverse()
-        Scatter.WTMU = Scatter.WTMU.reverse()
+        Scatter.MU = Scatter.MU[::-1]
+        Scatter.WTMU = Scatter.WTMU[::-1]
+
+        print(Scatter.MU)
+        print(Scatter.WTMU)
 
         #Setting up constant matrices
         E = np.identity(Scatter.NMU)
         MM = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),Scatter.MU)
-        MMINV = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),1./Scatter.MU)
+        MMINV = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),1.0/Scatter.MU)
         CC = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),Scatter.WTMU)
-        CCINV = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),1./Scatter.WTMU)
+        CCINV = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),1.0/Scatter.WTMU)
 
         #Calculating the phase matrices for each aerosol population and Rayleigh scattering
-        phase = np.zeros((NWAVE,Scatter.NMU,Scatter.NDUST+1))
-        
-        phase[:,:,0:Scatter.NDUST] = Scatter.calc_phase(Scatter.MU)
+        PPLPL,PPLMI = self.calc_phase_matrix(Scatter,vwave)
 
 
 ###############################################################################################

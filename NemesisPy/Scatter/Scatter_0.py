@@ -185,8 +185,8 @@ class Scatter_0:
         nzen = 2*self.NMU    #The gauss_lobatto function calculates both positive and negative angles, and Nemesis just uses the posiive
         ndigits = 12
         x,w = gauss_lobatto(nzen,ndigits)
-        self.MU = x[self.NMU:nzen]
-        self.WTMU = w[self.NMU:nzen]
+        self.MU = np.array(x[self.NMU:nzen])
+        self.WTMU = np.array(w[self.NMU:nzen])
 
     def read_xsc(self,runname,MakePlot=False):
         """
