@@ -2270,6 +2270,7 @@ class ForwardModel_0:
             print('CIRSrad :: CIA not included in calculations')
         else:
             TAUCIA,dTAUCIA,IABSORB = self.calc_tau_cia() #(NWAVE,NLAY);(NWAVE,NLAY,7)
+            Layer.TAUCIA = TAUCIA
 
         #Calculating the vertical opacity by Rayleigh scattering
         #################################################################################################################
@@ -2285,11 +2286,13 @@ class ForwardModel_0:
         else:
             sys.exit('error in CIRSrad :: IRAY type has not been implemented yet')
 
+        Layer.TAURAY = TAURAY
+
         #Calculating the vertical opacity by aerosols from the extinction coefficient and single scattering albedo
         #################################################################################################################
 
-        #Obtaining the phase function of each aerosol at the scattering angle
-        if Scatter.ISCAT>0:
+        #Obtaining the phase function of each aerosol at the scattering angle if single scattering
+        if Scatter.ISCAT==3:
             sol_ang = Scatter.SOL_ANG
             emiss_ang = Scatter.EMISS_ANG
             azi_ang = Scatter.AZI_ANG
@@ -2308,6 +2311,10 @@ class ForwardModel_0:
         #Adding the opacity by the different dust populations
         TAUDUST = np.sum(TAUDUST1,2)  #(NWAVE,NLAYER) Absorption + Scattering
         TAUSCAT = np.sum(TAUCLSCAT,2)  #(NWAVE,NLAYER) Scattering
+
+        Layer.TAUDUST = TAUDUST
+        Layer.TAUSCAT = TAUSCAT
+        Layer.TAUCLSCAT = TAUCLSCAT
 
         del TAUDUST1
 
@@ -2373,6 +2380,7 @@ class ForwardModel_0:
         else:
             sys.exit('error in CIRSrad :: ILBL must be either 0 or 2')
 
+        Layer.TAUGAS = TAUGAS
 
         #Combining the different kinds of opacity in each layer
         ########################################################################################################
@@ -2381,11 +2389,7 @@ class ForwardModel_0:
         for ig in range(Spectroscopy.NG):
             TAUTOT[:,ig,:] = TAUGAS[:,ig,:] + TAUCIA[:,:] + TAUDUST[:,:] + TAURAY[:,:]
 
-        #Calculating the line-of-sight opacities
-        #################################################################################################################
-
-        TAUTOT_LAYINC = TAUTOT[:,:,Path.LAYINC[:,:]] * Path.SCALE[:,:]  #(NWAVE,NG,NLAYIN,NPATH)
-
+        Layer.TAUTOT = TAUTOT
 
         #Step through the different number of paths and calculate output spectrum
         ############################################################################
@@ -2419,6 +2423,9 @@ class ForwardModel_0:
 
         if IMODM==0:
 
+            #Calculating the line-of-sight opacities
+            TAUTOT_LAYINC = TAUTOT[:,:,Path.LAYINC[:,:]] * Path.SCALE[:,:]  #(NWAVE,NG,NLAYIN,NPATH)
+
             #Calculating the total opacity over the path
             TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
 
@@ -2438,6 +2445,9 @@ class ForwardModel_0:
 
         elif IMODM==1:
 
+            #Calculating the line-of-sight opacities
+            TAUTOT_LAYINC = TAUTOT[:,:,Path.LAYINC[:,:]] * Path.SCALE[:,:]  #(NWAVE,NG,NLAYIN,NPATH)
+
             #Calculating the total opacity over the path
             TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
 
@@ -2445,6 +2455,9 @@ class ForwardModel_0:
             SPECOUT = 1.0 - np.exp(-(TAUTOT_PATH)) #(NWAVE,NG,NPATH)
 
         elif IMODM==3: #Thermal emission from planet
+
+            #Calculating the line-of-sight opacities
+            TAUTOT_LAYINC = TAUTOT[:,:,Path.LAYINC[:,:]] * Path.SCALE[:,:]  #(NWAVE,NG,NLAYIN,NPATH)
 
             SPECOUT = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Path.NPATH])
 
@@ -2500,49 +2513,11 @@ class ForwardModel_0:
 
         elif IMODM==15: #Multiple scattering calculation
 
+            print('CIRSrad :: Performing multiple scattering calculation')
+
             #Calculating spectrum
+            SPECOUT = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Path.NPATH])
             for ipath in range(Path.NPATH):
-
-                #Calculating the thermal emission of each atmospheric layer
-                bb = np.zeros((Measurement.NWAVE,Path.NLAYIN[ipath]))
-                for ilay in range(Path.NLAYIN[ipath]):
-                    bb[:,ilay] = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[ilay,ipath])  #(NWAVE,NLAYIN)
-
-
-                #Calculating the surface properties at each wavelength (emissivity, albedo and thermal emission)
-                radground = np.zeros(Measurement.NWAVE)
-                galb = np.zeros(Measurement.NWAVE)
-                if Surface.TSURF<=0.0:  #No surface
-                    radground = planck(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[Path.NLAYIN[ipath]-1,ipath])
-                else:
-                    #Calculating the blackbody at given temperature
-                    bbsurf = planck(Measurement.ISPACE,Measurement.WAVE,Surface.TSURF)
-
-                    #Calculating the emissivity
-                    f = interpolate.interp1d(Surface.VEM,Surface.EMISSIVITY)
-                    emissivity = f(Measurement.WAVE)
-
-                    #Calculating thermal emission from surface
-                    radground = bbsurf * emissivity
-
-                    #Calculating ground albedo
-                    if Surface.GALB<0.0:
-                        galb[:] = 1.0 - emissivity[:]
-                    else:
-                        galb[:] = Surface.GALB
-                
-
-                #Calculating the single scattering albedo of each layer
-                # and the contribution from each aerosol species to the total 
-                omega = np.zeros((Measurement.NWAVE,Spectroscopy.NG,Path.NLAYIN[ipath]))  #Single scattering albedo
-                eps = np.ones((Measurement.NWAVE,Spectroscopy.NG,Path.NLAYIN[ipath]))
-                lfrac = np.zeros((Measurement.NWAVE,Path.NLAYIN[ipath],Scatter.NDUST))  #Fraction of scattering of each aerosol type to the total
-                for ilay in range(Path.NLAYIN[ipath]):
-                    iiscat = np.where( (TAUSCAT[:,Path.LAYINC[ilay,ipath]]+TAURAY[:,Path.LAYINC[ilay,ipath]])>0.0 )[0]
-                    omega[iiscat,:,ilay] = np.transpose((TAUSCAT[iiscat,Path.LAYINC[ilay,ipath]]+TAURAY[iiscat,Path.LAYINC[ilay,ipath]])/(np.transpose(TAUTOT[iiscat,:,Path.LAYINC[ilay,ipath]])))
-                    lfrac[iiscat,ilay,:] = np.transpose(np.transpose(TAUCLSCAT[iiscat,Path.LAYINC[ilay,ipath],:]) / TAUSCAT[iiscat,Path.LAYINC[ilay,ipath]])
-                    eps[iiscat,:,ilay] = 1.0 - omega[iiscat,:,ilay]
-
 
                 #Calculating the solar flux at the top of the atmosphere
                 solar = np.zeros(Measurement.NWAVE)
@@ -2565,15 +2540,8 @@ class ForwardModel_0:
 
 
                 #Calculating the radiance
-                SPECOUT = self.scloud11wave(Scatter,Surface,Measurement.WAVE,Layer.NLAY)
+                SPECOUT[:,:,ipath] = self.scloud11wave(Scatter,Surface,Layer,Measurement,solar)
 
-            '''
-      		  	call scloud11wave(rad1, sol_ang, emiss_ang,
-     1                          aphi, radg, solar, lowbc, galb1, iray,
-     2				mu1, wt1, nmu,   
-     3				nf, Ig, x, vv, eps, omegas,bnu, taus, 
-     4				taur,nlays, ncont,lfrac)
-            '''
 
         else:
             sys.exit('error in CIRSrad :: Calculation type not included in CIRSrad')
@@ -2676,6 +2644,7 @@ class ForwardModel_0:
         else:
             print('CIRSradg :: Calculating CIA opacity')
             TAUCIA,dTAUCIA,IABSORB = self.calc_tau_cia() #(NWAVE,NLAY);(NWAVE,NLAY,7)
+            Layer.TAUCIA = TAUCIA
 
             for i in range(5):
                 if IABSORB[i]>=0:
@@ -2701,6 +2670,8 @@ class ForwardModel_0:
         else:
             sys.exit('error in CIRSrad :: IRAY type has not been implemented yet')
  
+        Layer.TAURAY = TAURAY
+
         for i in range(Atmosphere.NVMR):
             dTAUCON[:,i,:] = dTAUCON[:,i,:] + dTAURAY[:,:] #dTAURAY/dAMOUNT (m2)
 
@@ -3296,7 +3267,7 @@ class ForwardModel_0:
     ###############################################################################################
 
 
-    def scloud11wave(self,Scatter,Surface,vwave,nlay):
+    def scloud11wave(self,Scatter,Surface,Layer,Measurement,SOLAR):
         """
 
         Compute emergent intensity at top of multilayer cloud using the
@@ -3322,8 +3293,9 @@ class ForwardModel_0:
 
         Scatter :: Python class defining the scattering setup
         Surface :: Python class defining the surface setup
-        wave(nwave) :: Calculation wavenumbers/wavelengths
-        nlay :: Number of layers in atmosphere
+        Layer :: Python class defining the properties of each layer including the optical depths
+        Measurement :: Python class defining the measurement
+        SOLAR(NWAVE) :: Solar flux 
 
 
         Outputs
@@ -3333,20 +3305,26 @@ class ForwardModel_0:
 
         """
 
+        from NemesisPy import planck
+        from scipy.interpolate import interp1d
+        from NemesisPy.nemesisf import mulscatter
+
+
+        ################################################################################
         #INITIALISING VARIABLES AND PERFORMING INITIAL CALCULATIONS
         ##############################################################################
 
-        nwave = len(vwave)
-
-        print(Scatter.NMU)
-        print(Scatter.MU)
-        print(Scatter.WTMU)
+        #Defining the number of scattering species
+        if Scatter.IRAY>0:
+            NCONT = Scatter.NDUST + 1
+        else:
+            NCONT = Scatter.NDUST
 
         #Find correction for any quadrature errors
         xfac = np.sum(Scatter.MU*Scatter.WTMU)
         xfac = 0.5/xfac
 
-        LTOT = nlay     # Set internal number of layers
+        LTOT = Layer.NLAY     # Set internal number of layers
         LT1 = LTOT
 
         #In case of surface reflection, add extra dummy layer at bottom,
@@ -3360,18 +3338,364 @@ class ForwardModel_0:
         Scatter.MU = Scatter.MU[::-1]
         Scatter.WTMU = Scatter.WTMU[::-1]
 
-        print(Scatter.MU)
-        print(Scatter.WTMU)
-
         #Setting up constant matrices
         E = np.identity(Scatter.NMU)
-        MM = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),Scatter.MU)
-        MMINV = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),1.0/Scatter.MU)
-        CC = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),Scatter.WTMU)
-        CCINV = np.fill_diagonal(np.zeros((Scatter.NMU,Scatter.NMU)),1.0/Scatter.WTMU)
+        MM = np.zeros((Scatter.NMU,Scatter.NMU))
+        MMINV = np.zeros((Scatter.NMU,Scatter.NMU))
+        CC = np.zeros((Scatter.NMU,Scatter.NMU))
+        CCINV = np.zeros((Scatter.NMU,Scatter.NMU))
+        np.fill_diagonal(MM,[Scatter.MU])
+        np.fill_diagonal(MMINV,[1./Scatter.MU])
+        np.fill_diagonal(CC,[Scatter.WTMU])
+        np.fill_diagonal(CCINV,[1./Scatter.WTMU])
+
+
+
+        ################################################################################
+        #CALCULATE THE ALBEDO, EMISSIVITY AND GROUND EMISSION AT THE SURFACE
+        ################################################################################
+
+        print('scloud11wave :: Calculating surface properties')
+
+        #Calculating the surface properties at each wavelength (emissivity, albedo and thermal emission)
+        RADGROUND = np.zeros(Measurement.NWAVE)
+        ALBEDO = np.zeros(Measurement.NWAVE)
+        EMISSIVITY = np.zeros(Measurement.NWAVE)
+
+        if Surface.TSURF<=0.0:  #No surface
+            RADGROUND[:] = planck(Measurement.ISPACE,Measurement.WAVE,Layer.TEMP[0])
+        else:
+            #Calculating the blackbody at given temperature
+            bbsurf = planck(Measurement.ISPACE,Measurement.WAVE,Surface.TSURF)
+
+            #Calculating the emissivity
+            f = interp1d(Surface.VEM,Surface.EMISSIVITY)
+            EMISSIVITY[:] = f(Measurement.WAVE)
+
+            #Calculating thermal emission from surface
+            RADGROUND[:] = bbsurf * EMISSIVITY
+
+            #Calculating ground albedo
+            if Surface.GALB<0.0:
+                ALBEDO[:] = 1.0 - EMISSIVITY[:]
+            else:
+                ALBEDO[:] = Surface.GALB
+
+
+
+        ################################################################################
+        #CALCULATING THE THERMAL EMISSION OF EACH LAYER
+        ################################################################################
+
+        print('scloud11wave :: Calculating thermal emission of each layer')
+
+        #Calculating the thermal emission of each atmospheric layer
+        BB = planck(Measurement.ISPACE,Measurement.WAVE,Layer.TEMP)  #(NWAVE,NLAY)
+
+
+
+        ################################################################################
+        #CALCULATING THE EFFECTIVE PHASE FUNCTION IN EACH LAYER
+        ################################################################################
+
+        print('scloud11wave :: Calculating phase matrix and scattering properties of each layer')
 
         #Calculating the phase matrices for each aerosol population and Rayleigh scattering
-        PPLPL,PPLMI = self.calc_phase_matrix(Scatter,vwave)
+        PPLPL,PPLMI = self.calc_phase_matrix(Scatter,Measurement.WAVE)  #(NWAVE,NCONT,NF+1,NMU,NMU)
+
+        #Calculating the fraction of scattering by each aerosol type and rayleigh
+        FRAC = np.zeros((Measurement.NWAVE,Layer.NLAY,NCONT))
+        iiscat = np.where((Layer.TAUSCAT+Layer.TAURAY)>0.0)
+        if(len(iiscat[0])>0):
+            FRAC[iiscat[0],iiscat[1],0:Scatter.NDUST] = np.transpose(np.transpose(Layer.TAUCLSCAT[iiscat[0],iiscat[1],:],axes=[1,0]) / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])),axes=[1,0])  #Fraction of each aerosol scattering FRAC = TAUCLSCAT/(TAUSCAT+TAURAY)
+            FRAC[iiscat[0],iiscat[1],Scatter.NDUST] = Layer.TAURAY[iiscat[0],iiscat[1]] / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])) #Fraction of Rayleigh scattering FRAC = TAURAY/(TAUSCAT+TAURAY)
+
+        #Calculating the weighted averaged phase matrix in each layer and direction
+        print('scloud11wave :: Calculating weighted average phase matrix in each layer')
+        PPLPLS = np.zeros((Measurement.NWAVE,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))
+        PPLMIS = np.zeros((Measurement.NWAVE,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))
+
+        for ilay in range(Layer.NLAY):
+            PPLPLS[:,ilay,:,:,:] =  np.transpose(np.sum(np.transpose(PPLPL,axes=[2,3,4,0,1])*FRAC[:,ilay,:],axis=4),axes=[3,0,1,2])  #SUM(PPLPL*FRAC)
+            PPLMIS[:,ilay,:,:,:] =  np.transpose(np.sum(np.transpose(PPLMI,axes=[2,3,4,0,1])*FRAC[:,ilay,:],axis=4),axes=[3,0,1,2])  #SUM(PPLMI*FRAC)
+
+        #Calculating the single scattering albedo of each layer (TAURAY+TAUSCAT/TAUTOT)
+        NG = Layer.TAUTOT.shape[1]
+        OMEGA = np.zeros((Measurement.NWAVE,NG,Layer.NLAY))
+        iin = np.where(Layer.TAUTOT>0.0)
+        if(len(iin[0])>0):
+            OMEGA[iin[0],iin[1],iin[2]] = (Layer.TAURAY[iin[0],iin[2]]+Layer.TAUSCAT[iin[0],iin[2]]) / Layer.TAUTOT[iin[0],iin[1],iin[2]]
+
+
+
+        ################################################################################
+        #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR EACH LAYER
+        #################################################################################
+
+        print('scloud11wave :: Calculating the reflection, transmission and source matrices in each layer')
+
+        '''
+        JL = np.zeros((Measurement.NWAVE,NG,Layer.NLAY,Scatter.NF+1,Scatter.NMU,1))  #Source function
+        RL = np.zeros((Measurement.NWAVE,NG,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+        TL = np.zeros((Measurement.NWAVE,NG,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Transmission matrix
+
+        #Dividing all points into three cases (Note 1st dimension is NWAVE, 2nd is NG and 3rd is NLAY)
+        iin1 = np.where(Layer.TAUTOT<=0.0)
+        iin2 = np.where( (OMEGA<=0.0) & (Layer.TAUTOT>0.0) )
+        iin3 = np.where(OMEGA>0.0)
+
+        if len(iin1[0])>0:
+
+            #First set of points (No opacity)
+            ################################################################################
+            for imu in range(Scatter.NMU):
+                for jmu in range(Scatter.NMU):
+                    RL[iin1[0],iin1[1],iin1[2],:,imu,jmu] = 0.0
+                    TL[iin1[0],iin1[1],iin1[2],:,imu,jmu] = 0.0
+                JL[iin1[0],iin1[1],iin1[2],:,imu,0] = 0.0
+                TL[iin1[0],iin1[1],iin1[2],:,imu,imu] = 1.0   #Transmission = 1
+
+        if len(iin2[0])>0:
+
+            #Second set of points (No scattering)
+            ################################################################################
+            for imu in range(Scatter.NMU):
+                for jmu in range(Scatter.NMU):
+                    RL[iin2[0],iin2[1],iin2[2],imu,jmu] = 0.0
+                    TL[iin2[0],iin2[1],iin2[2],imu,jmu] = 0.0
+                
+                TEX = -MMINV[imu,imu] * Layer.TAUTOT[iin2[0],iin2[1],iin2[2]]
+                TEX1 = np.zeros(len(TEX))
+                TEX1[np.where(TEX>=-200.)] = np.exp(TEX[np.where(TEX>=-200.)])
+                TEX1[np.where(TEX<-200.)] = 0.0
+
+                TL[iin2[0],iin2[1],iin2[2],0,imu,imu] = TEX1[:]   #NEED TO COPY THIS INTO ALL NF VALUES
+                JL[iin2[0],iin2[1],iin2[2],:,imu,0] = BB[iin2[0],iin2[2]] * (1.0 - TL[iin2[0],iin2[1],iin2[2],:,imu,imu])
+                
+        if len(iin3[0])>0:
+
+            #Third set of points (Scattering)
+            ################################################################################
+
+            #Normalising the phase matrix if required (should not be necessary)
+            # PPLPLS and PPLMIS (NWAVE,NLAY,NF+1,NMU,NMU)
+
+            IC = 0
+            for jmu in range(Scatter.NMU):
+                
+                SUM = np.sum((PPLPLS[:,:,IC,:,jmu]+PPLMIS[:,:,IC,:,jmu])*CC.diagonal(),axis=2)
+                DSUM = np.abs(SUM*2.0*np.pi - 1.0)
+                icorr = np.where(DSUM>0.02)
+
+                if(len(icorr[0])>0):
+                    print('scloud11wave :: performing brutal normalisation of phase matrices')
+                    PPLPLS[icorr[0],icorr[1],IC,:,jmu]  = PPLPLS[icorr[0],icorr[1],IC,:,jmu] / (2.0*np.pi*SUM[icorr[0],icorr[1]])
+                    PPLMIS[icorr[0],icorr[1],IC,:,jmu]  = PPLMIS[icorr[0],icorr[1],IC,:,jmu] / (2.0*np.pi*SUM[icorr[0],icorr[1]])
+
+            #First calculate properties of initial very thin layer.
+            #*************************************************************
+
+            #COMPUTATION OF GAMMA++	(Plass et al. 1973)
+            #GPLPL = MMINV*(E - CON*PPLPL*CC)
+
+            CON=OMEGA[:,:,:]*np.pi
+
+            ACOM = np.transpose(CON[iin3[0],iin3[1],iin3[2]] * np.transpose(np.matmul(PPLPLS[iin3[0],iin3[2],:,:,:],CC[:,:]),axes=[1,2,3,0]),axes=[3,0,1,2])  #ACOM = CON * PPLPLS * CC
+            ACOM[:,0,:,:] = ACOM[:,0,:,:] * 2.0   #For the first IC
+            BCOM = E - ACOM 
+            GPLPL = np.matmul(MMINV,BCOM)  #(NPOINTS,NF+1,NMU,NMU)  
+
+            #COMPUTATION OF GAMMA+- (Plass et al. 1973)
+            #GPLMI = MMINV*CON*PPLMI*CC
+
+            ACOM = np.transpose(CON[iin3[0],iin3[1],iin3[2]] * np.transpose(np.matmul(PPLMIS[iin3[0],iin3[2],:,:,:],CC[:,:]),axes=[1,2,3,0]),axes=[3,0,1,2])  #ACOM = CON * PPLPLS * CC
+            ACOM[:,0,:,:] = ACOM[:,0,:,:] * 2.0   #For the first IC
+            GPLMI = np.matmul(MMINV,ACOM)  #(NPOINTS,NF+1,NMU,NMU)
+
+            #Defining the number of times to increase the optical depth in each iteration
+            IPOW0 = 16
+            NN = np.array((np.log(Layer.TAUTOT[iin3[0],iin3[1],iin3[2]])/np.log(2.0)),dtype='int32')+IPOW0
+
+            XFAC = np.zeros(NN.shape)
+            XFAC[np.where(NN>=1)] = 1.0/(2.0**NN[np.where(NN>=1)])
+            XFAC[np.where(NN<1)] = 1.0
+            
+            TAU0 = Layer.TAUTOT[iin3[0],iin3[1],iin3[2]] * XFAC
+
+            #Compute the R, T and J matrices for initial thin layer (single scattering)
+            #**********************************************************************
+
+            R1 = E - np.transpose(TAU0 * np.transpose(GPLPL,axes=[1,2,3,0]),axes=[3,0,1,2])   #(NPOINTS,NF+1,NMU,NMU)
+            T1 = np.transpose(TAU0 * np.transpose(np.matmul(E,GPLMI),axes=[1,2,3,0]),axes=[3,0,1,2])  #(NPOINTS,NF+1,NMU,NMU)
+            J1 = np.zeros((len(TAU0),Scatter.NF+1,Scatter.NMU,1))
+            for jmu in range(Scatter.NMU):
+                J1[:,0,jmu,0] = (1.0 - OMEGA[iin3[0],iin3[1],iin3[2]])*BB[iin3[0],iin3[2]]*TAU0[:]*MMINV[jmu,jmu]
+
+
+            #Saving the values where single scattering can be used
+            isingle = np.where(NN<1)
+            JL[iin3[0][isingle],iin3[1][isingle],iin3[2][isingle],:,:,:] = J1[isingle,:,:,:]
+            TL[iin3[0][isingle],iin3[1][isingle],iin3[2][isingle],:,:,:] = T1[isingle,:,:,:]
+            RL[iin3[0][isingle],iin3[1][isingle],iin3[2][isingle],:,:,:] = R1[isingle,:,:,:]
+
+            #Compute the R and T matrices for subsequent layers (doubling method)
+            #**********************************************************************
+
+            RNEXT,TNEXT,JNEXT = double_layer(NN,R1,T1,J1)
+    
+            RL[iin3[0],iin3[1],iin3[2],:,:,:] = RNEXT[:,:,:,:]
+            TL[iin3[0],iin3[1],iin3[2],:,:,:] = TNEXT[:,:,:,:]
+            JL[iin3[0],iin3[1],iin3[2],:,:,:] = JNEXT[:,:,:,:]
+        '''
+
+        RL,TL,JL,ISCL = mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
+                                                    Layer.TAUTOT,OMEGA,Layer.TAURAY,BB,PPLPLS,PPLMIS)
+
+        #################################################################################
+        #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR SURFACE
+        #################################################################################
+
+        if Surface.GASGIANT==False:
+
+            print('scloud11wave :: Calculating the reflection, transmission and source matrices of the surface')
+
+            JS = np.zeros((Measurement.NWAVE,Scatter.NF+1,Scatter.NMU,1))  #Source function
+            RS = np.zeros((Measurement.NWAVE,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+            TS = np.zeros((Measurement.NWAVE,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Transmission matrix
+
+            if Surface.LOWBC==1:  #Lambertian reflection
+
+                IC = 0   #For the rest of the NF values, it is zero
+                for j in range(Scatter.NMU):
+
+                    JS[:,IC,j,0] = (1.0-ALBEDO[:])*RADGROUND[:]  #Source function is considered isotropic
+
+                    for i in range(Scatter.NMU):
+
+                        TS[:,IC,i,j] = 0.0    #Transmission at the surface is zero
+                        RS[:,IC,i,j] = 2.0*ALBEDO[:]*Scatter.MU[j]*Scatter.WTMU[j]  #Sum of MU*WTMU = 0.5
+                        #Make any quadrature correction
+                        RS[:,IC,i,j] = RS[:,IC,i,j]*xfac
+
+
+
+        ###############################################################################
+        # CALCULATING THE SPECTRUM
+        ###############################################################################
+
+        #***********************************************************************
+        #CALCULATE UPWARD MATRICES FOR COMPOSITE OF L LAYERS FROM BASE OF CLOUD.
+        #XBASE(I,J,L) IS THE X MATRIX FOR THE BOTTOM L LAYERS OF THE CLOUD.
+        #AS FOR "TOP", R01 = R10 & T01 = T10 IS VALID FOR LAYER BEING ADDED ONLY.
+
+        #i.e. XBASE(I,J,L) is the effective reflectivity, transmission and emission
+        #of the bottom L layers of the atmosphere (i.e. layers LTOT-L+1 to LTOT)
+        #***********************************************************************
+
+        #print(TL.min(),TL.max())
+        #print(RL.min(),RL.max())
+        #input()
+
+        SPEC = np.zeros((Measurement.NWAVE,NG))
+        for IC in range(Scatter.NF+1):
+
+            JBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
+            RBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+            TBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Transmission matrix            
+
+            #Filling the first value with the surface 
+            JBASE[:,:,0,:,:] = np.repeat(JS[:,np.newaxis,IC,:,:],NG,axis=1)
+            RBASE[:,:,0,:,:] = np.repeat(RS[:,np.newaxis,IC,:,:],NG,axis=1)
+            TBASE[:,:,0,:,:] = np.repeat(TS[:,np.newaxis,IC,:,:],NG,axis=1)
+
+            #Combining the adjacent layers
+            for ILAY in range(LTOT-1):
+
+                #In the Fortran version the layers are defined from top to bottom
+                #while here they are from bottom to top, therefore the indexing
+                #in this part of the code differs with respect to the Fortran version
+
+                RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = add_layer_jit( \
+                    RL[:,:,ILAY,IC,:,:],TL[:,:,ILAY,IC,:,:],JL[:,:,ILAY,IC,:,:],\
+                    RBASE[:,:,ILAY,:,:],TBASE[:,:,ILAY,:,:],JBASE[:,:,ILAY,:,:])
+
+            if IC!=0:
+                JBASE[:,:,:,:,:] = 0.0
+
+            
+            #Calculating the observing angles
+            if Scatter.SOL_ANG>90.0:
+                ZMU0 = np.cos((180.0 - Scatter.SOL_ANG)*np.pi/180.0)
+                SOLAR[:] = 0.0
+            else:
+                ZMU0 = np.cos(Scatter.SOL_ANG*np.pi/180.0)
+
+            ZMU = np.cos(Scatter.EMISS_ANG*np.pi/180.0)
+
+
+            #Finding the coefficients for interpolating the spectrum
+            #at the correct angles
+            ISOL = 0
+            IEMM = 0
+            for j in range(Scatter.NMU-1):
+                if((ZMU0<=Scatter.MU[j]) & (ZMU0>Scatter.MU[j+1])):
+                    ISOL = j
+                if((ZMU<=Scatter.MU[j]) & (ZMU>Scatter.MU[j+1])):
+                    IEMM = j
+
+            if ZMU0<=Scatter.MU[Scatter.NMU-1]:
+                ISOL = Scatter.NMU-2
+            if ZMU<=Scatter.MU[Scatter.NMU-1]:
+                IEMM = Scatter.NMU-2
+
+            FSOL = (Scatter.MU[ISOL]-ZMU0)/(Scatter.MU[ISOL]-Scatter.MU[ISOL+1])
+            FEMM = (Scatter.MU[IEMM]-ZMU)/(Scatter.MU[IEMM]-Scatter.MU[IEMM+1])
+
+
+            #Bottom of the atmosphere surface contribution
+            UTMI = np.zeros((Measurement.NWAVE,Scatter.NMU,1))
+            if IC==0:
+                for imu in range(Scatter.NMU):
+                    UTMI[:,imu,0] = RADGROUND[:]   #Assumed to be equal in all directions
+            UTMI = np.repeat(UTMI[:,np.newaxis,:,:],NG,axis=1)
+
+            
+            #Calculating the spectrum in the directions ISOL and IEMM
+            ICO = 0
+            RADD = np.zeros((Measurement.NWAVE,NG,4))
+            for IMU0 in range(ISOL,ISOL+2,1):
+
+                #Top of the atmosphere solar contribution
+                U0PL = np.zeros((Measurement.NWAVE,Scatter.NMU,1))
+                U0PL[:,IMU0,0] = SOLAR[:]/(2.0*np.pi*Scatter.WTMU[IMU0])
+                U0PL = np.repeat(U0PL[:,np.newaxis,:,:],NG,axis=1)
+
+                #Summing different sources
+                ACOM = np.matmul(RBASE[:,:,LTOT-1,:,:],U0PL)
+                BCOM = np.matmul(TBASE[:,:,LTOT-1,:,:],UTMI)
+                ACOM = ACOM + BCOM
+                UMI = ACOM + JBASE[:,:,LTOT-1,:,:]
+
+                for IMU in range(IEMM,IEMM+2,1):
+                    RADD[:,:,ICO]=UMI[:,:,IMU,0]
+                    ICO = ICO + 1
+
+
+            #Interpolating spectrum to correct direction
+            T = FEMM
+            U = FSOL
+
+            RADI = (1-T)*(1-U)*RADD[:,:,0] + T*(1-U)*RADD[:,:,1] + T*U*RADD[:,:,3] + (1-T)*U*RADD[:,:,2]
+
+
+            #Reconstructing the Fourier expansion in the azimuth direction
+            DRAD = RADI*np.cos(IC*Scatter.AZI_ANG*np.pi/180.0)
+            if IC>0:
+                DRAD = DRAD*2.
+
+            SPEC[:,:] = SPEC[:,:] + DRAD[:,:]
+
+        return SPEC
 
 
 ###############################################################################################
@@ -3408,6 +3732,7 @@ class ForwardModel_0:
         cpl = np.zeros(Scatter.NMU*Scatter.NMU*(Scatter.NPHI+1))
         cmi = np.zeros(Scatter.NMU*Scatter.NMU*(Scatter.NPHI+1))
         ix = 0
+
         for j in range(Scatter.NMU):
             for i in range(Scatter.NMU):
                 sthi = np.sqrt(1.0-Scatter.MU[i]*Scatter.MU[i])   #sin(theta(i))
@@ -3426,6 +3751,10 @@ class ForwardModel_0:
         ppl = Scatter.calc_phase(apl,WAVE)  #(NWAVE,NTHETA,NDUST)
         pmi = Scatter.calc_phase(ami,WAVE)  #(NWAVE,NTHETA,NDUST)
 
+        #Normalising phase function
+        ppl = ppl / (4.0*np.pi)
+        pmi = pmi / (4.0*np.pi)
+
         if Scatter.IRAY>0:
             ncont = Scatter.NDUST + 1
             pplr = Scatter.calc_phase_ray(apl) #(NTHETA)
@@ -3437,15 +3766,15 @@ class ForwardModel_0:
         #Integrating the phase function over the azimuth direction
         #####################################################################################
 
-        PPLPL = np.zeros((NWAVE,ncont,Scatter.NF,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in + direction (i.e. downwards)
-        PPLMI = np.zeros((NWAVE,ncont,Scatter.NF,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in - direction (i.e. upwards)
+        PPLPL = np.zeros((NWAVE,ncont,Scatter.NF+1,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in + direction (i.e. downwards)
+        PPLMI = np.zeros((NWAVE,ncont,Scatter.NF+1,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in - direction (i.e. upwards)
         ix = 0
         for j in range(Scatter.NMU):
             for i in range(Scatter.NMU):
                 for k in range(Scatter.NPHI+1):
                     phi = k*dphi
                     for kl in range(Scatter.NF+1):
-                        
+
                         plx = ppl[:,ix,:] * np.cos(kl*phi)
                         pmx = pmi[:,ix,:] * np.cos(kl*phi)
 
@@ -3455,19 +3784,21 @@ class ForwardModel_0:
                         elif k==Scatter.NPHI:
                             wphi = 0.5*dphi
 
+                        #print(wphi,plx.min())
+
                         if kl==0:
                             wphi = wphi/(2.0*np.pi)
                         else:
                             wphi = wphi/np.pi
 
-                        PPLPL[:,0:Scatter.NDUST,kl,i,j] = PPLPL[0:Scatter.NDUST,kl,i,j] + wphi*plx[:,:]
-                        PPLMI[:,0:Scatter.NDUST,kl,i,j] = PPLMI[0:Scatter.NDUST,kl,i,j] + wphi*pmi[:,:]
+                        PPLPL[:,0:Scatter.NDUST,kl,i,j] = PPLPL[:,0:Scatter.NDUST,kl,i,j] + wphi*plx[:,:]
+                        PPLMI[:,0:Scatter.NDUST,kl,i,j] = PPLMI[:,0:Scatter.NDUST,kl,i,j] + wphi*pmx[:,:]
 
                         if Scatter.IRAY>0:
                             plrx = pplr[ix] * np.cos(kl*phi)
                             pmrx = pmir[ix] * np.cos(kl*phi)
-                            PPLPL[:,Scatter.NDUST,kl,i,j] = PPLPL[Scatter.NDUST,kl,i,j] + wphi*plrx
-                            PPLMI[:,Scatter.NDUST,kl,i,j] = PPLMI[Scatter.NDUST,kl,i,j] + wphi*pmrx
+                            PPLPL[:,Scatter.NDUST,kl,i,j] = PPLPL[:,Scatter.NDUST,kl,i,j] + wphi*plrx
+                            PPLMI[:,Scatter.NDUST,kl,i,j] = PPLMI[:,Scatter.NDUST,kl,i,j] + wphi*pmrx
 
                     ix = ix + 1
 
@@ -3497,40 +3828,229 @@ class ForwardModel_0:
                 TSUM = np.zeros((NWAVE,Scatter.NMU))
                 for j in range(Scatter.NMU):
                     for i in range(Scatter.NMU):
-                        TSUM[:,j] = TSUM[:,j] + PPLPL[:,icont,IC,i,j]*Scatter.WTMU[i]*FC[i,j]*2.0*np.pi
+                        TSUM[:,j] = TSUM[:,j] + PPLPL[:,icont,IC,i,j]*Scatter.WTMU[i]*FC[:,i,j]*2.0*np.pi
 
-                    testj = np.abs(  RSUM[:,icont,j] + TSUM[:,icont,j] - 1.0 )
+                    testj = np.abs(  RSUM[:,icont,j] + TSUM[:,j] - 1.0 )
                     isup = np.where(testj>test)[0]
                     test[isup] = testj[isup]
 
-                if test.max()<1.0e-14:
-                    converged==True
+                
+                if test.max()<=1.0e-14:
+                    converged=True
                 else:
                     for j in range(Scatter.NMU):
-                        xj = (1.0-RSUM[:,icont,j])/TSUM[:,icont,j]
+                        xj = (1.0-RSUM[:,icont,j])/TSUM[:,j]
                         for i in range(j+1):
-                            xi = (1.0-RSUM[:,icont,i])/TSUM[:,icont,i]
+                            xi = (1.0-RSUM[:,icont,i])/TSUM[:,i]
                             FC[:,i,j] = 0.5*(FC[:,i,j]*xj[:]+FC[:,j,i]*xi[:])
-                            FC[:,j,i] = FC[i,j]
+                            FC[:,j,i] = FC[:,i,j]
 
                 if niter>10000:
                     sys.exit('error in calc_phase_matrix :: Normalisation of phase matrix did not converge')
 
                 niter = niter + 1
 
-            for kl in range(Scatter.NF):
+            for kl in range(Scatter.NF+1):
                 for j in range(Scatter.NMU):
                     for i in range(Scatter.NMU):
                         PPLPL[:,icont,kl,i,j] = PPLPL[:,icont,kl,i,j] * FC[:,i,j]
-
 
         return PPLPL,PPLMI
 
 
 
+###############################################################################################
+@jit(nopython=True)
+def add_layer(R1,T1,J1,R2,T2,J2):
+    """
+
+    Subroutine to add the diffuse reflection, transmission and reflection
+    matrices for two adjacent atmospheric layers
+
+    Note that this routine will also work if there are other dimensions
+    on the left of each matrix (e.g. NWAVE, NLAY, etc.)
+
+    Inputs
+    ________
+
+    R1(NMU,NMU) :: Diffuse reflection operator for 1st layer
+    T1(NMU,NMU) :: Diffuse transmission operator for 1st layer
+    J1(NMU,1) :: Diffuse source function for 1st layer
+    R2(NMU,NMU) :: Diffuse reflection operator for 2nd layer
+    T2(NMU,NMU) :: Diffuse transmission operator for 2nd layer
+    J2(NMU,1) :: Diffuse source function for 2nd layer
+
+    Outputs
+    ________
+
+    RANS(NMU,NMU) :: Combined diffuse reflection operator
+    TANS(NMU,NMU) :: Combined diffuse transmission operator
+    JANS(NMU,1) :: Combined diffuse source function
+
+    """
+
+    NMU = int(R1.shape[-1])
+    E = np.identity(NMU)
+
+    #BCOM = -np.matmul(R2,R1)
+    BCOM = R2 @ R1
+    BCOM = E + BCOM
+    ACOM = np.linalg.inv(BCOM)
+    BCOM = ACOM
+    #CCOM = np.matmul(T1,BCOM)
+    CCOM = T1 @ BCOM
+    #RANS = np.matmul(CCOM,R2)
+    RANS = CCOM @ R2
+    #ACOM = np.matmul(RANS,T1)
+    ACOM = RANS @ T1
+    RANS = R1 + ACOM
+    #TANS = np.matmul(CCOM,T2)
+    TANS = CCOM @ T2
+    #JCOM = np.matmul(R2,J1)
+    JCOM = R2 @ J1
+    JCOM = J2 + JCOM
+    #JANS = np.matmul(CCOM,JCOM)
+    JANS = CCOM @ JCOM
+    JANS = J1 + JANS
+    
+    return RANS,TANS,JANS
 
 
+###############################################################################################
+#@jit(nopython=True,parallel=True)
+def add_layer_jit(R1,T1,J1,R2,T2,J2):
+    """
+
+    Subroutine to add the diffuse reflection, transmission and reflection
+    matrices for two adjacent atmospheric layers
+
+    Note that this routine will also work if there are other dimensions
+    on the left of each matrix (e.g. NWAVE, NLAY, etc.)
+
+    Inputs
+    ________
+
+    R1(NMU,NMU) :: Diffuse reflection operator for 1st layer
+    T1(NMU,NMU) :: Diffuse transmission operator for 1st layer
+    J1(NMU,1) :: Diffuse source function for 1st layer
+    R2(NMU,NMU) :: Diffuse reflection operator for 2nd layer
+    T2(NMU,NMU) :: Diffuse transmission operator for 2nd layer
+    J2(NMU,1) :: Diffuse source function for 2nd layer
+
+    Outputs
+    ________
+
+    RANS(NMU,NMU) :: Combined diffuse reflection operator
+    TANS(NMU,NMU) :: Combined diffuse transmission operator
+    JANS(NMU,1) :: Combined diffuse source function
+
+    """
+
+    NMU = int(R1.shape[-1])
+    E = np.identity(NMU)
+
+    RANS = np.zeros(R1.shape,dtype='float64')
+    TANS = np.zeros(T1.shape,dtype='float64')
+    JANS = np.zeros(J1.shape,dtype='float64')
+
+    ACOM = np.zeros((NMU,NMU),dtype='float64')
+    BCOM = np.zeros((NMU,NMU),dtype='float64')
+    CCOM = np.zeros((NMU,NMU),dtype='float64')
+    JCOM = np.zeros((NMU,1),dtype='float64')
+
+    for i in range(R1.shape[0]):
+        for j in range(R1.shape[1]):
+
+            BCOM[:,:] = -np.dot(R2[i,j,:,:],R1[i,j,:,:])
+            BCOM[:,:] = E[:,:] + BCOM[:,:]
+            ACOM[:,:] = np.linalg.inv(BCOM[:,:])
+            BCOM[:,:] = ACOM[:,:]
+            CCOM[:,:] = np.dot(T1[i,j,:,:],BCOM[:,:])
+            RANS[i,j,:,:] = np.dot(CCOM,R2[i,j,:,:])
+            ACOM[:,:] = np.dot(RANS[i,j,:,:],T1[i,j,:,:])
+            RANS[i,j,:,:] = R1[i,j,:,:] + ACOM[:,:]
+            TANS[i,j,:,:] = np.dot(CCOM[:,:],T2[i,j,:,:])
+            JCOM[:,:] = np.dot(R2[i,j,:,:],J1[i,j,:,:])
+            JCOM[:,:] = J2[i,j,:,:] + JCOM[:,:]
+            JANS[i,j,:,:] = np.dot(CCOM[:,:],JCOM[:,:])
+            JANS[i,j,:,:] = J1[i,j,:,:] + JANS[i,j,:,:]
+
+    return RANS,TANS,JANS
 
 
+###############################################################################################
+@jit(nopython=True)
+def double_layer(NN,R1,T1,J1):
+    """
 
+    Subroutine to double the 
 
+    Inputs
+    ________
+
+    R1(NPOINTS,NF+1,NMU,NMU) :: Diffuse reflection operator for 1st layer
+    T1(NPOINTS,NF+1,NMU,NMU) :: Diffuse transmission operator for 1st layer
+    J1(NPOINTS,NF+1,NMU,NMU) :: Diffuse source function for 1st layer
+    NN(NPOINTS) :: Number of times the layer needs to be doubled
+
+    Outputs
+    ________
+
+    RANS(NMU,NMU) :: Combined diffuse reflection operator
+    TANS(NMU,NMU) :: Combined diffuse transmission operator
+    JANS(NMU,1) :: Combined diffuse source function
+
+    """
+
+    #Compute the R and T matrices for subsequent layers (doubling method)
+    #**********************************************************************
+
+    #Doing all points with equal NN simultaneously
+    NNMAX = NN.max()
+
+    NF = R1.shape[1]
+
+    RFIN = np.zeros(R1.shape)
+    TFIN = np.zeros(T1.shape)
+    JFIN = np.zeros(J1.shape)
+
+    for N in range(1,NNMAX+1,1):
+
+        idouble = np.where(NN>=N)[0]
+
+        #Doubling the layer
+        #RNEXT,TNEXT,JNEXT = add_layer_jit(R1[idouble,:,:,:],T1[idouble,:,:,:],J1[idouble,:,:,:],R1[idouble,:,:,:],T1[idouble,:,:,:],J1[idouble,:,:,:])
+        RNEXT = np.zeros(R1.shape)
+        TNEXT = np.zeros(T1.shape)
+        JNEXT = np.zeros(J1.shape)
+        for i in range(len(idouble)):
+            for ic in range(NF):
+                RNEXT[idouble[i],ic,:,:],TNEXT[idouble[i],ic,:,:],JNEXT[idouble[i],ic,:,:] = add_layer(R1[idouble[i],ic,:,:],T1[idouble[i],ic,:,:],J1[idouble[i],ic,:,:],R1[idouble[i],ic,:,:],T1[idouble[i],ic,:,:],J1[idouble[i],ic,:,:])
+
+        iseleq2 = np.where(NN[idouble]==N)[0]
+        iseleq = np.where(NN==N)[0]
+
+        if len(iseleq)>0:
+            JFIN[iseleq,:,:,:] = JNEXT[iseleq,:,:,:]
+            TFIN[iseleq,:,:,:] = TNEXT[iseleq,:,:,:]
+            RFIN[iseleq,:,:,:] = RNEXT[iseleq,:,:,:]
+
+        #Updating matrices for next iteration
+        R1[:,:,:,:] = RNEXT[:,:,:,:]
+        T1[:,:,:,:] = TNEXT[:,:,:,:]
+        J1[:,:,:,:] = JNEXT[:,:,:,:]
+
+    return RFIN,TFIN,JFIN
+
+@jit(nopython=True,parallel=True)
+def matmul(A, B):
+    """Perform square matrix multiplication of C = A * B
+    """
+    i, j = cuda.grid(2)
+    if i < C.shape[0] and j < C.shape[1]:
+        tmp = 0.
+        for k in range(A.shape[1]):
+            tmp += A[i, k] * B[k, j]
+        C[i, j] = tmp
+
+    return C
