@@ -3597,6 +3597,8 @@ class ForwardModel_0:
         #input()
 
         SPEC = np.zeros((Measurement.NWAVE,NG))
+
+        print('scloud11wave :: Calculating spectrum')
         for IC in range(Scatter.NF+1):
 
             JBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
@@ -3615,9 +3617,14 @@ class ForwardModel_0:
                 #while here they are from bottom to top, therefore the indexing
                 #in this part of the code differs with respect to the Fortran version
 
-                RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = add_layer_jit( \
-                    RL[:,:,ILAY,IC,:,:],TL[:,:,ILAY,IC,:,:],JL[:,:,ILAY,IC,:,:],\
-                    RBASE[:,:,ILAY,:,:],TBASE[:,:,ILAY,:,:],JBASE[:,:,ILAY,:,:])
+                #RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = add_layer_jit( \
+                #    RL[:,:,ILAY,IC,:,:],TL[:,:,ILAY,IC,:,:],JL[:,:,ILAY,IC,:,:],\
+                #    RBASE[:,:,ILAY,:,:],TBASE[:,:,ILAY,:,:],JBASE[:,:,ILAY,:,:])
+
+                for iwave in range(Measurement.NWAVE):
+                    for ig in range(NG):
+                        RBASE[iwave,ig,ILAY+1,:,:],TBASE[iwave,ig,ILAY+1,:,:],JBASE[iwave,ig,ILAY+1,:,:] = mulscatter.addp_layer(\
+                            E,RL[iwave,ig,ILAY,IC,:,:],TL[iwave,ig,ILAY,IC,:,:],JL[iwave,ig,ILAY,IC,:,:],ISCL[iwave,ig,ILAY],RBASE[iwave,ig,ILAY,:,:],TBASE[iwave,ig,ILAY,:,:],JBASE[iwave,ig,ILAY,:,:])
 
             if IC!=0:
                 JBASE[:,:,:,:,:] = 0.0

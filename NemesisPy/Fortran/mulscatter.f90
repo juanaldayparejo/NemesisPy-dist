@@ -238,6 +238,7 @@ contains
 
     end subroutine calc_RTF_matrix
 
+
     !==================================================================================================
 
     subroutine add_layer(NMU,E,R1,T1,J1,RSUB,TSUB,JSUB,RANS,TANS,JANS)
@@ -296,6 +297,102 @@ contains
         RETURN
 
     end subroutine
+
+    !==================================================================================================
+
+    subroutine addp_layer(NMU,E,R1,T1,J1,ISCAT1,RSUB,TSUB,JSUB,RANS,TANS,JANS)
+        !$Id: addp.f,v 1.2 2011-06-17 15:57:52 irwin Exp $
+        !*****************************************************************
+        !Subroutine to add the diffuse reflection, transmission and reflection
+        !matrices for two adjacent atmospheric layers
+   
+        !Input variables:
+        !R1(JDIM,JDIM)	DOUBLE	Diffuse reflection operator for 1st layer
+        !T1(JDIM,JDIM)	DOUBLE	Diffuse transmission operator for 1st layer
+        !J1(JDIM,1)	DOUBLE	Diffuse source function for 1st layer
+        !ISCAT1		INTEGER Flag to indicate if 2nd layer is scattering
+        !RSUB(JDIM,JDIM)	DOUBLE	Diffuse reflection operator for 2nd layer
+        !TSUB(JDIM,JDIM)	DOUBLE	Diffuse transmission operator for 2nd layer
+        !JSUB(JDIM,1)	DOUBLE	Diffuse source function for 2nd layer
+        !NMU		INTEGER	Number of elements used
+   
+        !Output variables
+        !RANS(JDIM,JDIM)	DOUBLE	Combined diffuse reflection operator
+        !TANS(JDIM,JDIM)	DOUBLE	Combined diffuse transmission operator
+        !JANS(JDIM,1)	DOUBLE	Combined diffuse source function
+   
+        !Pat Irwin		17/9/96
+        !**********************************************************************
+   
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: NMU,ISCAT1
+        double precision, intent(in) :: E(NMU,NMU)
+        double precision, intent(in) :: R1(NMU,NMU),T1(NMU,NMU),J1(NMU,1)
+        double precision, intent(in) :: RSUB(NMU,NMU),TSUB(NMU,NMU),JSUB(NMU,1)
+
+        !Local
+        double precision :: ACOM(NMU,NMU),BCOM(NMU,NMU),CCOM(NMU,NMU),JCOM(NMU,NMU)
+        double precision :: TA, TB
+        integer :: I,J
+
+        !Outputs
+        double precision, intent(out) :: RANS(NMU,NMU),TANS(NMU,NMU),JANS(NMU,1)
+
+
+        !Subroutine solves Eq. 7b,8b,9b of Plass et al. (1973) 
+        !Here :
+            !R1 is R10 for the homogenous layer 1 being added (and thus equal to R01)
+            !T1 is T10 for the homogenous layer 1 being added (and thus equal to T10)
+            !J1 is the source function for the homegenous layer 1 (and thus same in +ve and -ve directions)
+            !   +ve is going in direction from layer 1 to 2nd layer
+            !   -ve is going in direction from 2nd layer to layer 1
+            !RSUB is R12 for the 2nd layer (homegenous or composite)
+            !TSUB is T21 for the 2nd layer (homegenous or composite)
+            !JSUB is source function for 2nd layer (homegenous or composite) going in -ve direction (i.e. JM21)
+            !RANS is R02 for combined layers
+            !TANS is T20 for combineds layers
+            !JANS is JM20 for combined layers (i.e. in -ve direction)
+   
+        IF(ISCAT1.EQ.1)THEN
+            !2nd layer is scattering. Solve Eq. 7b,8b,9b of Plass et al. (1973)
+
+            call MMUL(-1.0D0,NMU,NMU,NMU,RSUB,R1,BCOM) !BCOM=-RSUB*R1
+            call MADD(1.0D0,NMU,NMU,E,BCOM,BCOM)  !BCOM=E-RSUB*R1
+            call MATINV8(NMU,BCOM,ACOM) !ACOM = INV(E-RSUB*R1)
+            call MEQU(NMU,ACOM,BCOM) !BCOM=INV(E-RSUB*R1)
+            call MMUL(1.0D0,NMU,NMU,NMU,T1,BCOM,CCOM) !CCOM=T1*INV(E-RSUB*R1)
+            call MMUL(1.0D0,NMU,NMU,NMU,CCOM,RSUB,RANS) !RANS=T1*INV(E-RSUB*R1)*RSUB
+            call MMUL(1.0D0,NMU,NMU,NMU,RANS,T1,ACOM) !ACOM=T1*INV(E-RSUB*R1)*RSUB*T1
+            call MADD(1.0D0,NMU,NMU,R1,ACOM,RANS) !RANS = R1+T1*INV(E-RSUB*R1)*RSUB*T1
+            call MMUL(1.0D0,NMU,NMU,NMU,CCOM,TSUB,TANS) !TANS=T1*INV(E-RSUB*R1)*TSUB
+            call MMUL(1.0D0,NMU,NMU,1,RSUB,J1,JCOM)  !JCOM=RSUB*J1
+            call MADD(1.0D0,NMU,1,JSUB,JCOM,JCOM) !JCOM=JSUB+RSUB*J1
+            call MMUL(1.0D0,NMU,NMU,1,CCOM,JCOM,JANS) !JANS=T1*INV(E-RSUB*R1)*(JSUB+RSUB*J1)
+            call MADD(1.0D0,NMU,1,J1,JANS,JANS) !JANS = J1+T1*INV(E-RSUB*R1)*(JSUB+RSUB*J1) 
+
+        ELSE
+            !2nd layer is non-scattering
+            call MMUL(1.0D0,NMU,NMU,1,RSUB,J1,JCOM)
+            call MADD(1.0D0,NMU,1,JSUB,JCOM,JCOM)
+   
+            DO I=1,NMU
+                TA = T1(I,I)
+                DO J=1,NMU
+                    TB = T1(J,J)
+                    TANS(I,J) = TSUB(I,J)*TA
+                    RANS(I,J) = RSUB(I,J)*TA*TB
+                END DO
+                JANS(I,1) = J1(I,1) + TA*JCOM(I,1)
+            END DO
+   
+        ENDIF
+   
+   
+        RETURN
+    end subroutine
+   
 
     !==================================================================================================
 
