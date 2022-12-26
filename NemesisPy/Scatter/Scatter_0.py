@@ -185,8 +185,8 @@ class Scatter_0:
         nzen = 2*self.NMU    #The gauss_lobatto function calculates both positive and negative angles, and Nemesis just uses the posiive
         ndigits = 12
         x,w = gauss_lobatto(nzen,ndigits)
-        self.MU = np.array(x[self.NMU:nzen])
-        self.WTMU = np.array(w[self.NMU:nzen])
+        self.MU = np.array(x[self.NMU:nzen],dtype='float64')
+        self.WTMU = np.array(w[self.NMU:nzen],dtype='float64')
 
     def read_xsc(self,runname,MakePlot=False):
         """
@@ -302,9 +302,9 @@ class Scatter_0:
             f.close()
 
         self.WAVE = wave
-        self.G1 = g1
-        self.G2 = g2
-        self.F = fr
+        self.G1 = np.array(g1,dtype='float64')
+        self.G2 =  np.array(g2,dtype='float64')
+        self.F =  np.array(fr,dtype='float64')
 
     def write_hgphase(self):
         """
@@ -336,12 +336,15 @@ class Scatter_0:
         else:
             Thetax = Theta
 
-        ntheta = len(Thetax)
-        phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
-        for i in range(ntheta):
-            t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Thetax[i]/180.*np.pi) + self.G1**2.)**1.5
-            t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(Thetax[i]/180.*np.pi) + self.G2**2.)**1.5
-            phase[:,i,:] = self.F * t1 + (1.0 - self.F) * t2
+        #Re-arranging the size of Thetax to be (NTHETA,NWAVE,NDUST)
+        Thetax = np.repeat(Thetax[:,np.newaxis],self.NWAVE,axis=1)
+        Thetax = np.repeat(Thetax[:,:,np.newaxis],self.NDUST,axis=2)
+
+        t1 = (1.-self.G1**2.)/(1. - 2.*self.G1*np.cos(Thetax/180.*np.pi) + self.G1**2.)**1.5
+        t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(Thetax/180.*np.pi) + self.G2**2.)**1.5
+        
+        phase = self.F * t1 + (1.0 - self.F) * t2
+        phase = np.transpose(phase,axes=[1,0,2])
 
         return phase
 

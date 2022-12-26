@@ -17,6 +17,7 @@ class Layer_0:
 
         Inputs
         ------
+
         @param RADIUS: real
             Reference planetary radius where H=0.  Usually at surface for
             terrestrial planets, or at 1 bar pressure level for gas giants.
@@ -48,6 +49,24 @@ class Layer_0:
             Heights of the layer bases defined by user. Default None.
         @param P_base: 1D array
             Pressures of the layer bases defined by user. Default None.
+
+
+        @param TAURAY: 2D array (NWAVE,NLAY)
+            Rayleigh scattering optical depth
+        @param TAUSCAT: 2D array (NWAVE,NLAY)
+            Aerosol scattering optical depth
+        @param TAUCLSCAT: 3D array (NWAVE,NLAY,NDUST)
+            Aerosol scattering optical depth by each aerosol type
+        @param TAUDUST: 2D array (NWAVE,NLAY)
+            Aerosol extinction optical depth (absorption + scattering)
+        @param TAUCIA: 2D array (NWAVE,NLAY)
+            CIA optical depth
+        @param TAUGAS: 3D array (NWAVE,NG,NLAY)
+            Gas optical depth
+        @param TAUTOT: 3D array (NWAVE,NG,NLAY)
+            Total optical depth
+
+
 
         Methods
         -------
@@ -93,6 +112,15 @@ class Layer_0:
         self.DTE = None
         self.DAM = None
         self.DCO = None
+
+        #optical depths in each layer
+        self.NWAVE = None  #Number of calculation wavelengths
+        self.TAURAY = None  #(NWAVE,NLAY) Rayleigh scattering optical depth
+        self.TAUSCAT = None #(NWAVE,NLAY) Aerosol scattering optical depth
+        self.TAUDUST = None #(NWAVE,NLAY) Aerosol absorption + scattering optical depth
+        self.TAUCIA = None  #(NWAVE,NLAY) CIA optical depth
+        self.TAUGAS = None  #(NWAVE,NG,NLAY) Gas optical depth
+        self.TAUTOT = None  #(NWAVE,NG,NLAY) Total optical depth
 
 
     def integrate(self, H, P, T, LAYANG, ID, VMR, DUST):

@@ -11,3 +11,4 @@ from .Utils import *
 from .Radtrans import *
 from .OptimalEstimation import *
 from .Data import *
+from .nemesisf import *

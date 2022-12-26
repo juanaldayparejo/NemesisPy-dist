@@ -1267,13 +1267,13 @@ def planck(ispace,wave,temp,MakePlot=False):
                   (0) Wavenumber (cm-1)
                   (1) Wavelength (um)
         wave(nwave) :: Wavelength or wavenumber array
-        temp :: Temperature of the blackbody (K)
+        temp(ntemp) :: Temperature of the blackbody (K)
 
     OPTIONAL INPUTS:  none
 
     OUTPUTS : 
 
-	    bb(nwave) :: Planck function (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)
+	    bb(nwave,ntemp) :: Planck function (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)
  
     CALLING SEQUENCE:
 
@@ -1282,6 +1282,12 @@ def planck(ispace,wave,temp,MakePlot=False):
     MODIFICATION HISTORY : Juan Alday (29/07/2021)
 
     """
+
+    if(np.isscalar(temp)==True):  #Only one temperature value bb(nwave)
+        ntemp = 0
+    else:  #Several temperature values bb(nwave,ntemp)
+        ntemp = len(temp)
+        wave = np.repeat(wave[:, np.newaxis],ntemp,axis=1)
 
     c1 = 1.1911e-12
     c2 = 1.439
@@ -1297,6 +1303,7 @@ def planck(ispace,wave,temp,MakePlot=False):
     tmp = c2 * y / temp
     b = np.exp(tmp) - 1
     bb = a/b
+
 
     if MakePlot==True:
         fig,ax1 = plt.subplots(1,1,figsize=(10,3))

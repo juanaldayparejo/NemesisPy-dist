@@ -77,6 +77,13 @@ Scatter.read_xsc(runname)
 if Scatter.NDUST!=Atm.NDUST:
     sys.exit('error :: Number of aerosol populations must be the same in .xsc and aerosol.ref files')
 
+if Scatter.ISCAT>0:
+    if Scatter.IMIE==0:
+        Scatter.read_hgphase()
+    elif Scatter.IMIE==1:
+        Scatter.read_phase()
+    elif Scatter.IMIE==2:
+        Scatter.read_lpphase()
 
 #Initialise Measurement class and read files (.spx, .sha)
 ##############################################################
