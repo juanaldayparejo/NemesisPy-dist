@@ -6,3 +6,5 @@ sphinx-rtd-theme
 pandoc
 numpydoc
 IPython
+mhchem
+pymdown-extensions
