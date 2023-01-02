@@ -2222,6 +2222,7 @@ class ForwardModel_0:
         import matplotlib as matplotlib
         from scipy import interpolate
         from NemesisPy import k_overlap, k_overlapg, planck
+        from NemesisPy.nemesisf import spectroscopy
         from copy import copy
 
         #Initialise some arrays
@@ -2308,9 +2309,13 @@ class ForwardModel_0:
 
         TAUDUST1,TAUCLSCAT,dTAUDUST1,dTAUCLSCAT = self.calc_tau_dust() #(NWAVE,NLAYER,NDUST)
 
+
         #Adding the opacity by the different dust populations
         TAUDUST = np.sum(TAUDUST1,2)  #(NWAVE,NLAYER) Absorption + Scattering
         TAUSCAT = np.sum(TAUCLSCAT,2)  #(NWAVE,NLAYER) Scattering
+        #for i in range(Measurement.NWAVE):
+        #    print(Measurement.WAVE[i],np.sum(TAUDUST,axis=1)[i])
+        #input()
 
         Layer.TAUDUST = TAUDUST
         Layer.TAUSCAT = TAUSCAT
@@ -2367,7 +2372,8 @@ class ForwardModel_0:
             #    utotl[:] = utotl[:] + Layer.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #Vertical column density of the radiatively active gases
 
             #Combining the k-distributions of the different gases in each layer
-            k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)
+            #k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)            
+            k_layer,dk_layer = spectroscopy.k_overlapg(Spectroscopy.DELG,k_gas,dkgasdT,f_gas) #Fortran version
 
             #Calculating the opacity of each layer
             TAUGAS = k_layer #(NWAVE,NG,NLAY)
@@ -2592,6 +2598,7 @@ class ForwardModel_0:
         import matplotlib as matplotlib
         from scipy import interpolate
         from NemesisPy import k_overlap, k_overlapg, planck, planckg
+        from NemesisPy.nemesisf import spectroscopy
         from copy import copy
 
         #Initialise some arrays
@@ -2750,7 +2757,8 @@ class ForwardModel_0:
                 f_gas[i,:] = Layer.AMOUNT[:,IGAS[0]] * 1.0e-4 * 1.0e-20  #Vertical column density of the radiatively active gases in cm-2
 
             #Combining the k-distributions of the different gases in each layer, as well as their gradients
-            k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)
+            #k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)
+            k_layer,dk_layer = spectroscopy.k_overlapg(Spectroscopy.DELG,k_gas,dkgasdT,f_gas) #Fortran version
 
             #Calculating the opacity of each layer
             TAUGAS = k_layer #(NWAVE,NG,NLAY)
@@ -2847,10 +2855,11 @@ class ForwardModel_0:
 
 
             print('CIRSradg :: Calculating GRADIENTS')
-            for iwave in range(Measurement.NWAVE):
-                for ig in range(Spectroscopy.NG):
-                    for ipath in range(Path.NPATH):
-                        dSPECOUT[iwave,ig,:,:,ipath] = -SPECOUT[iwave,ig,ipath] * dTAUTOT_LAYINC[iwave,ig,:,:,ipath]
+            dSPECOUT = np.transpose(-SPECOUT * np.transpose(dTAUTOT_LAYINC,axes=[2,3,0,1,4]),axes=[2,3,0,1,4])
+            #for iwave in range(Measurement.NWAVE):
+            #    for ig in range(Spectroscopy.NG):
+            #        for ipath in range(Path.NPATH):
+            #            dSPECOUT[iwave,ig,:,:,ipath] = -SPECOUT[iwave,ig,ipath] * dTAUTOT_LAYINC[iwave,ig,:,:,ipath]
             del dTAUTOT_LAYINC
             del TAUTOT_PATH
 
@@ -2897,8 +2906,9 @@ class ForwardModel_0:
 
                     #Calculating the spectrum
                     bb,dBdT = planckg(Measurement.ISPACE,Measurement.WAVE,Path.EMTEMP[j,ipath])
-                    for ig in range(Spectroscopy.NG):
-                        specg[:,ig] = specg[:,ig] + (trold[:,ig]-tr[:,ig])*bb[:] * xfac
+                    specg = specg + np.transpose( np.transpose(trold-tr)*bb*xfac)
+                    #for ig in range(Spectroscopy.NG):
+                    #    specg[:,ig] = specg[:,ig] + (trold[:,ig]-tr[:,ig])*bb[:] * xfac
 
                     #Setting up the gradients
                     for k in range(Atmosphere.NVMR+2+Atmosphere.NDUST):
@@ -2906,19 +2916,22 @@ class ForwardModel_0:
                         j1 = 0
                         while j1<j:
                             dtrdq[:,:,k,j1] = dtolddq[:,:,k,j1] * tlayer[:,:]
-                            for ig in range(Spectroscopy.NG):
-                                dspecg[:,ig,k,j1] = dspecg[:,ig,k,j1] + (dtolddq[:,ig,k,j1]-dtrdq[:,ig,k,j1])*bb[:] * xfac
+                            dspecg[:,:,k,j1] = dspecg[:,:,k,j1] + np.transpose(np.transpose(dtolddq[:,:,k,j1]-dtrdq[:,:,k,j1])*bb[:] * xfac)
+                            #for ig in range(Spectroscopy.NG):
+                            #    dspecg[:,ig,k,j1] = dspecg[:,ig,k,j1] + (dtolddq[:,ig,k,j1]-dtrdq[:,ig,k,j1])*bb[:] * xfac
                             j1 = j1 + 1
 
                         tmp = dTAUTOT_LAYINC[:,:,k,j1]
                         dtrdq[:,:,k,j1] = -tmp[:,:,0] * tlayer[:,:] * trold[:,:]
 
-                        for ig in range(Spectroscopy.NG):
-                            dspecg[:,ig,k,j1] = dspecg[:,ig,k,j1] + (dtolddq[:,ig,k,j1]-dtrdq[:,ig,k,j1])*bb[:] * xfac
+                        dspecg[:,:,k,j1] = dspecg[:,:,k,j1] + np.transpose(np.transpose(dtolddq[:,:,k,j1]-dtrdq[:,:,k,j1])*bb[:] * xfac)
+                        #for ig in range(Spectroscopy.NG):
+                        #    dspecg[:,ig,k,j1] = dspecg[:,ig,k,j1] + (dtolddq[:,ig,k,j1]-dtrdq[:,ig,k,j1])*bb[:] * xfac
 
                         if k==Atmosphere.NVMR:
-                            for ig in range(Spectroscopy.NG):
-                                dspecg[:,ig,k,j] = dspecg[:,ig,k,j] + (trold[:,ig]-tr[:,ig]) * xfac * dBdT[:]
+                            #for ig in range(Spectroscopy.NG):
+                            #    dspecg[:,ig,k,j] = dspecg[:,ig,k,j] + (trold[:,ig]-tr[:,ig]) * xfac * dBdT[:]
+                            dspecg[:,:,k,j] = dspecg[:,:,k,j] + np.transpose(np.transpose(trold[:,:]-tr[:,:])*dBdT[:] * xfac)
 
 
                     #Saving arrays for next iteration
@@ -2949,9 +2962,12 @@ class ForwardModel_0:
                         radground = bbsurf * emissivity
                         dradgrounddT = dbsurfdT * emissivity
 
-                    for ig in range(Spectroscopy.NG):
-                        specg[:,ig] = specg[:,ig] + trold[:,ig] * radground[:] * xfac
-                        tempgtsurf[:,ig] = xfac * trold[:,ig] * dradgrounddT[:]
+                    specg = specg + np.transpose( np.transpose(trold)*radground*xfac )
+                    tempgtsurf = np.transpose(xfac * np.transpose(trold) * dradgrounddT)
+
+                    #for ig in range(Spectroscopy.NG):
+                    #    specg[:,ig] = specg[:,ig] + trold[:,ig] * radground[:] * xfac
+                    #    tempgtsurf[:,ig] = xfac * trold[:,ig] * dradgrounddT[:]
 
                     for j in range(Path.NLAYIN[ipath]):
                         for k in range(Atmosphere.NVMR+2+Atmosphere.NDUST):
@@ -3408,7 +3424,8 @@ class ForwardModel_0:
         iiscat = np.where((Layer.TAUSCAT+Layer.TAURAY)>0.0)
         if(len(iiscat[0])>0):
             FRAC[iiscat[0],iiscat[1],0:Scatter.NDUST] = np.transpose(np.transpose(Layer.TAUCLSCAT[iiscat[0],iiscat[1],:],axes=[1,0]) / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])),axes=[1,0])  #Fraction of each aerosol scattering FRAC = TAUCLSCAT/(TAUSCAT+TAURAY)
-            FRAC[iiscat[0],iiscat[1],Scatter.NDUST] = Layer.TAURAY[iiscat[0],iiscat[1]] / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])) #Fraction of Rayleigh scattering FRAC = TAURAY/(TAUSCAT+TAURAY)
+            if Scatter.IRAY>0:
+                FRAC[iiscat[0],iiscat[1],Scatter.NDUST] = Layer.TAURAY[iiscat[0],iiscat[1]] / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])) #Fraction of Rayleigh scattering FRAC = TAURAY/(TAUSCAT+TAURAY)
 
         #Calculating the weighted averaged phase matrix in each layer and direction
         print('scloud11wave :: Calculating weighted average phase matrix in each layer')
@@ -3693,7 +3710,28 @@ class ForwardModel_0:
             U = FSOL
 
             RADI = (1-T)*(1-U)*RADD[:,:,0] + T*(1-U)*RADD[:,:,1] + T*U*RADD[:,:,3] + (1-T)*U*RADD[:,:,2]
+            
+            '''
+            fig,(ax1,ax2) = plt.subplots(2,1,figsize=(10,6))
+            ax1.plot(Measurement.WAVE,RADI[:,0])
+            ax1.plot(Measurement.WAVE,RADD[:,0,0])
+            ax1.plot(Measurement.WAVE,RADD[:,0,1])
+            ax1.plot(Measurement.WAVE,RADD[:,0,2])
+            ax1.plot(Measurement.WAVE,RADD[:,0,3])
 
+            ax2.plot(Measurement.WAVE,RADD[:,0,0]/RADI[:,0])
+            ax2.plot(Measurement.WAVE,RADD[:,0,1]/RADI[:,0])
+            ax2.plot(Measurement.WAVE,RADD[:,0,2]/RADI[:,0])
+            ax2.plot(Measurement.WAVE,RADD[:,0,3]/RADI[:,0])
+
+            ax1.grid()
+            ax2.grid()
+            plt.tight_layout()
+            fig.savefig('interpolate_angles.png',dpi=300)
+            sys.exit()
+            '''
+            
+            
 
             #Reconstructing the Fourier expansion in the azimuth direction
             DRAD = RADI*np.cos(IC*Scatter.AZI_ANG*np.pi/180.0)
@@ -3752,6 +3790,10 @@ class ForwardModel_0:
                     ix = ix + 1
 
         #Calculating the phase function at the required wavelengths and scattering angles
+        cpl[np.where(cpl>1.0)]=1.0
+        cmi[np.where(cmi>1.0)]=1.0
+        cpl[np.where(cpl<-1.0)]=-1.0
+        cmi[np.where(cmi<-1.0)]=-1.0
         apl = np.arccos(cpl) / np.pi * 180.
         ami = np.arccos(cmi) / np.pi * 180.
         
@@ -3766,6 +3808,9 @@ class ForwardModel_0:
             ncont = Scatter.NDUST + 1
             pplr = Scatter.calc_phase_ray(apl) #(NTHETA)
             pmir = Scatter.calc_phase_ray(ami) #(NTHETA)
+
+            pplr = pplr / (4.0*np.pi)
+            pmir = pmir / (4.0*np.pi)
         else:
             ncont = Scatter.NDUST
 
@@ -3826,8 +3871,9 @@ class ForwardModel_0:
                 RSUM[:,:,j] = RSUM[:,:,j] + PPLMI[:,:,IC,i,j] * Scatter.WTMU[i]*2.0*np.pi
 
 
-        FC = np.ones((NWAVE,Scatter.NMU,Scatter.NMU))
+
         for icont in range(ncont):
+            FC = np.ones((NWAVE,Scatter.NMU,Scatter.NMU))
             niter = 1
             converged = False
             while converged==False:
