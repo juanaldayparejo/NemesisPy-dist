@@ -1514,15 +1514,15 @@ def write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv):
     """
 
     f = open(runname+'.fla','w')
-    f.write('%i \n' % (inormal))
-    f.write('%i \n' % (iray))
-    f.write('%i \n' % (ih2o))
-    f.write('%i \n' % (ich4))
-    f.write('%i \n' % (io3))
-    f.write('%i \n' % (inh3))
-    f.write('%i \n' % (iptf))
-    f.write('%i \n' % (imie))
-    f.write('%i \n' % (iuv))
+    f.write('%i \t %s \n' % (inormal,'!INORMAL'))
+    f.write('%i \t %s \n' % (iray,'!IRAY'))
+    f.write('%i \t %s \n' % (ih2o,'!IH2O'))
+    f.write('%i \t %s \n' % (ich4,'!ICH4'))
+    f.write('%i \t %s \n' % (io3,'!IO3'))
+    f.write('%i \t %s \n' % (inh3,'!INH3'))
+    f.write('%i \t %s \n' % (iptf,'!IPTF'))
+    f.write('%i\t %s \n' % (imie,'!IMIE'))
+    f.write('%i\t %s \n' % (iuv,'!IUV'))
     f.close()
 
 ###############################################################################################
