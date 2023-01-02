@@ -159,8 +159,7 @@ contains
 
                             call MMUL(CON,NMU,NMU,NMU,PPLMI(iwave,ilay,ic+1,:,:),CC,ACOM)
                             call MMUL(1.0D0,NMU,NMU,NMU,MMINV,ACOM,GPLMI)
-
-
+                            
 
                             !Define the layer in terms of its thickness
                             NN=INT(DLOG(TAUT)/DLOG(2.0D0))+IPOW0
@@ -172,6 +171,7 @@ contains
                             ENDIF
                             TAU0 = TAUT*XFAC
 
+                            !if(NN>1)print*,NN,TAUT,IPOW0
 
                             !**********************************************************************
                             !     COMPUTATION OF R, T AND J FOR INITIAL LAYER (SINGLE SCATTERING)
@@ -222,7 +222,7 @@ contains
                                         J1(J,1)=JL(iwave,ig,ilay,ic+1,J,1)
                                     ENDDO
 
-                                100 ENDDO
+                            100 ENDDO
 
                             END IF
 
