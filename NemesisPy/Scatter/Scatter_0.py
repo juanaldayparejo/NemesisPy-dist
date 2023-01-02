@@ -424,7 +424,7 @@ class Scatter_0:
 
             #Calculating the phase function at the wavelengths defined in the Scatter class
             #using the Legendre polynomials
-            phase1 = self.lpphase(Thetax)
+            phase1 = self.calc_lpphase(Thetax)
 
         else:
             sys.exit('error :: IMIE value not valid in Scatter class')
