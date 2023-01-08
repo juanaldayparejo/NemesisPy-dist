@@ -49,13 +49,15 @@ Scatter,Stellar,Surface,Layer = read_set(runname,Layer=Layer)
 
 Measurement,Scatter,Spec,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Scatter=Scatter)
 
-#Reading .sur file if planet has surface
+#Reading surface files if planet has surface
 #############################################################################
 
 isurf = planet_info[str(Atm.IPLANET)]["isurf"]
 if isurf==1:
     Surface.GASGIANT=False
-    Surface.read_sur(runname)
+    Surface.read_sur(runname) #Emissivity (and albedo for Lambert surface)
+    if Surface.LOWBC==2: #Hapke surface
+        Surface.read_hap(runname)
 else:
     Surface.GASGIANT=True
 

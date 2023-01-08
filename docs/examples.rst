@@ -10,6 +10,7 @@ This section includes Jupyter notebooks with examples showing how NemesisPy can 
    examples/Spectroscopy/spectroscopy.ipynb
    examples/MieScattering/MieScattering.ipynb
    examples/Stellar/StellarExample.ipynb
+   examples/Surface/surface.ipynb
 
 Forward models
 ------------------

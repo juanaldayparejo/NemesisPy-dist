@@ -42,7 +42,8 @@ nbsphinx_thumbnails = {
     'examples/Measurement/Measurement': '_static/observation_sketch.png',
     'examples/Stellar/StellarExample': '_static/solar_spec.jpg',
     'examples/Atmosphere/Atmosphere': '_static/planetary_atmospheres.png',
-    'examples/MieScattering/MieScattering': '_static/mars_sunset2.jpg'
+    'examples/MieScattering/MieScattering': '_static/mars_sunset2.jpg',
+    'examples/Surface/surface': '_static/mars_surface.png'
 }
 
 #Defining the actual appearance of the website
