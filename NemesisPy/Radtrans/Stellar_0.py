@@ -88,7 +88,13 @@ class Stellar_0:
 
     def read_sol(self, runname, MakePlot=False):
         """
-        Read the solar spectrum from the .sol file
+        Read the solar spectrum from the .sol file. There are two options for this file:
+
+            - The only line in the file is the name of another file including the solar power spectrum,
+              assumed to be stored in the Data/stellar/ directory
+
+            - The first line is equal to -1. Then the stellar spectrum is read from the solar file.
+
         @param runname: str
             Name of the NEMESIS run
         """
@@ -101,36 +107,60 @@ class Stellar_0:
         solname = s[0]
         f.close()
 
-        nlines = file_lines(self.STELLARDATA+solname)
+        if solname=='-1':
+            #Information about stellar spectrum is stored in this same file
+            nlines = file_lines(runname+'.sol')
+            nvsol = nlines - 3
 
-        #Reading buffer
-        ibuff = 0
-        with open(self.STELLARDATA+solname,'r') as fsol:
-            for curline in fsol:
-                if curline.startswith("#"):
-                    ibuff = ibuff + 1
-                else:
-                    break
 
-        nvsol = nlines - ibuff - 2
+            f = open(runname+'.sol','r')
+            s = f.readline().split()
+            solname = s[0]
+
+            s = f.readline().split()
+            ispace = int(s[0])
+            s = f.readline().split()
+            solrad = float(s[0])
+            vsol = np.zeros(nvsol)
+            rad = np.zeros(nvsol)
+            for i in range(nvsol):
+                s = f.readline().split()
+                vsol[i] = float(s[0])
+                rad[i] = float(s[1])
+            f.close()
+
+        else:
+
+            nlines = file_lines(self.STELLARDATA+solname)
+
+            #Reading buffer
+            ibuff = 0
+            with open(self.STELLARDATA+solname,'r') as fsol:
+                for curline in fsol:
+                    if curline.startswith("#"):
+                        ibuff = ibuff + 1
+                    else:
+                        break
+
+            nvsol = nlines - ibuff - 2
+            
+            #Reading file
+            fsol = open(self.STELLARDATA+solname,'r')
+            for i in range(ibuff):
+                s = fsol.readline().split()
         
-        #Reading file
-        fsol = open(self.STELLARDATA+solname,'r')
-        for i in range(ibuff):
             s = fsol.readline().split()
-    
-        s = fsol.readline().split()
-        ispace = int(s[0])
-        s = fsol.readline().split()
-        solrad = float(s[0])
-        vsol = np.zeros(nvsol)
-        rad = np.zeros(nvsol)
-        for i in range(nvsol):
+            ispace = int(s[0])
             s = fsol.readline().split()
-            vsol[i] = float(s[0])
-            rad[i] = float(s[1])
-    
-        fsol.close()
+            solrad = float(s[0])
+            vsol = np.zeros(nvsol)
+            rad = np.zeros(nvsol)
+            for i in range(nvsol):
+                s = fsol.readline().split()
+                vsol[i] = float(s[0])
+                rad[i] = float(s[1])
+        
+            fsol.close()
 
         self.RADIUS = solrad
         self.ISPACE = ispace
@@ -144,6 +174,39 @@ class Stellar_0:
             #ax1.set_yscale('log')
             plt.tight_layout()
             plt.show()
+
+    def write_sol(self,runname):
+        """
+        Write the solar power into a .sol file with the format required by NEMESISpy, in the case
+        that the solar power spectrum is stored directy in the .sol file
+        """
+
+        f = open(runname+'.sol','w')
+
+        #Defining errors while writing file
+        if self.ISPACE is None:
+            sys.exit('error :: ISPACE must be defined in Stellar class to write Stellar power to file')
+
+        if self.RADIUS is None:
+            sys.exit('error :: RADIUS must be defined in Stellar class to write Stellar power to file')
+
+        if self.NCONV is None:
+            sys.exit('error :: NCONV must be defined in Stellar class to write Stellar power to file')
+
+        if self.VCONV is None:
+            sys.exit('error :: VCONV must be defined in Stellar class to write Stellar power to file')
+
+        if self.SOLSPEC is None:
+            sys.exit('error :: SOLSPEC Must be defined in Stellar class to write Stellar power to file')
+
+
+        header = '-1'
+        f.write(header+' \n')
+        f.write('\t %i \n' % (self.ISPACE))
+        f.write('\t %7.3e \n' % (self.RADIUS))
+        for i in range(self.NCONV):
+            f.write('\t %7.6f \t %7.5e \n' % (self.VCONV[i],self.SOLSPEC[i]))
+        f.close()
 
 
     def calc_solar_flux(self):
