@@ -85,7 +85,7 @@ contains
             if(cg.gt.1.d0)then
                 cg = 1.0d0
             endif
-            g = dacos(cg)
+            g = dacos(cg)*180.d0/pi
 
             !Calculate some of the input parameters for the Hapke formalism
             gamma = dsqrt(1.d0 - w)
