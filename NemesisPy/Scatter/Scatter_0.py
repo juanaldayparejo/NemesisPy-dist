@@ -1059,8 +1059,9 @@ class Scatter_0:
         elif psdist==1: #Log-normal distribution
             mu = pardist[0]
             sigma = pardist[1]
-            r0 = lognorm.ppf(0.00000001, sigma, 0.0, mu)
-            r1 = lognorm.ppf(0.99999999, sigma, 0.0, mu)
+            tol = 1.0e-8
+            r0 = lognorm.ppf(tol, sigma, 0.0, mu)
+            r1 = lognorm.ppf(1.0-tol, sigma, 0.0, mu)
             rmax = np.exp( np.log(mu) - sigma**2.)
             delr = (rmax-r0)/50.
             nr = int((r1-r0)/delr) + 1
@@ -1167,10 +1168,13 @@ class Scatter_0:
             kext1 = np.zeros([self.NWAVE,nr])
             ksca1 = np.zeros([self.NWAVE,nr])
             phase1 = np.zeros([self.NWAVE,self.NTHETA,nr])
-            for ir in range(nr):
-                kext1[:,ir] = kext[:,ir] * Nd[ir]
-                ksca1[:,ir] = ksca[:,ir] * Nd[ir]
-                phase1[:,:,ir] = phase[:,:,ir] * Nd[ir]
+            kext1 = kext*Nd
+            ksca1 = ksca*Nd
+            phase1 = phase*Nd
+            #for ir in range(nr):
+            #    kext1[:,ir] = kext[:,ir] * Nd[ir]
+            #    ksca1[:,ir] = ksca[:,ir] * Nd[ir]
+            #    phase1[:,:,ir] = phase[:,:,ir] * Nd[ir]
 
             #Integrating the arrays
             #kextout = simpson(kext1,x=rd,axis=1)

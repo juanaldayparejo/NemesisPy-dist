@@ -3594,7 +3594,22 @@ class ForwardModel_0:
                         #Make any quadrature correction
                         RS[:,IC,i,j] = RS[:,IC,i,j]*xfac
 
+            elif Surface.LOWBC==2:  #Hapke surface
 
+                Reflectivity = self.calc_hapke_reflectivity(Scatter,Surface,Measurement.WAVE)
+
+                #REFLECTION
+                for j in range(Scatter.NMU):
+                    for i in range(Scatter.NMU):
+                        for kl in range(Scatter.NF+1):
+                            RS[:,kl,i,j] = 2.0*Reflectivity[:,kl,i,j]*Scatter.MU[j]*Scatter.WTMU[j]  #Sum of MU*WTMU = 0.5
+                            #Make any quadrature correction
+                            RS[:,kl,i,j] = RS[:,kl,i,j]*xfac
+
+                #THERMAL EMISSION
+                IC = 0   #For the rest of the NF values, it is zero
+                for j in range(Scatter.NMU):
+                    JS[:,IC,j,0] = EMISSIVITY[:]*RADGROUND[:]  #Source function is considered isotropic
 
         ###############################################################################
         # CALCULATING THE SPECTRUM
@@ -3630,8 +3645,8 @@ class ForwardModel_0:
             #Combining the adjacent layers
             for ILAY in range(LTOT-1):
 
-                #In the Fortran version the layers are defined from top to bottom
-                #while here they are from bottom to top, therefore the indexing
+                #In the Fortran version of NEMESIS the layers are defined from top to 
+                #bottom while here they are from bottom to top, therefore the indexing
                 #in this part of the code differs with respect to the Fortran version
 
                 #RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = add_layer_jit( \
@@ -3730,7 +3745,6 @@ class ForwardModel_0:
             fig.savefig('interpolate_angles.png',dpi=300)
             sys.exit()
             '''
-            
             
 
             #Reconstructing the Fourier expansion in the azimuth direction
@@ -3911,6 +3925,82 @@ class ForwardModel_0:
         return PPLPL,PPLMI
 
 
+###############################################################################################
+
+    def calc_hapke_reflectivity(self,Scatter,Surface,WAVE):
+        """
+        Calculate the surface reflectivity modelled using the Hapke reflectance model.
+        The azimuth-dependence of the reflectivity is expanded using the Fourier components.
+        The reflection matrix can then be calculated integrating the reflectivity over the zenith angle:
+
+            int_0^1 r(mu,phi) * mu * dmu
+
+        where mu represents the cosine of the solar zenith angle
+ 
+        Inputs
+        ________
+
+        Scatter :: Python class defining the scattering setup
+        Surface :: Python class defining the Surface
+        WAVE(NWAVE) :: Calculation wavelengths
+
+        Outputs
+        ________
+
+        Reflectivity(NWAVE,NF+1,NMU,NMU) :: Surface reflection matrix
+        """
+
+        #Calculating the bidirectional reflectance at the required angles
+        #######################################################################
+
+        NWAVE = len(WAVE)
+        dphi = 2.0*np.pi/Scatter.NPHI
+
+        #Defining the angles at which the reflectance must be calculated
+        EMISS_ANG = np.zeros(Scatter.NMU*Scatter.NMU*(Scatter.NPHI+1))
+        SOL_ANG = np.zeros(Scatter.NMU*Scatter.NMU*(Scatter.NPHI+1))
+        AZI_ANG = np.zeros(Scatter.NMU*Scatter.NMU*(Scatter.NPHI+1))
+        ix = 0
+        for j in range(Scatter.NMU):   #SOL_ANG
+            for i in range(Scatter.NMU):   #EMISS_ANG
+                for k in range(Scatter.NPHI+1):  #AZI_ANG
+                    phi = k*dphi
+                    EMISS_ANG[ix] = np.arccos(Scatter.MU[i])/np.pi*180.
+                    SOL_ANG[ix] = np.arccos(Scatter.MU[j])/np.pi*180.
+                    AZI_ANG[ix] = phi/np.pi*180.
+                    ix = ix + 1
+
+        BRDF = Surface.calc_Hapke_BRDF(EMISS_ANG,SOL_ANG,AZI_ANG,WAVE=WAVE) #(NWAVE,NTHETA)
+
+        #Integrating the reflectance over the azimuth direction
+        #####################################################################################
+
+        Reflectivity = np.zeros((NWAVE,Scatter.NF+1,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in + direction (i.e. downwards)
+        ix = 0
+        for j in range(Scatter.NMU):   #SOL_ANG
+            for i in range(Scatter.NMU):  #EMISS_ANG
+                for k in range(Scatter.NPHI+1):  #AZI_ANG
+                    phi = k*dphi
+                    for kl in range(Scatter.NF+1):
+
+                        BRDFx = BRDF[:,ix] * np.pi * np.cos(kl*phi)
+
+                        wphi = 1.0*dphi
+                        if k==0:
+                            wphi = 0.5*dphi
+                        elif k==Scatter.NPHI:
+                            wphi = 0.5*dphi
+
+                        if kl==0:
+                            wphi = wphi/(2.0*np.pi)
+                        else:
+                            wphi = wphi/np.pi
+
+                        Reflectivity[:,kl,i,j] = Reflectivity[:,kl,i,j] + wphi*BRDFx[:]
+
+                    ix = ix + 1
+
+        return Reflectivity
 
 ###############################################################################################
 @jit(nopython=True)
