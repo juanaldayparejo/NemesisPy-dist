@@ -2014,12 +2014,22 @@ def read_input_files(runname):
     #############################################################################
 
     inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv = read_fla(runname)
- 
+
     if CIA is not None:
         CIA.INORMAL = inormal
 
     Scatter.IRAY = iray
     Scatter.IMIE = imie
+
+    if Scatter.ISCAT>0:
+        if Scatter.IMIE==0:
+            Scatter.read_hgphase()
+        elif Scatter.IMIE==1:
+            Scatter.read_phase()
+        elif Scatter.IMIE==2:
+            Scatter.read_lpphase()
+        else:
+            sys.exit('error :: IMIE must be an integer from 0 to 2')
 
     #Reading .apr file and Variables Class
     #################################################################
