@@ -65,6 +65,7 @@ contains
         double precision :: nue,nui               !nu-functions
         double precision :: Bs,Bc                 !shadow-hiding opposition function Bs; backscatter angular function Bc
         double precision :: phase                 !Phase function
+        double precision :: phix
 
         !Output
         double precision, intent(out) :: BRDF     !Bidirectional reflectance
@@ -80,10 +81,21 @@ contains
             mu = dcos(e/180.*pi)
             mu0 = dcos(i/180.*pi)
 
+            !Correcting the azimuth angle to be within 0-180 degrees
+            if(phi.gt.180.d0)then
+                phix = 180.d0 - (phi-180.d0)
+            else
+                phix = phi
+            endif
+
+
             !Calcualting the scattering phase angle
-            cg = mu * mu0 + dsqrt(1.d0 - mu**2.) * dsqrt(1.d0 - mu0**2.) * dcos(phi/180.d0*pi) 
+            cg = mu * mu0 + dsqrt(1.d0 - mu**2.) * dsqrt(1.d0 - mu0**2.) * dcos(phix/180.d0*pi) 
             if(cg.gt.1.d0)then
                 cg = 1.0d0
+            endif
+            if(cg.lt.0.d0)then
+                cg = 0.d0
             endif
             g = dacos(cg)*180.d0/pi
 
@@ -95,7 +107,7 @@ contains
             if(phi.eq.180.d0)then
                 fphi = 0.d0
             else
-                fphi = dexp(-2.d0*dtan(phi/2.d0/180.d0*pi))  !f(phi)
+                fphi = dexp(-2.d0*dabs(dtan(phix/2.d0/180.d0*pi)))  !f(phi)
             endif
 
             !Calculating the E-functions
@@ -109,8 +121,8 @@ contains
             call calc_nu(i,theta_bar,E1i,E2i,chi,nui)
 
             !Calculating the effective incident and reflection angles
-            call calc_mueff(i,e,phi,theta_bar,E1e,E1i,E2e,E2i,chi,mueff)
-            call calc_mu0eff(i,e,phi,theta_bar,E1e,E1i,E2e,E2i,chi,mu0eff)
+            call calc_mueff(i,e,phix,theta_bar,E1e,E1i,E2e,E2i,chi,mueff)
+            call calc_mu0eff(i,e,phix,theta_bar,E1e,E1i,E2e,E2i,chi,mu0eff)
 
             !Calculating the shadowing function S
             if(i.le.e)then

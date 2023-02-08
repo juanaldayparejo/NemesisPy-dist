@@ -392,7 +392,319 @@ contains
    
         RETURN
     end subroutine
-   
+
+    !==================================================================================================
+
+    subroutine iup(NWAVE,NG,NMU,E,U0PL,UTMI,RA,TA,JA,RB,TB,JB,UMI)
+        !*****************************************************************
+        !Subroutine to calculate the upwards intensity of a cloud
+
+        !For a detailed description, see Plass et al.(1993), Apl. Opt. 12, pp 314-329.
+
+        !This is equation 5
+        !RA = R10
+        !RB = R12
+        !TA = T01
+        !TB = T21
+        !JA = JP01
+        !JB = JM21
+        !U0PL is I0+
+        !UTMI is I2-
+
+        !Output UMI is I1-
+        
+        !   Input variables:
+        !   U0PL(NWAVE,NG,NMU,1) DOUBLE  Top of atmosphere solar contribution
+        !   UTMI(NWAVE,NG,NMU,1) DOUBLE  Bottom of atmosphere contribution
+        !	RA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 1st layer
+        !	TA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 1st layer
+        !	JA(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 1st layer
+        !	RB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 2nd layer
+        !	TB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 2nd layer
+        !	JB(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 2nd layer
+        !   NWAVE   INTEGER Number of wavelengths
+        !   NG      INTEGER Number of g-ordinates
+        !	NMU		INTEGER	Number of elements used
+        
+        !   Output variables
+        !	UMI(NWAVE,NG,NMU,1)	DOUBLE	Upwards intensity
+
+        !
+        !     Pat Irwin		2/7/07
+        !     Juan Alday    7/2/23
+        !
+        !**********************************************************************
+        
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: NMU,NWAVE,NG
+        double precision, intent(in) :: E(NMU,NMU),U0PL(NWAVE,NG,NMU,1),UTMI(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RA(NWAVE,NG,NMU,NMU),TA(NWAVE,NG,NMU,NMU),JA(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RB(NWAVE,NG,NMU,NMU),TB(NWAVE,NG,NMU,NMU),JB(NWAVE,NG,NMU,1)
+
+        !Local
+        double precision :: ACOM(NMU,NMU),BCOM(NMU,NMU),UMI1(NMU,1)
+        double precision :: XCOM(NMU,1),YCOM(NMU,1),XCOM2(NMU,1)
+        integer :: IWAVE,IG
+        
+        !Outputs
+        double precision, intent(out) :: UMI(NWAVE,NG,NMU,1)
+        
+        do IWAVE=1,NWAVE
+            do IG=1,NG
+
+                !Calculate r12*r10 -> ACOM
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RB(IWAVE,IG,:,:),RA(IWAVE,IG,:,:),ACOM)
+        
+                !Calculate (E - r12*r10) -> BCOM
+                CALL MADD(-1.0D0,NMU,NMU,E,ACOM,BCOM)
+        
+                !Calculate (E - r12*r10)^-1 -> ACOM
+                CALL MATINV8(NMU,BCOM,ACOM)
+
+                !Transfer result to BCOM
+                CALL MEQU(NMU,ACOM,BCOM)
+        
+                !Calculate t21*I2- -> XCOM
+                CALL MMUL(1.0D0,NMU,NMU,1,TB(IWAVE,IG,:,:),UTMI(IWAVE,IG,:,:),XCOM)
+        
+                !Calculate r12*t01 -> ACOM
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RB(IWAVE,IG,:,:),TA(IWAVE,IG,:,:),ACOM)
+        
+                !Calculate r12*t01*I0+ -> YCOM
+                CALL MMUL(1.0D0,NMU,NMU,1,ACOM,U0PL(IWAVE,IG,:,:),YCOM)
+
+                !Add: t21*I2- + r12*t01*I0+ -> XCOM2
+                CALL MADD(1.0D0,NMU,1,XCOM,YCOM,XCOM2)
+        
+                !Calculate r12*J01+ -> YCOM
+                CALL MMUL(1.0D0,NMU,NMU,1,RB(IWAVE,IG,:,:),JA(IWAVE,IG,:,:),YCOM)
+        
+                !Add total and put in UMI
+                CALL MADD(1.0D0,NMU,1,XCOM2,YCOM,UMI1)
+        
+                !Add J21- to UMI
+                CALL MADD(1.0D0,NMU,1,UMI1,JB(IWAVE,IG,:,:),XCOM)
+
+                !Multiply and put result in UMI
+                CALL MMUL(1.0D0,NMU,NMU,1,BCOM,XCOM,UMI(IWAVE,IG,:,:))
+
+            enddo
+        enddo
+
+        RETURN
+
+    end subroutine
+
+    !==================================================================================================
+
+    subroutine idown(NWAVE,NG,NMU,E,U0PL,UTMI,RA,TA,JA,RB,TB,JB,UPL)
+        !*****************************************************************
+        !Subroutine to calculate the downward intensity of a cloud
+
+        !For a detailed description, see Plass et al.(1993), Apl. Opt. 12, pp 314-329. (eq.6)
+        
+        !   Input variables:
+        !   U0PL(NWAVE,NG,NMU,1) DOUBLE  Top of atmosphere solar contribution
+        !   UTMI(NWAVE,NG,NMU,1) DOUBLE  Bottom of atmosphere contribution
+        !	RA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 1st layer
+        !	TA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 1st layer
+        !	JA(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 1st layer
+        !	RB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 2nd layer
+        !	TB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 2nd layer
+        !	JB(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 2nd layer
+        !   NWAVE   INTEGER Number of wavelengths
+        !   NG      INTEGER Number of g-ordinates
+        !	NMU		INTEGER	Number of elements used
+        
+        !   Output variables
+        !	UPL(NWAVE,NG,NMU,1)	DOUBLE	Downwards intensity
+
+        !
+        !     Pat Irwin		2/7/07
+        !     Juan Alday    7/2/23
+        !
+        !**********************************************************************
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: NMU,NWAVE,NG
+        double precision, intent(in) :: E(NMU,NMU),U0PL(NWAVE,NG,NMU,1),UTMI(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RA(NWAVE,NG,NMU,NMU),TA(NWAVE,NG,NMU,NMU),JA(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RB(NWAVE,NG,NMU,NMU),TB(NWAVE,NG,NMU,NMU),JB(NWAVE,NG,NMU,1)
+
+        !Local
+        double precision :: ACOM(NMU,NMU),BCOM(NMU,NMU)
+        double precision :: XCOM(NMU,1),YCOM(NMU,1),XCOM2(NMU,1),UPL1(NMU,1)
+        integer :: IWAVE,IG
+        
+        !Outputs
+        double precision, intent(out) :: UPL(NWAVE,NG,NMU,1)
+        
+        do IWAVE=1,NWAVE
+            do IG=1,NG
+
+                !Calculate r10*r12
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RA(IWAVE,IG,:,:),RB(IWAVE,IG,:,:),ACOM)
+        
+                !Calculate E-r10*r12
+                CALL MADD(-1.0D0,NMU,NMU,E,ACOM,BCOM)
+        
+                !Calculate (E-r10*r12)^-1 -> ACOM
+                CALL MATINV8(NMU,BCOM,ACOM)
+        
+                !Transfer to BCOM
+                CALL MEQU(NMU,ACOM,BCOM)
+        
+                !Calculate t01*I0+
+                CALL MMUL(1.0D0,NMU,NMU,1,TA(IWAVE,IG,:,:),U0PL(IWAVE,IG,:,:),XCOM)
+        
+                !Calculate r10*t21
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RA(IWAVE,IG,:,:),TB(IWAVE,IG,:,:),ACOM)
+        
+                !Calculate r10*t21*I2-
+                CALL MMUL(1.0D0,NMU,NMU,1,ACOM,UTMI(IWAVE,IG,:,:),YCOM)
+        
+                !Add previous two results
+                CALL MADD(1.0D0,NMU,1,XCOM,YCOM,XCOM2)
+        
+                !calculate r10*J21-
+                CALL MMUL(1.0D0,NMU,NMU,1,RA(IWAVE,IG,:,:),JB(IWAVE,IG,:,:),YCOM)
+        
+                !Add to total
+                CALL MADD(1.0D0,NMU,1,XCOM2,YCOM,UPL1)
+        
+                !Add J01+ to total and put in UPL
+                CALL MADD(1.0D0,NMU,1,UPL1,JA(IWAVE,IG,:,:),XCOM)
+        
+                !Multiply by (E-r10*r12)^-1 for result in UPL
+                CALL MMUL(1.0D0,NMU,NMU,1,BCOM,XCOM,UPL(IWAVE,IG,:,:))
+
+            enddo
+        enddo
+
+        RETURN
+
+    end subroutine
+
+
+    !==================================================================================================
+
+    subroutine itop(NWAVE,NG,NMU,U0PL,UTMI,R,T,J,U0MI)
+        !*****************************************************************
+        !Subroutine to calculate the upwards intensity at the top of the atmosphere
+        
+        !   Input variables:
+        !   U0PL(NWAVE,NG,NMU,1)  DOUBLE  Top of atmosphere solar contribution
+        !   UTMI(NWAVE,NG,NMU,1)  DOUBLE  Bottom of atmosphere contribution
+        !	R(NWAVE,NG,NMU,NMU)   DOUBLE	Reflection matrix at the top of top atmospheric layer 
+        !	T(NWAVE,NG,NMU,NMU)   DOUBLE	Transmission matrix at the top of top atmospheric layer
+        !	J(NWAVE,NG,NMU,1)	  DOUBLE	Source matrix at the top of top atmospheric layer
+        !   NWAVE   INTEGER Number of wavelengths
+        !   NG      INTEGER Number of g-ordinates
+        !	NMU		INTEGER	Number of elements used
+        
+        !   Output variables
+        !	U0MI(NWAVE,NG,NMU,1)	DOUBLE	Upwards intensity at the top of the atmosphere
+
+        !
+        !     Pat Irwin		2/7/07
+        !     Juan Alday    7/2/23
+        !
+        !**********************************************************************
+        
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: NMU,NWAVE,NG
+        double precision, intent(in) :: U0PL(NWAVE,NG,NMU,1),UTMI(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: R(NWAVE,NG,NMU,NMU),T(NWAVE,NG,NMU,NMU),J(NWAVE,NG,NMU,1)
+
+        !Local
+        double precision :: ACOM(NMU,1),BCOM(NMU,1),CCOM(NMU,1)
+        integer :: IWAVE,IG
+        
+        !Outputs
+        double precision, intent(out) :: U0MI(NWAVE,NG,NMU,1)
+
+
+        !Basically upward radiation at top of atmosphere:
+        !U0MI = U0PL*RBASE(LTOT) + TBASE*UTMI(LTOT) + JBASE(LTOT)
+         
+        do IWAVE=1,NWAVE
+            do IG=1,NG
+
+                CALL MMUL(1.0D0,NMU,NMU,1,R(IWAVE,IG,:,:),U0PL(IWAVE,IG,:,:),ACOM)
+                CALL MMUL(1.0D0,NMU,NMU,1,T(IWAVE,IG,:,:),UTMI(IWAVE,IG,:,:),BCOM)
+                CALL MADD(1.0D0,NMU,1,ACOM,BCOM,CCOM)
+                CALL MADD(1.0D0,NMU,1,J(IWAVE,IG,:,:),CCOM,U0MI(IWAVE,IG,:,:))
+
+            enddo
+        enddo
+
+        return
+
+    end subroutine
+
+    !==================================================================================================
+
+    subroutine ibottom(NWAVE,NG,NMU,U0PL,UTMI,R,T,J,UTPL)
+        !*****************************************************************
+        !Subroutine to calculate the downward intensity at the bottom of the atmosphere
+        
+        !   Input variables:
+        !   U0PL(NWAVE,NG,NMU,1)  DOUBLE  Top of atmosphere solar contribution
+        !   UTMI(NWAVE,NG,NMU,1)  DOUBLE  Bottom of atmosphere contribution
+        !	R(NWAVE,NG,NMU,NMU)   DOUBLE	Reflection matrix at the bottom of lowermost atmospheric layer 
+        !	T(NWAVE,NG,NMU,NMU)   DOUBLE	Transmission matrix at the bottom of lowermost atmospheric layer
+        !	J(NWAVE,NG,NMU,1)	  DOUBLE	Source matrix at the bottom of lowermost atmospheric layer
+        !   NWAVE   INTEGER Number of wavelengths
+        !   NG      INTEGER Number of g-ordinates
+        !	NMU		INTEGER	Number of elements used
+        
+        !   Output variables
+        !	UTPL(NWAVE,NG,NMU,1)	DOUBLE	Downward intensity at the bottom of the atmosphere
+
+        !
+        !     Pat Irwin		2/7/07
+        !     Juan Alday    7/2/23
+        !
+        !**********************************************************************
+        
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: NMU,NWAVE,NG
+        double precision, intent(in) :: U0PL(NWAVE,NG,NMU,1),UTMI(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: R(NWAVE,NG,NMU,NMU),T(NWAVE,NG,NMU,NMU),J(NWAVE,NG,NMU,1)
+
+        !Local
+        double precision :: ACOM(NMU,1),BCOM(NMU,1),CCOM(NMU,1)
+        integer :: IWAVE,IG
+        
+        !Outputs
+        double precision, intent(out) :: UTPL(NWAVE,NG,NMU,1)
+
+
+        !Basically downward radiation at bottom of atmosphere:
+        !UTPL = U0PL*TTOP(NLAY) + RTOP(NLAY)*UTMI + JTOP(NLAY)
+         
+        do IWAVE=1,NWAVE
+            do IG=1,NG
+
+                CALL MMUL(1.0D0,NMU,NMU,1,T(IWAVE,IG,:,:),U0PL(IWAVE,IG,:,:),ACOM)
+                CALL MMUL(1.0D0,NMU,NMU,1,R(IWAVE,IG,:,:),UTMI(IWAVE,IG,:,:),BCOM)
+                CALL MADD(1.0D0,NMU,1,ACOM,BCOM,CCOM)
+                CALL MADD(1.0D0,NMU,1,J(IWAVE,IG,:,:),CCOM,UTPL(IWAVE,IG,:,:))
+
+            enddo
+        enddo
+
+        return
+
+    end subroutine
 
     !==================================================================================================
 
@@ -484,7 +796,7 @@ contains
 
     !==================================================================================================
 
-	subroutine MATINV8(N,A,AINV)
+    subroutine MATINV8(N,A,AINV)
         !-----------------------------------------------------------------------
         !TITLE: MATINV8: matrix inversion routine
         !
