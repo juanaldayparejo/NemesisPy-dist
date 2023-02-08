@@ -329,7 +329,8 @@ class AtmCalc_0:
             self.NPATH = NUSE
         if self.UPFLUX==True:
             self.NPATH = NUSE
-        if((self.NETFLUX==True) & (self.SCATTER==False)):
+        if((self.NETFLUX==True)):
+            sys.exit('error :: need to properly define the paths (should be 2*NLAYER for upward and downward flux)')
             self.NPATH = NUSE
 
         NLAYIN = np.zeros(self.NPATH,dtype='int32')

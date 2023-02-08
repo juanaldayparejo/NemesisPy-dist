@@ -122,6 +122,8 @@ class ForwardModel_0:
         ###########################################
 
             ForwardModel_0.scloud11wave()
+            ForwardModel_0.scloud11flux()
+            ForwardModel_0.streamflux()
 
         """
 
@@ -242,7 +244,15 @@ class ForwardModel_0:
 
                 #Calling CIRSrad to perform the radiative transfer calculations
                 #SPEC1 = CIRSrad(self.runname,self.Variables.self.MeasurementX,self.AtmosphereX,self.SpectroscopyX,self.ScatterX,self.StellarX,self.SurfaceX,self.CIAX,self.LayerX,self.PathX)
-                SPEC1 = self.CIRSrad()
+                SPEC1X = self.CIRSrad() #()
+
+                if self.PathX.NPATH>1:  #If the calculation type requires several paths for a given geometry (e.g. netflux calculation)
+                    SPEC1 = np.zeros((self.PathX.NPATH*self.MeasurementX.NWAVE,1))  #We linearise all paths into 1 measurement
+                    ip = 0
+                    for iPath in range(self.PathX.NPATH):
+                        SPEC1[ip:ip+self.MeasurementX.NWAVE,0] = SPEC1X[:,iPath]
+                else:
+                    SPEC1 = SPEC1X
 
                 #Averaging the spectra in case NAV>1
                 if self.MeasurementX.NAV[IGEOM]>1:
@@ -1851,6 +1861,18 @@ class ForwardModel_0:
         elif Scatter.ISCAT==4: #Single scattering in spherical atmosphere
             therm=False
             sphsingle=True
+        elif Scatter.ISCAT==5: #Internal net flux calculation
+            angle=0.0
+            therm=False
+            scatter=True
+            netflux=True
+        elif Scatter.ISCAT==6: #Downward bottom flux calculation
+            angle=0.0
+            therm=False
+            scatter=True
+            botflux=True
+        else:
+            sys.exit('error in calc_path :: selected ISCAT has not been implemented yet')
 
 
         #Performing the calculation of the atmospheric path
@@ -2533,7 +2555,6 @@ class ForwardModel_0:
                     solar[:] = f(Measurement.WAVE)  #W cm-2 (cm-1)-1 or W cm-2 um-1
 
 
-
                 #Defining the units of the output spectrum
                 xfac = 1.
                 if Measurement.IFORM==1:
@@ -2548,6 +2569,45 @@ class ForwardModel_0:
                 #Calculating the radiance
                 SPECOUT[:,:,ipath] = self.scloud11wave(Scatter,Surface,Layer,Measurement,solar)
 
+        elif IMODM==27: #Downwards flux (bottom) calculation (scattering)
+ 
+            print('CIRSrad :: Downwards flux calculation at the bottom of the atmosphere')
+
+            #The codes below calculates the downwards flux
+            #spectrum in units of W cm-2 (cm-1)-1 or W cm-2 um-1.
+
+            #Calculating spectrum
+            SPECOUT = np.zeros([Measurement.NWAVE,Spectroscopy.NG,Path.NPATH])
+            for ipath in range(Path.NPATH):
+
+                #Calculating the solar flux at the top of the atmosphere
+                solar = np.zeros(Measurement.NWAVE)
+                if Stellar.SOLEXIST==True:
+                    Stellar.calc_solar_flux()
+                    f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLFLUX)
+                    solar[:] = f(Measurement.WAVE)  #W cm-2 (cm-1)-1 or W cm-2 um-1
+
+
+                #Defining the units of the output spectrum
+                xfac = 1.
+                if Measurement.IFORM==1:
+                    xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
+                    f = interpolate.interp1d(Stellar.VCONV,Stellar.SOLSPEC)
+                    solpspec = f(Measurement.WAVE)  #Stellar power spectrum (W (cm-1)-1 or W um-1)
+                    xfac = xfac / solpspec
+                elif Measurement.IFORM==3:
+                    xfac=np.pi*4.*np.pi*((Atmosphere.RADIUS)*1.0e2)**2.
+
+                #Calculating the radiance at the boundaries of each layer
+                #Uplf(NWAVE,NG,NMU,NLAY,NF)   Donward radiance in the bottom boundary of each layer
+                #Umif(NWAVE,NG,NMU,NLAY,NF)   Upward radiance in the top boundary of each layer
+                Uplf,Umif = self.scloud11flux(Scatter,Surface,Layer,Measurement,solar)
+
+                #Calculating the fluxes at the boundaries of each layer
+                fup,fdown = self.streamflux(Layer.NLAY,Scatter.NMU,Scatter.MU,Scatter.WTMU,Umif,Uplf)  #(NWAVE,NG,NLAY)
+
+                #Getting the downward flux at the bottom layer 
+                SPECOUT[:,:,ipath] = fdown[:,:,0]*xfac
 
         else:
             sys.exit('error in CIRSrad :: Calculation type not included in CIRSrad')
@@ -3602,7 +3662,7 @@ class ForwardModel_0:
                 for j in range(Scatter.NMU):
                     for i in range(Scatter.NMU):
                         for kl in range(Scatter.NF+1):
-                            RS[:,kl,i,j] = 2.0*Reflectivity[:,kl,i,j]*Scatter.MU[j]*Scatter.WTMU[j]  #Sum of MU*WTMU = 0.5
+                            RS[:,kl,i,j] = 2.0*Reflectivity[:,kl,i,j]/Scatter.MU[j]*Scatter.MU[j]*Scatter.WTMU[j]  #Sum of MU*WTMU = 0.5
                             #Make any quadrature correction
                             RS[:,kl,i,j] = RS[:,kl,i,j]*xfac
 
@@ -3661,7 +3721,6 @@ class ForwardModel_0:
             if IC!=0:
                 JBASE[:,:,:,:,:] = 0.0
 
-            
             #Calculating the observing angles
             if Scatter.SOL_ANG>90.0:
                 ZMU0 = np.cos((180.0 - Scatter.SOL_ANG)*np.pi/180.0)
@@ -3755,6 +3814,501 @@ class ForwardModel_0:
             SPEC[:,:] = SPEC[:,:] + DRAD[:,:]
 
         return SPEC
+
+
+###############################################################################################
+
+    def scloud11flux(self,Scatter,Surface,Layer,Measurement,SOLAR):
+        """
+        Compute and return internal radiation fields in a scattering atmosphere
+        Code uses matrix operator algorithm.  Diffuse incident radiation 
+        is allowed at the bottom and single-beam incident radiation 
+        (sunlight) at the top. 
+ 
+        The layer numbers here are 1 at the top increasing to NLAY at the 
+        bottom. If a Lambertian reflector is added at the bottom then the 
+        number of layers is increased by 1.
+
+        NOTE:  the angle arrays passed from the calling pgm. are assumed to be 
+        in order of increasing MU.  However, the CLOUD subroutines use the 
+        opposite convention, so we must reverse the order.  (The order has no 
+        effect within this routine, other than in using the supplied boundary 
+        conditions, but it does affect pre-/post-processing in the calling s/w.)
+
+        Optimised for maximum speed by cutting out any code from scloud6
+        which is not actually used for NIMS retrieval runs.
+ 
+        Inputs
+        ________
+
+        Scatter :: Python class defining the scattering setup
+        Surface :: Python class defining the surface setup
+        Layer :: Python class defining the properties of each layer including the optical depths
+        Measurement :: Python class defining the measurement
+        SOLAR(NWAVE) :: Solar flux 
+
+
+        Outputs
+        ________
+
+        Uplf(NWAVE,NG,NMU,NLAY,NF) :: Internal radiances in each viewing direction (downwards)
+        Umif(NWAVE,NG,NMU,NLAY,NF) :: Internal radiances in each viewing direction (upwards)
+        """
+
+        from NemesisPy import planck
+        from scipy.interpolate import interp1d
+        from NemesisPy.nemesisf import mulscatter
+
+        ################################################################################
+        #INITIALISING VARIABLES AND PERFORMING INITIAL CALCULATIONS
+        ##############################################################################
+
+        #Defining the number of scattering species
+        if Scatter.IRAY>0:
+            NCONT = Scatter.NDUST + 1
+        else:
+            NCONT = Scatter.NDUST
+
+        #Find correction for any quadrature errors
+        xfac = np.sum(Scatter.MU*Scatter.WTMU)
+        xfac = 0.5/xfac
+
+        LTOT = Layer.NLAY     # Set internal number of layers
+        LT1 = LTOT
+
+        #In case of surface reflection, add extra dummy layer at bottom,
+        #whose transmission matrix = (1-A)*Unit-Matrix. This layer must be
+        #omitted from computation by doubling
+
+        if Surface.LOWBC>0:
+            LTOT = LTOT + 1
+
+        #Reset the order of angles
+        Scatter.MU = Scatter.MU[::-1]
+        Scatter.WTMU = Scatter.WTMU[::-1]
+
+        #Setting up constant matrices
+        E = np.identity(Scatter.NMU)
+        MM = np.zeros((Scatter.NMU,Scatter.NMU))
+        MMINV = np.zeros((Scatter.NMU,Scatter.NMU))
+        CC = np.zeros((Scatter.NMU,Scatter.NMU))
+        CCINV = np.zeros((Scatter.NMU,Scatter.NMU))
+        np.fill_diagonal(MM,[Scatter.MU])
+        np.fill_diagonal(MMINV,[1./Scatter.MU])
+        np.fill_diagonal(CC,[Scatter.WTMU])
+        np.fill_diagonal(CCINV,[1./Scatter.WTMU])
+
+
+
+        ################################################################################
+        #CALCULATE THE ALBEDO, EMISSIVITY AND GROUND EMISSION AT THE SURFACE
+        ################################################################################
+
+        print('scloud11flux :: Calculating surface properties')
+
+        #Calculating the surface properties at each wavelength (emissivity, albedo and thermal emission)
+        RADGROUND = np.zeros(Measurement.NWAVE)
+        ALBEDO = np.zeros(Measurement.NWAVE)
+        EMISSIVITY = np.zeros(Measurement.NWAVE)
+
+        if Surface.TSURF<=0.0:  #No surface
+            RADGROUND[:] = planck(Measurement.ISPACE,Measurement.WAVE,Layer.TEMP[0])
+        else:
+            #Calculating the blackbody at given temperature
+            bbsurf = planck(Measurement.ISPACE,Measurement.WAVE,Surface.TSURF)
+
+            #Calculating the emissivity
+            f = interp1d(Surface.VEM,Surface.EMISSIVITY)
+            EMISSIVITY[:] = f(Measurement.WAVE)
+
+            #Calculating thermal emission from surface
+            RADGROUND[:] = bbsurf * EMISSIVITY
+
+            #Calculating ground albedo
+            if Surface.GALB<0.0:
+                ALBEDO[:] = 1.0 - EMISSIVITY[:]
+            else:
+                ALBEDO[:] = Surface.GALB
+
+
+
+        ################################################################################
+        #CALCULATING THE THERMAL EMISSION OF EACH LAYER
+        ################################################################################
+
+        print('scloud11flux :: Calculating thermal emission of each layer')
+
+        #Calculating the thermal emission of each atmospheric layer
+        BB = planck(Measurement.ISPACE,Measurement.WAVE,Layer.TEMP)  #(NWAVE,NLAY)
+
+
+
+        ################################################################################
+        #CALCULATING THE EFFECTIVE PHASE FUNCTION IN EACH LAYER
+        ################################################################################
+
+        print('scloud11flux :: Calculating phase matrix and scattering properties of each layer')
+
+        #Calculating the phase matrices for each aerosol population and Rayleigh scattering
+        PPLPL,PPLMI = self.calc_phase_matrix(Scatter,Measurement.WAVE)  #(NWAVE,NCONT,NF+1,NMU,NMU)
+
+        #Calculating the fraction of scattering by each aerosol type and rayleigh
+        FRAC = np.zeros((Measurement.NWAVE,Layer.NLAY,NCONT))
+        iiscat = np.where((Layer.TAUSCAT+Layer.TAURAY)>0.0)
+        if(len(iiscat[0])>0):
+            FRAC[iiscat[0],iiscat[1],0:Scatter.NDUST] = np.transpose(np.transpose(Layer.TAUCLSCAT[iiscat[0],iiscat[1],:],axes=[1,0]) / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])),axes=[1,0])  #Fraction of each aerosol scattering FRAC = TAUCLSCAT/(TAUSCAT+TAURAY)
+            if Scatter.IRAY>0:
+                FRAC[iiscat[0],iiscat[1],Scatter.NDUST] = Layer.TAURAY[iiscat[0],iiscat[1]] / ((Layer.TAUSCAT[iiscat[0],iiscat[1]]+Layer.TAURAY[iiscat[0],iiscat[1]])) #Fraction of Rayleigh scattering FRAC = TAURAY/(TAUSCAT+TAURAY)
+
+        #Calculating the weighted averaged phase matrix in each layer and direction
+        print('scloud11flux :: Calculating weighted average phase matrix in each layer')
+        PPLPLS = np.zeros((Measurement.NWAVE,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))
+        PPLMIS = np.zeros((Measurement.NWAVE,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))
+
+        for ilay in range(Layer.NLAY):
+            PPLPLS[:,ilay,:,:,:] =  np.transpose(np.sum(np.transpose(PPLPL,axes=[2,3,4,0,1])*FRAC[:,ilay,:],axis=4),axes=[3,0,1,2])  #SUM(PPLPL*FRAC)
+            PPLMIS[:,ilay,:,:,:] =  np.transpose(np.sum(np.transpose(PPLMI,axes=[2,3,4,0,1])*FRAC[:,ilay,:],axis=4),axes=[3,0,1,2])  #SUM(PPLMI*FRAC)
+
+        #Calculating the single scattering albedo of each layer (TAURAY+TAUSCAT/TAUTOT)
+        NG = Layer.TAUTOT.shape[1]
+        OMEGA = np.zeros((Measurement.NWAVE,NG,Layer.NLAY))
+        iin = np.where(Layer.TAUTOT>0.0)
+        if(len(iin[0])>0):
+            OMEGA[iin[0],iin[1],iin[2]] = (Layer.TAURAY[iin[0],iin[2]]+Layer.TAUSCAT[iin[0],iin[2]]) / Layer.TAUTOT[iin[0],iin[1],iin[2]]
+
+
+
+        ################################################################################
+        #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR EACH LAYER
+        #################################################################################
+
+        RL1,TL1,JL1,ISCL1 = mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
+                                                    Layer.TAUTOT,OMEGA,Layer.TAURAY,BB,PPLPLS,PPLMIS)
+        #(NWAVE,NG,NLAY,NF+1,NMU,NMU)
+        
+        #################################################################################
+        #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR SURFACE
+        #################################################################################
+
+        JL = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NF+1,Scatter.NMU,1))  #Source function of atmosphere + surface
+        RL = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Reflection matrix of atmosphere + surface
+        TL = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Transmission matrix of atmosphere + surface 
+        ISCL = np.zeros((Measurement.NWAVE,NG,LTOT),dtype='int32')  #Flag indicating if the layer is scattering
+
+        if Surface.GASGIANT==False:
+
+            print('scloud11flux :: Calculating the reflection, transmission and source matrices of the surface')
+
+            JS = np.zeros((Measurement.NWAVE,Scatter.NF+1,Scatter.NMU,1))  #Source function
+            RS = np.zeros((Measurement.NWAVE,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+            TS = np.zeros((Measurement.NWAVE,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Transmission matrix
+
+            if Surface.LOWBC==1:  #Lambertian reflection
+
+                IC = 0   #For the rest of the NF values, it is zero
+                for j in range(Scatter.NMU):
+
+                    JS[:,IC,j,0] = (1.0-ALBEDO[:])*RADGROUND[:]  #Source function is considered isotropic
+
+                    for i in range(Scatter.NMU):
+
+                        TS[:,IC,i,j] = 0.0    #Transmission at the surface is zero
+                        RS[:,IC,i,j] = 2.0*ALBEDO[:]*Scatter.MU[j]*Scatter.WTMU[j]  #Sum of MU*WTMU = 0.5
+                        #Make any quadrature correction
+                        RS[:,IC,i,j] = RS[:,IC,i,j]*xfac
+
+            elif Surface.LOWBC==2:  #Hapke surface
+
+                Reflectivity = self.calc_hapke_reflectivity(Scatter,Surface,Measurement.WAVE)
+
+                #REFLECTION
+                for j in range(Scatter.NMU):
+                    for i in range(Scatter.NMU):
+                        for kl in range(Scatter.NF+1):
+                            RS[:,kl,i,j] = 2.0*Reflectivity[:,kl,i,j]*Scatter.MU[j]*Scatter.WTMU[j]  #Sum of MU*WTMU = 0.5
+                            #Make any quadrature correction
+                            RS[:,kl,i,j] = RS[:,kl,i,j]*xfac
+
+                #THERMAL EMISSION
+                IC = 0   #For the rest of the NF values, it is zero
+                for j in range(Scatter.NMU):
+                    JS[:,IC,j,0] = EMISSIVITY[:]*RADGROUND[:]  #Source function is considered isotropic
+
+
+
+            #Adding the surface matrix to the combined atmosphere + surface system
+            JL[:,:,0,:,:,:] = np.repeat(JS[:,np.newaxis,:,:,:],NG,axis=1)
+            RL[:,:,0,:,:,:] = np.repeat(RS[:,np.newaxis,:,:,:],NG,axis=1)
+            TL[:,:,0,:,:,:] = np.repeat(TS[:,np.newaxis,:,:,:],NG,axis=1)
+
+            #Adding the atmosphere to the combined atmosphere + surface system
+            JL[:,:,1:LTOT,:,:,:] = JL1[:,:,:,:,:,:]
+            TL[:,:,1:LTOT,:,:,:] = TL1[:,:,:,:,:,:]
+            RL[:,:,1:LTOT,:,:,:] = RL1[:,:,:,:,:,:]
+            #ISCL[:,:,1:LTOT] = ISCL1[:,:,:]
+            ISCL[:,:,:] = 1
+
+        else:
+
+            #Adding the atmosphere to the combined atmosphere + surface system
+            JL[:,:,:,:,:,:] = JL1[:,:,:,:,:,:]
+            TL[:,:,:,:,:,:] = TL1[:,:,:,:,:,:]
+            RL[:,:,:,:,:,:] = RL1[:,:,:,:,:,:]
+            ISCL[:,:,:] = ISCL1[:,:,:]
+
+        ###############################################################################
+        # CALCULATING THE INTERNAL RADIATION FIELDS
+        ###############################################################################
+
+        Uplf = np.zeros((Measurement.NWAVE,NG,Scatter.NMU,Layer.NLAY,Scatter.NF+1))  #Internal radiances in each viewing direction (downwards)
+        Umif = np.zeros((Measurement.NWAVE,NG,Scatter.NMU,Layer.NLAY,Scatter.NF+1))  #Internal radiances in each viewing direction (upwards)
+
+        print('scloud11flux :: Calculating spectra')
+        for IC in range(Scatter.NF+1):
+
+            #***********************************************************************
+            #CALCULATE UPWARD MATRICES FOR COMPOSITE OF L LAYERS FROM BASE OF CLOUD.
+            #XBASE(I,J,L) IS THE X MATRIX FOR THE BOTTOM L LAYERS OF THE CLOUD.
+            #AS FOR "TOP", R01 = R10 & T01 = T10 IS VALID FOR LAYER BEING ADDED ONLY.
+
+            #i.e. XBASE(I,J,L) is the effective reflectivity, transmission and emission
+            #of the bottom L layers of the atmosphere (i.e. layers LTOT-L+1 to LTOT)
+            #***********************************************************************
+
+            JBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
+            RBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+            TBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Transmission matrix            
+
+            #Filling the first value with the surface or lowest layer
+            JBASE[:,:,0,:,:] = JL[:,:,0,IC,:,:]
+            RBASE[:,:,0,:,:] = RL[:,:,0,IC,:,:]
+            TBASE[:,:,0,:,:] = TL[:,:,0,IC,:,:]
+
+            #Combining the adjacent layers
+            for ILAY in range(LTOT-1):
+
+                #In the Fortran version of NEMESIS the layers are defined from top to 
+                #bottom while here they are from bottom to top, therefore the indexing
+                #in this part of the code differs with respect to the Fortran version
+
+                for iwave in range(Measurement.NWAVE):
+                    for ig in range(NG):
+                        RBASE[iwave,ig,ILAY+1,:,:],TBASE[iwave,ig,ILAY+1,:,:],JBASE[iwave,ig,ILAY+1,:,:] = mulscatter.addp_layer(\
+                            E,RL[iwave,ig,ILAY+1,IC,:,:],TL[iwave,ig,ILAY+1,IC,:,:],JL[iwave,ig,ILAY+1,IC,:,:],ISCL[iwave,ig,ILAY+1],RBASE[iwave,ig,ILAY,:,:],TBASE[iwave,ig,ILAY,:,:],JBASE[iwave,ig,ILAY,:,:])
+
+            if IC!=0:
+                JBASE[:,:,:,:,:] = 0.0
+
+            #***********************************************************************
+            #CALCULATE DOWNWARD MATRICES FOR COMPOSITE OF L LAYERS FROM TOP OF CLOUD.
+            #XTOP(I,J,L) IS THE X MATRIX FOR THE TOP L LAYERS OF CLOUD.
+            #NOTE THAT R21 = R12 & T21 = T12 VALID FOR THE HOMOGENEOUS LAYER BEING ADD$
+            #BUT NOT FOR THE INHOMOGENEOUS RESULTING "TOP" LAYER
+
+            #i.e. XTOP(I,J,L) is the effective reflectivity, transmission and emission
+            #of the top L layers of the atmosphere (i.e. layers 1-L)
+
+            #Specifically
+            #RTOP(I,J,L) is RL0
+            #TTOP(I,J,L) is T0L
+            #JTOP(J,1,L) is JP0L
+            #***********************************************************************
+  
+            JTOP = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
+            RTOP = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+            TTOP = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Transmission matrix            
+
+            #Filling the first value with the surface 
+            JTOP[:,:,0,:,:] = JL[:,:,LTOT-1,IC,:,:]
+            RTOP[:,:,0,:,:] = RL[:,:,LTOT-1,IC,:,:]
+            TTOP[:,:,0,:,:] = TL[:,:,LTOT-1,IC,:,:]
+
+            #Combining the adjacent layers
+            for ILAY in range(LTOT-1):
+
+                #In the Fortran version of NEMESIS the layers are defined from top to 
+                #bottom while here they are from bottom to top, therefore the indexing
+                #in this part of the code differs with respect to the Fortran version
+
+                for iwave in range(Measurement.NWAVE):
+                    for ig in range(NG):
+                        RTOP[iwave,ig,ILAY+1,:,:],TTOP[iwave,ig,ILAY+1,:,:],JTOP[iwave,ig,ILAY+1,:,:] = mulscatter.addp_layer(\
+                            E,RL[iwave,ig,LTOT-2-ILAY,IC,:,:],TL[iwave,ig,LTOT-2-ILAY,IC,:,:],JL[iwave,ig,LTOT-2-ILAY,IC,:,:],ISCL[iwave,ig,LTOT-2-ILAY],RTOP[iwave,ig,ILAY,:,:],TTOP[iwave,ig,ILAY,:,:],JTOP[iwave,ig,ILAY,:,:])
+
+            if IC!=0:
+                JTOP[:,:,:,:,:] = 0.0
+
+            #Calculating the observing angles
+            if Scatter.SOL_ANG>90.0:
+                ZMU0 = np.cos((180.0 - Scatter.SOL_ANG)*np.pi/180.0)
+                SOLAR[:] = 0.0
+            else:
+                ZMU0 = np.cos(Scatter.SOL_ANG*np.pi/180.0)
+
+
+            #Finding the coefficients for interpolating the spectrum
+            #at the correct angles
+            ISOL = 0
+            for j in range(Scatter.NMU-1):
+                if((ZMU0<=Scatter.MU[j]) & (ZMU0>Scatter.MU[j+1])):
+                    ISOL = j
+
+            if ZMU0<=Scatter.MU[Scatter.NMU-1]:
+                ISOL = Scatter.NMU-2
+
+            FSOL = (Scatter.MU[ISOL]-ZMU0)/(Scatter.MU[ISOL]-Scatter.MU[ISOL+1])
+
+
+            #Bottom of the atmosphere surface contribution
+            UTMI = np.zeros((Measurement.NWAVE,Scatter.NMU,1))
+            if IC==0:
+                for imu in range(Scatter.NMU):
+                    UTMI[:,imu,0] = RADGROUND[:]   #Assumed to be equal in all directions
+            UTMI = np.repeat(UTMI[:,np.newaxis,:,:],NG,axis=1)
+
+            
+            #Calculating the spectrum in the direction ISOL
+            for IMU0 in range(ISOL,ISOL+2,1):
+
+                #Top of the atmosphere solar contribution
+                U0PL = np.zeros((Measurement.NWAVE,Scatter.NMU,1))
+                U0PL[:,IMU0,0] = SOLAR[:]/(2.0*np.pi*Scatter.WTMU[IMU0])
+                U0PL = np.repeat(U0PL[:,np.newaxis,:,:],NG,axis=1)
+
+                #Calculating the interior intensities for cloud (within layers)
+                #UPL goes down of layer L
+                #UMI goes up of layer L
+
+                UMI = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))
+                UPL = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))
+
+                UMI[:,:,0,:,:] = JBASE[:,:,0,:,:]   #Upwards intensity of surface is already calculated
+
+                for ILAY in range(LTOT-1):
+
+                    #Calculate I(ILAY+1)-
+                    UMI[:,:,ILAY+1,:,:] = mulscatter.iup(\
+                        E,U0PL,UTMI,\
+                        RTOP[:,:,ILAY,:,:],TTOP[:,:,ILAY,:,:],JTOP[:,:,ILAY,:,:],\
+                        RBASE[:,:,LTOT-2-ILAY,:,:],TBASE[:,:,LTOT-2-ILAY,:,:],JBASE[:,:,LTOT-2-ILAY,:,:])
+
+                    #Calculate I(ILAY)+
+                    UPL[:,:,ILAY,:,:] = mulscatter.idown(\
+                        E,U0PL,UTMI,\
+                        RTOP[:,:,ILAY,:,:],TTOP[:,:,ILAY,:,:],JTOP[:,:,ILAY,:,:],\
+                        RBASE[:,:,LTOT-2-ILAY,:,:],TBASE[:,:,LTOT-2-ILAY,:,:],JBASE[:,:,LTOT-2-ILAY,:,:])
+
+                #Calculating the exterior intensities (upward intensity at top of atmosphere and downward at bottom of atmosphere)
+                U0MI = mulscatter.itop(U0PL,UTMI,RBASE[:,:,LTOT-1,:,:],TBASE[:,:,LTOT-1,:,:],JBASE[:,:,LTOT-1,:,:])
+                UTPL = mulscatter.ibottom(U0PL,UTMI,RTOP[:,:,LT1-1,:,:],TTOP[:,:,LT1-1,:,:],JTOP[:,:,LT1-1,:,:])
+
+                #Calculating the radiance in each viewing angle
+                for IMU in range(Scatter.NMU):
+
+                    JMU  = Scatter.NMU-1-IMU  #Using this since the MU angles were reversed at the beginning of this subroutine
+
+                    #Uplf = np.zeros((Measurement.NWAVE,NG,Scatter.NMU,Layer.NLAY,Scatter.NF+1))
+                    if IMU0==ISOL:
+                        Umif[:,:,JMU,0,IC] = (1.0-FSOL)*(U0MI[:,:,IMU,0])
+                    else:
+                        Umif[:,:,JMU,0,IC] = Umif[:,:,JMU,0,IC] + FSOL*U0MI[:,:,IMU,0]
+
+                    for ILAY in range(LT1): #Going through each atmospheric layer
+                        
+                        if IMU0==ISOL:
+                            if ILAY!=LT1-1:
+                                Uplf[:,:,JMU,ILAY,IC] = (1.0-FSOL)*UPL[:,:,ILAY,IMU,0]
+                            if ILAY!=0:
+                                Umif[:,:,JMU,ILAY,IC] = (1.0-FSOL)*UMI[:,:,ILAY,IMU,0]
+                        else:
+                            if ILAY!=LT1-1:
+                                Uplf[:,:,JMU,ILAY,IC] = Uplf[:,:,JMU,ILAY,IC] + (FSOL)*UPL[:,:,ILAY,IMU,0]
+                            if ILAY!=0:
+                                Umif[:,:,JMU,ILAY,IC] = Umif[:,:,JMU,ILAY,IC] + (FSOL)*UMI[:,:,ILAY,IMU,0]
+
+
+                    if IMU0==ISOL:
+                        Uplf[:,:,JMU,LT1-1,IC] = (1.0-FSOL)*(UTPL[:,:,IMU,0])
+                    else:
+                        Uplf[:,:,JMU,LT1-1,IC] = Uplf[:,:,JMU,LT1-1,IC] + (FSOL)*(UTPL[:,:,IMU,0])
+
+
+                U0PL[:,:,IMU0,0] = 0.0
+
+        #The order of the layers in Uplf and Umif goes from top to bottom.
+        #In order to reconcile it with the order of the layers in the Layer class, we reverse them
+        Uplfout = Uplf[:,:,:,::-1,:]
+        Umifout = Umif[:,:,:,::-1,:]
+
+        #Reset the order of angles
+        Scatter.MU = Scatter.MU[::-1]
+        Scatter.WTMU = Scatter.WTMU[::-1]
+
+        return Umifout,Uplfout
+
+###############################################################################################
+
+    def streamflux(self,NLAY,NMU,MU,WTMU,Umif,Uplf):
+        """
+        Subroutine to calculate the upward and downward flux in the boundaries of each layer.
+
+        The output of scloud11flux is the radiance observed in each viewing direction in the
+        boundaries of each layer (both upwards and downwards).
+
+        This function integrates the radiance over solar zenith angle to get the total 
+        upward and downward fluxes at the boundaries of each layer.
+
+        Inputs
+        ------
+
+        NLAY :: Number of atmospheric layers
+        NMU :: Number of zenith quadrature angles
+        MU(NMU) :: Zenith quadrature angles
+        WTMU(NMU) :: Zenith angle quadrature weights
+        Umif(NWAVE,NG,NMU,NLAY,NF+1) :: Upward intensity in the boundaries of each layer (from bottom to top)
+        Uplf(NWAVE,NG,NMU,NLAY,NF+1) :: Downward intensity in the boundaries of each layer (from bottom to top)
+
+        Outputs
+        -------
+
+        fup(NWAVE,NG,NLAY) :: Upward flux from the top of each layer
+        fdown(NWAVE,NG,NLAY) :: Downward flux from the bottom of each layer
+
+                                        /\
+                                        || Flux_UP
+                                        ||
+                                --------------------------------
+                                                Layer
+                                --------------------------------
+                                        ||
+                                        || Flux_DOWN
+                                        \/
+
+        """
+
+        NWAVE = Umif.shape[0]
+        NG = Umif.shape[1]
+        NF = Umif.shape[4]-1
+
+        #Calculating any quadrature error
+        xfac = 0.
+        for i in range(NMU):
+            xfac = xfac + MU[i]*WTMU[i]
+        xnorm = np.pi/xfac   #XFAC should be 0.5 so this is 2pi
+
+        
+        #Integrating over zenith angle
+        fdown = np.zeros((NWAVE,NG,NLAY))
+        fup = np.zeros((NWAVE,NG,NLAY))
+        for i in range(NMU):
+            fdown[:,:,:] = fdown[:,:,:] + MU[i]*WTMU[i]*Uplf[:,:,i,:,0]
+            fup[:,:,:] = fup[:,:,:] + MU[i]*WTMU[i]*Umif[:,:,i,:,0]
+
+        fdown = fdown*xnorm
+        fup = fup*xnorm
+
+        return fup,fdown
+
 
 
 ###############################################################################################
@@ -3969,6 +4523,7 @@ class ForwardModel_0:
                     SOL_ANG[ix] = np.arccos(Scatter.MU[j])/np.pi*180.
                     AZI_ANG[ix] = phi/np.pi*180.
                     ix = ix + 1
+
 
         BRDF = Surface.calc_Hapke_BRDF(EMISS_ANG,SOL_ANG,AZI_ANG,WAVE=WAVE) #(NWAVE,NTHETA)
 
