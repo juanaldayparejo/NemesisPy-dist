@@ -2601,7 +2601,7 @@ class ForwardModel_0:
                 #Calculating the radiance at the boundaries of each layer
                 #Uplf(NWAVE,NG,NMU,NLAY,NF)   Donward radiance in the bottom boundary of each layer
                 #Umif(NWAVE,NG,NMU,NLAY,NF)   Upward radiance in the top boundary of each layer
-                Uplf,Umif = self.scloud11flux(Scatter,Surface,Layer,Measurement,solar)
+                Uplf,Umif = self.scloud11flux(Scatter,Surface,Layer,Measurement,solar,diffuse=True)
 
                 #Calculating the fluxes at the boundaries of each layer
                 fup,fdown = self.streamflux(Layer.NLAY,Scatter.NMU,Scatter.MU,Scatter.WTMU,Umif,Uplf)  #(NWAVE,NG,NLAY)
@@ -3818,7 +3818,7 @@ class ForwardModel_0:
 
 ###############################################################################################
 
-    def scloud11flux(self,Scatter,Surface,Layer,Measurement,SOLAR):
+    def scloud11flux(self,Scatter,Surface,Layer,Measurement,SOLAR,diffuse=True):
         """
         Compute and return internal radiation fields in a scattering atmosphere
         Code uses matrix operator algorithm.  Diffuse incident radiation 
@@ -3847,6 +3847,10 @@ class ForwardModel_0:
         Measurement :: Python class defining the measurement
         SOLAR(NWAVE) :: Solar flux 
 
+        Optional inputs
+        _______________
+
+        diffuse :: If False, scattering is turned off so that results is only the direct component
 
         Outputs
         ________
@@ -3976,8 +3980,9 @@ class ForwardModel_0:
         if(len(iin[0])>0):
             OMEGA[iin[0],iin[1],iin[2]] = (Layer.TAURAY[iin[0],iin[2]]+Layer.TAUSCAT[iin[0],iin[2]]) / Layer.TAUTOT[iin[0],iin[1],iin[2]]
 
-
-
+        if diffuse==False:
+            OMEGA[:,:,:] = 0.0  #No scattering if diffuse component is turned off
+        
         ################################################################################
         #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR EACH LAYER
         #################################################################################
