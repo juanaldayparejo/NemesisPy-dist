@@ -633,6 +633,21 @@ class Scatter_0:
         self.WAVE = wave
         self.WLPOL = wlpol
 
+    def write_lpphase(self):
+        """
+        Writing the coefficients of the Legendre polynomials into a pickle file
+        """
+
+        import pickle
+
+        #Saving the Legendre polynomials as a pickle file for each particle size
+        for i in range(self.NDUST):
+            runname = 'lpphase'+str(i+1)+'.dat'
+            filehandler = open(runname,"wb")
+            pickle.dump(self.WAVE,filehandler,pickle.HIGHEST_PROTOCOL)
+            pickle.dump(self.WLPOL[:,:,i],filehandler,pickle.HIGHEST_PROTOCOL)
+            filehandler.close()
+
     def calc_lpphase(self,Theta):
         """
         Calculate the phase function at Theta angles given the weights of the Legendre polynomials
