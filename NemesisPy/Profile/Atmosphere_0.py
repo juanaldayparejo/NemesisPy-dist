@@ -634,7 +634,7 @@ class Atmosphere_0:
 
         fref.close()
 
-    def plot_Atm(self):
+    def plot_Atm(self,SavePlot=None):
 
         """
         Makes a summary plot of the current atmospheric profiles
@@ -659,4 +659,7 @@ class Atmosphere_0:
         ax2.grid()
         ax3.grid()
 
-        plt.show()
+        if SavePlot is not None:
+            fig.savefig(SavePlot)
+        else:
+            plt.show()

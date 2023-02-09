@@ -212,7 +212,7 @@ class Atmosphere_1(Atmosphere_0):
         f.close()
 
 
-    def plot_Dust(self):
+    def plot_Dust(self,SavePlot=None):
         """
         Make a summary plot of the current dust profiles
         """
@@ -225,7 +225,10 @@ class Atmosphere_1(Atmosphere_0):
         ax1.set_xlabel('Aerosol density (particles m$^{-3}$)')
         ax1.set_ylabel('Altitude (km)')
         plt.tight_layout()
-        plt.show()
+        if SavePlot is not None:
+            fig.savefig(SavePlot)
+        else:
+            plt.show()
 
 
 
