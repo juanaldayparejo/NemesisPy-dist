@@ -19,13 +19,18 @@ State Vector Class.
 
 class Surface_0:
 
-    def __init__(self, GASGIANT=False, LOWBC=1, GALB=1.0, NEM=2, NLOCATIONS=1):
+    def __init__(self, GASGIANT=False, ISPACE=0, LOWBC=1, GALB=1.0, NEM=2, NLOCATIONS=1):
 
         """
         Inputs
         ------
         @param GASGIANT: log,
             Flag indicating whether the planet has surface (GASGIANT=False) or not (GASGIANT=True)
+
+        @param ISPACE: int
+            Spectral units
+                0 :: Wavenumber (cm-1)
+                1 :: Wavelength (um)
 
         @param LOWBC: int,
             Flag indicating the lower boundary condition.
@@ -38,11 +43,20 @@ class Surface_0:
             
         @param NEM: int,
             Number of spectral points defining the emissivity of the surface   
+
+        @param NLOCATIONS: int,
+            Number of surface points (i.e. different latitudes/longitudes with different properties)
         
         Attributes
         ----------
 
-        @attribute TSURF: real
+        @attribute LATITUDE: real or 1D array (depending on number of locations)
+            Latitude of each location (degree)
+
+        @attribute LONGITUDE: real or 1D array (depending on number of locations)
+            Longitude of each location (degree)
+
+        @attribute TSURF: real or 1D array (depending on number of locations)
             Surface temperature (K)
 
         Attributes for Thermal emission from surface:
@@ -50,8 +64,9 @@ class Surface_0:
 
         @attribute VEM: 1D array
             Wavelengths at which the emissivity and other surface parameters are defined
+            Assumed to be equal for all locations
 
-        @attribute EMISSIVITY: 1D array
+        @attribute EMISSIVITY: 1D array or 2D array (depending on number of locations)
             Surface emissitivity 
 
 
@@ -69,43 +84,61 @@ class Surface_0:
         In particular, it is derived in chapter 12.3.1 of that book. We also assume that the scattering phase function
         of the surface is given by a Double Henyey-Greenstein function. 
 
-        @attribute SGLALB : 1D array
+        @attribute SGLALB : 1D array or 2D array (depending on number of locations)
             Single scattering albedo w
 
-        @attribute K : 1D array
+        @attribute K : 1D array or 2D array (depending on number of locations)
             Porosity coefficient 
 
-        @attribute BS0 : 1D array
+        @attribute BS0 : 1D array or 2D array (depending on number of locations)
             Amplitude of opposition effect (0 to 1)    
 
-        @attribute hs : 1D array
+        @attribute hs : 1D array or 2D array (depending on number of locations)
             Width of the opposition surge
 
-        @attribute BC0 : 1D array
+        @attribute BC0 : 1D array or 2D array (depending on number of locations)
             Amplitude of the coherent backscatter opposition effect (0 to 1)
 
-        @attribute hc : 1D array
+        @attribute hc : 1D array or 2D array (depending on number of locations)
             Width of the backscatter function
 
-        @attribute ROUGHNESS : 1D array
+        @attribute ROUGHNESS : 1D array or 2D array (depending on number of locations)
             Roughness mean slope angle (degrees)
 
-        @attribute G1 : 1D array
+        @attribute G1 : 1D array or 2D array (depending on number of locations)
             Asymmetry factor of the first Henyey-Greenstein function defining the phase function
 
-        @attribute G2 : 1D array
+        @attribute G2 : 1D array or 2D array (depending on number of locations)
             Asymmetry factor of the second Henyey-Greenstein function defining the phase function
         
-        @attribute F: 2D array,
+        @attribute F: 1D array or 2D array (depending on number of locations)
             Parameter defining the relative contribution of G1 and G2 of the double Henyey-Greenstein phase function
 
 
 
         Methods
         -------
-        Surface_0.edit_EMISSIVITY
+        Surface_0.assess()
+
+        Surface_0.write_hdf5()
+        Surface_0.read_hdf5()
+
         Surface_0.read_sur()
         Surface_0.read_hap()
+
+        Surface_0.edit_EMISSIVITY()
+        Surface_0.edit_SGLALB()
+        Surface_0.edit_BS0()
+        Surface_0.edit_hs()
+        Surface_0.edit_BC0()
+        Surface_0.edit_hc()
+        Surface_0.edit_K()
+        Surface_0.edit_ROUGHNESS()
+        Surface_0.edit_G1()
+        Surface_0.edit_G2()
+        Surface_0.edit_F()
+
+
 
 
         """
@@ -113,26 +146,286 @@ class Surface_0:
         #Input parameters
         self.NLOCATIONS = NLOCATIONS
         self.GASGIANT = GASGIANT
+        self.ISPACE = ISPACE
         self.LOWBC = LOWBC
         self.GALB = GALB
         self.NEM = NEM
 
         # Input the following profiles using the edit_ methods.
-        self.TSURF = None 
-        self.VEM = None #(NEM)
-        self.EMISSIVITY = None #(NEM) 
+        self.LATITUDE = None   #float or (NLOCATIONS) 
+        self.LONGITUDE = None  #float or (NLOCATIONS) 
+        self.TSURF = None      #float or (NLOCATIONS) 
+        self.VEM = None #(NEM) or (NEM,NLOCATIONS)
+        self.EMISSIVITY = None #(NEM) or (NEM,NLOCATIONS)
 
         #Hapke parameters
-        self.SGLALB = None #(NEM)
-        self.BS0 = None #(NEM)
-        self.hs = None #(NEM)
-        self.BC0 = None #(NEM)
-        self.hc = None #(NEM)
-        self.K = None #(NEM)
-        self.ROUGHNESS = None #(NEM)
-        self.G1 = None #(NEM)
-        self.G2 = None #(NEM)
-        self.F = None #(NEM)
+        self.SGLALB = None #(NEM) or (NEM,NLOCATIONS)
+        self.BS0 = None #(NEM) or (NEM,NLOCATIONS)
+        self.hs = None #(NEM) or (NEM,NLOCATIONS)
+        self.BC0 = None #(NEM) or (NEM,NLOCATIONS)
+        self.hc = None #(NEM) or (NEM,NLOCATIONS)
+        self.K = None #(NEM) or (NEM,NLOCATIONS)
+        self.ROUGHNESS = None #(NEM) or (NEM,NLOCATIONS)
+        self.G1 = None #(NEM) or (NEM,NLOCATIONS)
+        self.G2 = None #(NEM) or (NEM,NLOCATIONS)
+        self.F = None #(NEM) or (NEM,NLOCATIONS)
+
+    def assess(self):
+        """
+        Assess whether the different variables have the correct dimensions and types
+        """
+
+        if self.GASGIANT==False:
+
+            #Checking some common parameters to all cases
+            assert np.issubdtype(type(self.LOWBC), np.integer) == True , \
+                'LOWBC must be int'
+            assert self.LOWBC > 0 , \
+                'LOWBC must be >=0'
+            assert self.LOWBC <= 3 , \
+                'LOWBC must be >=0 and <=3'
+            
+            assert len(self.VEM) == self.NEM , \
+                'VEM must have size (NEM)'
+            
+            assert np.issubdtype(type(self.ISPACE), np.integer) == True , \
+                'ISPACE must be int'
+            assert self.ISPACE >= 0 , \
+                'ISPACE must be >=0 and <=1'
+            assert self.ISPACE <= 1 , \
+                'ISPACE must be >=1 and <=1'
+
+            #Determining sizes based on the number of surface locations
+            if self.NLOCATIONS<0:
+                sys.exit('error :: NLOCATIONS must be greater than 1')
+
+            elif self.NLOCATIONS==1:
+
+                assert np.issubdtype(type(self.LOWBC), np.float) == True , \
+                    'TSURF must be float'
+                assert np.issubdtype(type(self.LOWBC), np.float) == True , \
+                    'LATITUDE must be float'
+                assert abs(self.LATITUDE) < 90.0 , \
+                    'LATITUDE must be within -90 to 90 degrees'
+                assert np.issubdtype(type(self.LOWBC), np.float) == True , \
+                    'LONGITUDE must be float'
+
+                assert len(self.EMISSIVITY) == self.NEM , \
+                    'EMISSIVITY must have size (NEM)'
+
+                #Special case for Hapke reflection
+                if self.LOWBC==2:
+                    assert len(self.SGLALB) == self.NEM , \
+                        'SGLALB must have size (NEM)'
+                    assert len(self.ROUGHNESS) == self.NEM , \
+                        'ROUGHNESS must have size (NEM)'
+                    assert len(self.BS0) == self.NEM , \
+                        'BS0 must have size (NEM)'
+                    assert len(self.hs) == self.NEM , \
+                        'hs must have size (NEM)'
+                    assert len(self.BC0) == self.NEM , \
+                        'BC0 must have size (NEM)'
+                    assert len(self.hc) == self.NEM , \
+                        'hc must have size (NEM)'
+                    assert len(self.K) == self.NEM , \
+                        'K must have size (NEM)'
+                    assert len(self.G1) == self.NEM , \
+                        'G1 must have size (NEM)'
+                    assert len(self.G2) == self.NEM , \
+                        'G2 must have size (NEM)'
+                    assert len(self.F) == self.NEM , \
+                        'F must have size (NEM)'
+            else:
+                assert len(self.TSURF) == self.NLOCATIONS , \
+                    'TSURF must have size (NLOCATIONS)'
+                assert len(self.LATITUDE) == self.NLOCATIONS , \
+                    'LATITUDE must have size (NLOCATIONS)'
+                assert len(self.LONGITUDE) == self.NLOCATIONS , \
+                    'LONGITUDE must have size (NLOCATIONS)'
+                
+                assert self.EMISSIVITY.shape == (self.NEM,self.NLOCATIONS) , \
+                    'EMISSIVITY must have size (NEM,NLOCATIONS)'
+                
+                #Special case for Hapke reflection
+                if self.LOWBC==2:
+                    assert self.SGLALB.shape == (self.NEM,self.NLOCATIONS) , \
+                        'SGLALB must have size (NEM,NLOCATIONS)'
+                    assert self.BS0.shape == (self.NEM,self.NLOCATIONS) , \
+                        'BS0 must have size (NEM,NLOCATIONS)'
+                    assert self.hs.shape == (self.NEM,self.NLOCATIONS) , \
+                        'hs must have size (NEM,NLOCATIONS)'
+                    assert self.BC0.shape == (self.NEM,self.NLOCATIONS) , \
+                        'BC0 must have size (NEM,NLOCATIONS)'
+                    assert self.hc.shape == (self.NEM,self.NLOCATIONS) , \
+                        'hc must have size (NEM,NLOCATIONS)'
+                    assert self.K.shape == (self.NEM,self.NLOCATIONS) , \
+                        'K must have size (NEM,NLOCATIONS)'
+                    assert self.ROUGHNESS.shape == (self.NEM,self.NLOCATIONS) , \
+                        'ROUGHNESS must have size (NEM,NLOCATIONS)'
+                    assert self.G1.shape == (self.NEM,self.NLOCATIONS) , \
+                        'G1 must have size (NEM,NLOCATIONS)'
+                    assert self.G2.shape == (self.NEM,self.NLOCATIONS) , \
+                        'G2 must have size (NEM,NLOCATIONS)'
+                    assert self.F.shape == (self.NEM,self.NLOCATIONS) , \
+                        'F must have size (NEM,NLOCATIONS)'
+        else:
+            assert self.LOWBC == 0 , \
+                'If GASGIANT=True then LOWBC=0 (i.e. No reflection)'
+
+
+    def write_hdf5(self,runname):
+        """
+        Write the surface properties into an HDF5 file
+        """
+
+        import h5py
+
+        #Assessing that all the parameters have the correct type and dimension
+        self.assess()
+
+        if os.path.exists(runname+'.h5')==True:  
+            f = h5py.File(runname+'.h5','a')
+            del f['Surface']   #Deleting the surface information that was previously written in the file
+        else:
+            f = h5py.File(runname+'.h5','a')
+
+        if self.GASGIANT==False:
+
+            grp = f.create_group("Surface")
+
+            #Writing the lower boundary condition
+            dset = grp.create_dataset('LOWBC',data=self.LOWBC)
+            dset.attrs['title'] = "Lower Boundary Condition"
+            if self.LOWBC==0:
+                dset.attrs['type'] = 'Isotropic thermal emission (no reflection)'
+            elif self.LOWBC==1:
+                dset.attrs['type'] = 'Isotropic thermal emission and Lambert reflection'
+            elif self.LOWBC==2:
+                dset.attrs['type'] = 'Isotropic thermal emission and Hapke reflection'
+
+            #Writing the spectral units
+            dset = grp.create_dataset('ISPACE',data=self.ISPACE)
+            dset.attrs['title'] = "Spectral units"
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'Wavenumber / cm-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'Wavelength / um'
+
+            #Writing the spectral array
+            dset = grp.create_dataset('VEM',data=self.VEM)
+            dset.attrs['title'] = "Spectral array"
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'Wavenumber / cm-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'Wavelength / um'
+
+            #Writing the number of locations
+            dset = grp.create_dataset('NLOCATIONS',data=self.NLOCATIONS)
+            dset.attrs['title'] = "Number of surface locations"
+
+            #Writing the co-ordinates of the locations
+            dset = grp.create_dataset('LATITUDE',data=self.LATITUDE)
+            dset.attrs['title'] = "Latitude of the surface locations"
+            dset.attrs['units'] = 'degrees'
+
+            dset = grp.create_dataset('LONGITUDE',data=self.LONGITUDE)
+            dset.attrs['title'] = "Longitude of the surface locations"
+            dset.attrs['units'] = 'degrees'
+
+            #Writing the surface temperature
+            dset = grp.create_dataset('TSURF',data=self.TSURF)
+            dset.attrs['title'] = "Surface Temperature"
+            dset.attrs['units'] = 'K'
+
+            #Writing the emissivity
+            dset = grp.create_dataset('EMISSIVITY',data=self.EMISSIVITY)
+            dset.attrs['title'] = "Surface emissivity"
+            dset.attrs['units'] = ''
+
+            #Writing Hapke parameters if they are required
+            if self.LOWBC==2:
+
+                dset = grp.create_dataset('SGLALB',data=self.SGLALB)
+                dset.attrs['title'] = "Single scattering albedo"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('K',data=self.K)
+                dset.attrs['title'] = "Porosity coefficient"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('BS0',data=self.BS0)
+                dset.attrs['title'] = "Amplitude of the opposition effect"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('hs',data=self.hs)
+                dset.attrs['title'] = "Width of the opposition surge"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('BC0',data=self.BC0)
+                dset.attrs['title'] = "Amplitude of the coherent backscatter opposition effect"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('hc',data=self.hc)
+                dset.attrs['title'] = "Width of the backscatter function"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('ROUGHNESS',data=self.ROUGHNESS)
+                dset.attrs['title'] = "Roughness mean slope angle"
+                dset.attrs['units'] = 'degrees'
+
+                dset = grp.create_dataset('G1',data=self.G1)
+                dset.attrs['title'] = "Asymmetry factor of the first Henyey-Greenstein function defining the phase function"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('G2',data=self.G2)
+                dset.attrs['title'] = "Asymmetry factor of the second Henyey-Greenstein function defining the phase function"
+                dset.attrs['units'] = ''
+
+                dset = grp.create_dataset('F',data=self.F)
+                dset.attrs['title'] = "Parameter defining the relative contribution of G1 and G2 of the double Henyey-Greenstein phase function"
+                dset.attrs['units'] = ''
+
+        f.close()
+
+    def read_hdf5(self,runname):
+        """
+        Read the surface properties from an HDF5 file
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Surface exists
+        e = "/Surface" in f
+        if e==False:
+            self.GASGIANT = True
+            self.LOWBC = 0
+        else:
+            
+            self.ISPACE = np.int32(f.get('Surface/ISPACE'))
+            self.LOWBC = np.int32(f.get('Surface/LOWBC'))
+            self.NLOCATIONS = np.int32(f.get('Surface/NLOCATIONS'))
+
+            self.VEM = np.array(f.get('Surface/VEM'))
+            self.NEM = len(self.VEM)
+            self.TSURF = np.array(f.get('Surface/TSURF'))
+            self.EMISSIVITY = np.array(f.get('Surface/EMISSIVITY'))
+
+            if self.LOWBC==2:
+                self.SGLALB = np.array(f.get('Surface/SGLALB'))
+                self.BS0 = np.array(f.get('Surface/BS0'))
+                self.hs = np.array(f.get('Surface/hs'))
+                self.BC0 = np.array(f.get('Surface/BC0'))
+                self.hc = np.array(f.get('Surface/hc'))
+                self.K = np.array(f.get('Surface/K'))
+                self.ROUGHNESS = np.array(f.get('Surface/ROUGHNESS'))
+                self.G1 = np.array(f.get('Surface/G1'))
+                self.G2 = np.array(f.get('Surface/G2'))
+                self.F = np.array(f.get('Surface/F'))
+
+        self.assess()
+
 
     def edit_EMISSIVITY(self, EMISSIVITY_array):
         """
@@ -141,11 +434,154 @@ class Surface_0:
             Array defining the surface emissivity at each of the points
         """
         EMISSIVITY_array = np.array(EMISSIVITY_array)
-        assert len(EMISSIVITY_array) == self.NEM , \
-            'EMISSIVITY should have NEM elements'
-        self.EMISSIVITY = EMISSIVITY_array  
+        if self.NLOCATIONS==1:
+            assert len(EMISSIVITY_array) == self.NEM , \
+                'EMISSIVITY should have NEM elements'
+        else:
+            assert EMISSIVITY_array.shape == (self.NEM,self.NLOCATIONS) , \
+                'EMISSIVITY should have (NEM,NLOCATIONS) elements'
+        self.EMISSIVITY = EMISSIVITY_array 
 
 
+    def edit_SGLALB(self, array):
+        """
+        Edit the single scattering albedo at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'SGLALB should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'SGLALB should have (NEM,NLOCATIONS) elements'
+        self.SGLALB = array 
+
+    def edit_ROUGHNESS(self, array):
+        """
+        Edit the roughness mean slope angle at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'ROUGHNESS should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'ROUGHNESS should have (NEM,NLOCATIONS) elements'
+        self.ROUGHNESS = array 
+
+    def edit_BS0(self, array):
+        """
+        Edit the amplitude of the opposition effect at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'BS0 should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'BS0 should have (NEM,NLOCATIONS) elements'
+        self.BS0 = array 
+
+    def edit_hs(self, array):
+        """
+        Edit the width of the opposition effect at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'hs should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'hs should have (NEM,NLOCATIONS) elements'
+        self.hs = array 
+
+    def edit_BC0(self, array):
+        """
+        Edit the amplitude of the backscatter opposition effect at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'BC0 should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'BC0 should have (NEM,NLOCATIONS) elements'
+        self.BC0 = array 
+
+    def edit_hc(self, array):
+        """
+        Edit the width of the backscatter opposition effect at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'hc should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'hc should have (NEM,NLOCATIONS) elements'
+        self.hc = array 
+
+    def edit_K(self, array):
+        """
+        Edit the porosity coefficient at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'K should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'K should have (NEM,NLOCATIONS) elements'
+        self.K = array 
+
+    def edit_G1(self, array):
+        """
+        Edit the first assymmetry parameter at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'G1 should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'G1 should have (NEM,NLOCATIONS) elements'
+        self.G1 = array 
+
+    def edit_G2(self, array):
+        """
+        Edit the second assymmetry parameter at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'G2 should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'G2 should have (NEM,NLOCATIONS) elements'
+        self.G2 = array 
+
+    def edit_F(self, array):
+        """
+        Edit the contribution from each H-G function at each of the lat/lon points
+        @param array: 1D or 2D array
+        """
+        array = np.array(array)
+        if self.NLOCATIONS==1:
+            assert len(array) == self.NEM , \
+                'F should have NEM elements'
+        else:
+            assert array.shape == (self.NEM,self.NLOCATIONS) , \
+                'F should have (NEM,NLOCATIONS) elements'
+        self.F = array 
 
     def calc_phase_angle(self,EMISS_ANG,SOL_ANG,AZI_ANG):
         """
