@@ -759,7 +759,7 @@ def rankg(weight, cont, grad, del_g):
 
 ###############################################################################################
 
-def lblconv(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
+def lblconv_old(fwhm,ishape,nwave,vwave,y,nconv,vconv,runname=''):
 
     """
         FUNCTION NAME : lblconv()

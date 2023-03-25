@@ -66,6 +66,43 @@ class Stellar_0:
 
         self.STELLARDATA = Nemesis_Path()+'NemesisPy/Data/stellar/'
 
+
+    def assess(self):
+        """
+        Assess whether the different variables have the correct dimensions and types
+        """
+
+        if self.SOLEXIST==True:
+
+            #Checking some common parameters to all cases
+            assert np.issubdtype(type(self.ISPACE), np.integer) == True , \
+                'ISPACE must be int'
+            assert self.ISPACE >= 0 , \
+                'ISPACE must be >=0 and <=1'
+            assert self.ISPACE <= 1 , \
+                'ISPACE must be >=0 and <=1'
+
+            #Checking some common parameters to all cases
+            assert np.issubdtype(type(self.DIST), np.float) == True , \
+                'DIST must be float'
+
+            #Checking some common parameters to all cases
+            assert np.issubdtype(type(self.RADIUS), np.float) == True , \
+                'RADIUS must be float'
+
+            #Checking some common parameters to all cases
+            assert np.issubdtype(type(self.NCONV), np.integer) == True , \
+                'NCONV must be int'
+            assert self.NCONV >= 0 , \
+                'NCONV must be >=0'
+            
+            assert len(self.VCONV) == self.NCONV , \
+                'VCONV must have size (NCONV)'
+            
+            assert len(self.SOLSPEC) == self.NCONV , \
+                'SOLSPEC must have size (NCONV)'
+            
+
     def edit_VCONV(self, VCONV):
         """
         Edit the solar spectrum 
@@ -85,6 +122,137 @@ class Stellar_0:
         SOLSPEC_array = np.array(SOLSPEC)
         assert len(SOLSPEC_array) == self.NCONV, 'SOLSPEC should have NCONV elements'
         self.SOLSPEC = SOLSPEC_array
+
+    def write_hdf5(self,runname,solfile=None):
+        """
+        Write the information about the solar spectrum in the HDF5 file
+
+        If the optional input solfile is defined, then the information is read from the
+        specified file (assumed to be stored in the Data/stellar directory).
+
+        If solfile is not defined, then the information about the solar spectrum is assumed
+        to be defined in the class
+        """
+
+        import h5py
+
+        if solfile is not None:
+
+            #Reading the solar spectrum file
+
+            nlines = file_lines(self.STELLARDATA+solfile)
+
+            #Reading buffer
+            ibuff = 0
+            with open(self.STELLARDATA+solfile,'r') as fsol:
+                for curline in fsol:
+                    if curline.startswith("#"):
+                        ibuff = ibuff + 1
+                    else:
+                        break
+
+            nvsol = nlines - ibuff - 2
+            
+            #Reading file
+            fsol = open(self.STELLARDATA+solfile,'r')
+            for i in range(ibuff):
+                s = fsol.readline().split()
+        
+            s = fsol.readline().split()
+            ispace = int(s[0])
+            s = fsol.readline().split()
+            solrad = float(s[0])
+            vsol = np.zeros(nvsol)
+            rad = np.zeros(nvsol)
+            for i in range(nvsol):
+                s = fsol.readline().split()
+                vsol[i] = float(s[0])
+                rad[i] = float(s[1])
+        
+            fsol.close()
+
+            self.RADIUS = solrad
+            self.ISPACE = ispace
+            self.NCONV = nvsol
+            self.edit_VCONV(vsol)
+            self.edit_SOLSPEC(rad)
+
+
+        self.assess()
+
+        #Writing the information into the HDF5 file
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Stellar already exists
+        if ('/Stellar' in f)==True:
+            del f['Stellar']   #Deleting the Stellar information that was previously written in the file
+
+        if self.SOLEXIST==True:
+
+            grp = f.create_group("Stellar")
+
+            #Writing the spectral units
+            dset = grp.create_dataset('ISPACE',data=self.ISPACE)
+            dset.attrs['title'] = "Spectral units"
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'Wavenumber / cm-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'Wavelength / um'
+
+            #Writing the Planet-Star distance
+            dset = grp.create_dataset('DIST',data=self.DIST)
+            dset.attrs['title'] = "Planet-Star distance"
+            dset.attrs['units'] = 'Astronomical Units'
+
+            #Writing the Star radius
+            dset = grp.create_dataset('RADIUS',data=self.RADIUS)
+            dset.attrs['title'] = "Star radius"
+            dset.attrs['units'] = 'km'
+
+            #Writing the number of points in stellar spectrum
+            dset = grp.create_dataset('NCONV',data=self.NCONV)
+            dset.attrs['title'] = "Number of spectral points in stellar spectrum"
+
+            #Writing the spectral array
+            dset = grp.create_dataset('VCONV',data=self.VCONV)
+            dset.attrs['title'] = "Spectral array"
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'Wavenumber / cm-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'Wavelength / um' 
+
+            #Writing the solar spectrum
+            dset = grp.create_dataset('SOLSPEC',data=self.SOLSPEC)
+            dset.attrs['title'] = "Stellar power spectrum"
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'W (cm-1)-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'W um-1'     
+
+        f.close()
+
+    def read_hdf5(self,runname):
+        """
+        Read the Stellar properties from an HDF5 file
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Surface exists
+        e = "/Stellar" in f
+        if e==False:
+            self.SOLEXIST = False
+        else:
+            self.SOLEXIST = True
+            self.ISPACE = np.int32(f.get('Stellar/ISPACE'))
+            self.DIST = np.float64(f.get('Stellar/DIST'))
+            self.RADIUS = np.float64(f.get('Stellar/RADIUS'))
+            self.NCONV = np.int32(f.get('Stellar/NCONV'))
+            self.VCONV = np.array(f.get('Stellar/VCONV'))
+            self.SOLSPEC = np.array(f.get('Stellar/SOLSPEC'))
+
+        f.close()
 
     def read_sol(self, runname, MakePlot=False):
         """

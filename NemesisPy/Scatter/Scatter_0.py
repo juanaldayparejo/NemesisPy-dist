@@ -98,6 +98,8 @@ class Scatter_0:
 
         Methods
         -------
+        Scatter_0.assess()
+        Scatter_0.write_hdf5()
         Scatter_0.calc_GAUSS_LOBATTO()
         Scatter_0.read_xsc()
         Scatter_0.write_xsc()
@@ -137,8 +139,8 @@ class Scatter_0:
         self.THETA = THETA
         self.PHASE = None #np.zeros(NWAVE,NTHETA,NDUST)
 
-        self.MU = None # np.zeros(NCONV)
-        self.WTMU = None # np.zeros(NCONV)
+        self.MU = None # np.zeros(NMU)
+        self.WTMU = None # np.zeros(NMU)
 
         #Henyey-Greenstein phase function parameters
         self.G1 = None  #np.zeros(NWAVE,NDUST)
@@ -156,6 +158,294 @@ class Scatter_0:
         self.REFIND_IM = None #np.zeros(NWAVER)
 
         self.calc_GAUSS_LOBATTO()
+
+
+    def assess(self):
+        """
+        Assess whether the different variables have the correct dimensions and types
+        """
+
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.ISPACE), np.integer) == True , \
+            'ISPACE must be int'
+        assert self.ISPACE >= 0 , \
+            'ISPACE must be >=0 and <=1'
+        assert self.ISPACE <= 1 , \
+            'ISPACE must be >=0 and <=1'
+
+        assert np.issubdtype(type(self.ISCAT), np.integer) == True , \
+            'ISCAT must be int'
+        assert self.ISCAT >= 0 , \
+            'ISCAT must be >=0 and <=1'
+        assert self.ISCAT <= 1 , \
+            'ISCAT must be >=0 and <=1. In the future more options will be available'
+
+        assert np.issubdtype(type(self.IRAY), np.integer) == True , \
+            'IRAY must be int'
+        assert self.IRAY >= 0 , \
+            'IRAY must be >=0 and <=2'
+        assert self.IRAY <= 2 , \
+            'IRAY must be >=0 and <=2. In the future more options will be available'
+        
+        assert np.issubdtype(type(self.IMIE), np.integer) == True , \
+            'IMIE must be int'
+        assert self.IMIE >= 0 , \
+            'IMIE must be >=0 and <=2'
+        assert self.IMIE <= 2 , \
+            'IMIE must be >=0 and <=2'
+
+        assert np.issubdtype(type(self.NMU), np.integer) == True , \
+            'NMU must be int'
+        assert self.NMU >= 0 , \
+            'NMU must be >=0'
+        
+        assert np.issubdtype(type(self.NF), np.integer) == True , \
+            'NF must be int'
+        assert self.NF >= 0 , \
+            'NF must be >=0'
+
+        assert np.issubdtype(type(self.NPHI), np.integer) == True , \
+            'NPHI must be int'
+        assert self.NPHI >= 0 , \
+            'NPHI must be >=0'
+
+        assert np.issubdtype(type(self.NDUST), np.integer) == True , \
+            'NDUST must be int'
+        assert self.NDUST >= 0 , \
+            'NDUST must be >=0'
+        
+        assert np.issubdtype(type(self.NWAVE), np.integer) == True , \
+            'NWAVE must be int'
+        assert self.NWAVE >= 2 , \
+            'NWAVE must be >=2'
+        
+        if self.NDUST>0:  #There are aerosols in the atmosphere
+
+            assert self.KEXT.shape == (self.NWAVE,self.NDUST) , \
+                'KEXT must have size (NWAVE,NDUST)'
+            
+            assert self.SGLALB.shape == (self.NWAVE,self.NDUST) , \
+                'SGLALB must have size (NWAVE,NDUST)'
+            
+            if self.ISCAT>0:  #Scattering is turned on
+
+                if self.IMIE==0:  #Henyey-Greenstein phase function
+
+                    assert self.G1.shape == (self.NWAVE,self.NDUST) , \
+                        'G1 must have size (NWAVE,NDUST)'
+                    
+                    assert self.G2.shape == (self.NWAVE,self.NDUST) , \
+                        'G2 must have size (NWAVE,NDUST)'
+
+                    assert self.F.shape == (self.NWAVE,self.NDUST) , \
+                        'F must have size (NWAVE,NDUST)'
+                    
+                elif self.IMIE==1:  #Explicit phase function 
+
+                    assert np.issubdtype(type(self.NTHETA), np.integer) == True , \
+                        'NTHETA must be int'
+                    
+                    assert self.PHASE.shape == (self.NWAVE,self.NTHETA,self.NDUST) , \
+                        'PHASE must have size (NWAVE,NTHETA,NDUST)'
+                    
+                elif self.IMIE==2:  #Phase function from Legrende polynomials 
+
+                    assert np.issubdtype(type(self.NLPOL), np.integer) == True , \
+                        'NLPOL must be int'
+                    
+                    assert self.WLPOL.shape == (self.NWAVE,self.NLPOL,self.NDUST) , \
+                        'WLPOL must have size (NWAVE,NLPOL,NDUST)'
+
+
+    def write_hdf5(self,runname):
+        """
+        Write the scattering properties into an HDF5 file
+        """
+
+        import h5py
+
+        #Assessing that all the parameters have the correct type and dimension
+        self.assess()
+
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Scatter already exists
+        if ('/Scatter' in f)==True:
+            del f['Scatter']   #Deleting the Scatter information that was previously written in the file
+
+        grp = f.create_group("Scatter")
+
+        #Writing the spectral units
+        dset = grp.create_dataset('ISPACE',data=self.ISPACE)
+        dset.attrs['title'] = "Spectral units"
+        if self.ISPACE==0:
+            dset.attrs['units'] = 'Wavenumber / cm-1'
+        elif self.ISPACE==1:
+            dset.attrs['units'] = 'Wavelength / um'
+
+        #Writing the scattering calculation type
+        dset = grp.create_dataset('ISCAT',data=self.ISCAT)
+        dset.attrs['title'] = "Scattering calculation type"
+        if self.ISCAT==0:
+            dset.attrs['type'] = 'No scattering'
+        elif self.ISCAT==1:
+            dset.attrs['type'] = 'Multiple scattering'
+        elif self.ISCAT==2:
+            dset.attrs['type'] = 'Internal scattered radiation field calculation (required for limb-viewing observations)'
+        elif self.ISCAT==3:
+            dset.attrs['type'] = 'Single scattering in plane-parallel atmosphere'
+        elif self.ISCAT==4:
+            dset.attrs['type'] = 'Single scattering in spherical atmosphere'
+        elif self.ISCAT==5:
+            dset.attrs['type'] = 'Internal flux calculation'
+
+
+        #Writing the Rayleigh scattering type
+        dset = grp.create_dataset('IRAY',data=self.IRAY)
+        dset.attrs['title'] = "Rayleigh scattering type"
+        if self.IRAY==0:
+            dset.attrs['type'] = 'Rayleigh scattering optical depth not included'
+        elif self.IRAY==1:
+            dset.attrs['type'] = 'Rayleigh optical depth suitable for gas giant atmosphere'
+        elif self.IRAY==2:
+            dset.attrs['type'] = 'Rayleigh optical depth suitable for a CO2-dominated atmosphere'
+        elif self.IRAY==3:
+            dset.attrs['type'] = 'Rayleigh optical depth suitable for a N2-O2 atmosphere'
+        elif self.IRAY==4:
+            dset.attrs['type'] = 'New Raighleigh optical depth for gas giant atmospheres'
+
+        #Writing the aerosol scattering type
+        dset = grp.create_dataset('IMIE',data=self.IMIE)
+        dset.attrs['title'] = "Aerosol scattering phase function type"
+        if self.IMIE==0:
+            dset.attrs['type'] = 'Phase function defined as double Henyey-Greenstein function'
+        elif self.IMIE==1:
+            dset.attrs['type'] = 'Explicit phase function'
+        elif self.IMIE==2:
+            dset.attrs['type'] = 'Phase function from Legendre polynomials'
+        
+        #Writing some of the scattering calculation parameters
+        dset = grp.create_dataset('NMU',data=self.NMU)
+        dset.attrs['title'] = "Number of polar angles for multiple scattering calculation"
+
+        dset = grp.create_dataset('NF',data=self.NMU)
+        dset.attrs['title'] = "Number of Fourier components for azimuth decomposition"
+
+        dset = grp.create_dataset('NPHI',data=self.NMU)
+        dset.attrs['title'] = "Number of azimuth angles for multiple scattering calculation"
+
+        dset = grp.create_dataset('NDUST',data=self.NDUST)
+        dset.attrs['title'] = "Number of aerosol populations in atmosphere"
+
+        dset = grp.create_dataset('NWAVE',data=self.NWAVE)
+        dset.attrs['title'] = "Number of spectral points"
+
+        if self.NDUST>0:  #There are aerosols in the atmosphere
+
+            dset = grp.create_dataset('WAVE',data=self.WAVE)
+            dset.attrs['title'] = "Spectral array"
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'Wavenumber / cm-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'Wavelength / um'
+
+            dset = grp.create_dataset('KEXT',data=self.KEXT)
+            dset.attrs['title'] = "Extinction coefficient"
+            dset.attrs['units'] = "cm2"
+            dset.attrs['note'] = "KEXT can be normalised to a certain wavelength if the aerosol profiles are also normalised"
+            
+            dset = grp.create_dataset('SGLALB',data=self.SGLALB)
+            dset.attrs['title'] = "Single scattering albedo"
+            dset.attrs['units'] = ""
+
+            if self.ISCAT>0:
+
+                if self.IMIE==0:  #H-G phase function
+
+                    dset = grp.create_dataset('G1',data=self.G1)
+                    dset.attrs['title'] = "Assymmetry parameter of first Henyey-Greenstein function"
+                    dset.attrs['units'] = ""
+
+                    dset = grp.create_dataset('G2',data=self.G2)
+                    dset.attrs['title'] = "Assymmetry parameter of second Henyey-Greenstein function"
+                    dset.attrs['units'] = ""
+
+                    dset = grp.create_dataset('F',data=self.G1)
+                    dset.attrs['title'] = "Relative contribution from first Henyey-Greenstein function (from 0 to 1)"
+                    dset.attrs['units'] = ""
+
+                elif self.IMIE==1:  #Explicit phase function
+
+                    dset = grp.create_dataset('NTHETA',data=self.NTHETA)
+                    dset.attrs['title'] = "Number of angles to define phase function"
+
+                    dset = grp.create_dataset('THETA',data=self.THETA)
+                    dset.attrs['title'] = "Angles to define phase function"
+                    dset.attrs['units'] = "degrees"
+
+                    dset = grp.create_dataset('PHASE',data=self.PHASE)
+                    dset.attrs['title'] = "Phase function of each aerosol population"
+                    dset.attrs['units'] = ""
+
+                elif self.IMIE==2:  #Phase function from Legendre polynomials
+
+                    dset = grp.create_dataset('NLPOL',data=self.NLPOL)
+                    dset.attrs['title'] = "Number of Legendre coefficients to define phase function"
+
+                    dset = grp.create_dataset('WLPOL',data=self.WLPOL)
+                    dset.attrs['title'] = "Weights of the Legendre coefficients to define phase function"
+                    dset.attrs['units'] = ""
+
+        f.close()
+
+    def read_hdf5(self,runname):
+        """
+        Read the Scatter properties from an HDF5 file
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Surface exists
+        e = "/Scatter" in f
+        if e==False:
+            sys.exit('error :: Scatter is not defined in HDF5 file')
+        else:
+
+            self.NDUST = np.int32(f.get('Scatter/NDUST'))
+            self.ISPACE = np.int32(f.get('Scatter/ISPACE'))
+            self.ISCAT = np.int32(f.get('Scatter/ISCAT'))
+            self.IRAY = np.int32(f.get('Scatter/IRAY'))
+            self.IMIE = np.int32(f.get('Scatter/IMIE'))
+            self.NMU = np.int32(f.get('Scatter/NMU'))
+            self.NF = np.int32(f.get('Scatter/NF'))
+            self.NPHI = np.int32(f.get('Scatter/NPHI'))
+            self.NWAVE = np.int32(f.get('Scatter/NWAVE'))
+            
+            if self.NDUST>0:
+
+                self.WAVE = np.array(f.get('Scatter/WAVE'))
+                self.KEXT = np.array(f.get('Scatter/KEXT'))
+                self.SGLALB = np.array(f.get('Scatter/SGLALB'))
+                self.KSCA = self.SGLALB * self.KEXT
+                self.KABS = self.KEXT - self.KSCA
+
+                if self.ISCAT>0:
+
+                    if self.IMIE==0:  #H-G phase function
+                        self.G1 = np.array(f.get('Scatter/G1'))
+                        self.G2 = np.array(f.get('Scatter/G2'))
+                        self.F = np.array(f.get('Scatter/F'))
+                    elif self.IMIE==1:  #Explicit phase function
+                        self.NTHETA = np.int32(f.get('Scatter/NTHETA'))
+                        self.THETA = np.array(f.get('Scatter/THETA'))
+                        self.PHASE = np.array(f.get('Scatter/PHASE'))
+                    elif self.IMIE==2:  #Phase function from Legendre polynomials
+                        self.NLPOL = np.int32(f.get('Scatter/NLPOL'))
+                        self.WLPOL = np.array(f.get('Scatter/WLPOL'))
+
+        f.close()
+
 
     def initialise_arrays(self,NDUST,NWAVE,NTHETA):
         """

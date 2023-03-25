@@ -19,8 +19,7 @@ State Vector Class.
 
 class Spectroscopy_0:
 
-    def __init__(self, RUNNAME='wasp121', ISPACE=0, ILBL=2, NGAS=2, ID=[1,2], ISO=[0,0], LOCATION=['',''], NWAVE=2, WAVE=[0.,100.], \
-                 NP=2, NT=2, PRESS=[1.0e2,1.0e-10], TEMP=[30.,300.], NG=1, G_ORD=[0.], DELG=[1.], FWHM=0.0):
+    def __init__(self, RUNNAME='', ILBL=2, NGAS=2):
 
         """
         Inputs
@@ -62,32 +61,131 @@ class Spectroscopy_0:
 
         Methods
         -------
+        Spectroscopy_0.edit_WAVE
         Spectroscopy_0.edit_K
+        Spectroscopy_0.write_hdf5
+        Spectroscopy_0.read_hdf5
         Spectroscopy_0.read_lls
         Spectroscopy_0.read_kls
         Spectroscopy_0.read_tables
+        Spectroscopy_0.calc_klbl
+        Spectroscopy_0.calc_k
+        Spectroscopy_0.calc_klblg
+        Spectroscopy_0.calc_kg
         """
 
         #Input parameters
         self.RUNNAME = RUNNAME
-        self.ISPACE = ISPACE
         self.ILBL = ILBL
         self.NGAS = NGAS
-        self.ID = ID
-        self.ISO = ISO
-        self.LOCATION = LOCATION
-        self.NWAVE = NWAVE
-        self.WAVE = WAVE
-        self.NP = NP
-        self.NT = NT
-        self.PRESS = PRESS
-        self.TEMP = TEMP
-        self.NG = NG
-        self.G_ORD = G_ORD
-        self.DELG = DELG
-        self.FWHM = FWHM
+
+        #Attributes
+        self.ISPACE = None
+        self.ID = None        #(NGAS)
+        self.ISO = None       #(NGAS)
+        self.LOCATION = None  #(NGAS)
+        self.NWAVE = None     
+        self.WAVE = None      #(NWAVE)
+        self.NP = None
+        self.NT = None
+        self.PRESS = None     #(NP)
+        self.TEMP = None      #(NT)
+        self.NG = None
+        self.G_ORD = None     #(NG)
+        self.DELG = None      #(NG)
+        self.FWHM = None
 
         self.K = None #(NWAVE,NG,NP,NT,NGAS)
+
+
+    def assess(self):
+        """
+        Subroutine to assess whether the variables of the Spectroscopy class are correct
+        """   
+
+        #Checking some common parameters to all cases        
+        assert np.issubdtype(type(self.ILBL), np.integer) == True , \
+            'ILBL must be int'
+        assert self.ILBL >= 0 , \
+            'ILBL must be =0 (correlated-k) or =2 (line-by-line)'
+        assert self.ILBL <= 2 , \
+            'ILBL must be =0 (correlated-k) and =2 (line-by-line)'
+
+        assert np.issubdtype(type(self.NGAS), np.integer) == True , \
+            'NGAS must be int'
+        assert self.NGAS >= 0 , \
+            'NGAS must be >=0'
+
+        if self.NGAS>0:
+            assert len(self.LOCATION) == self.NGAS , \
+                'LOCATION must have size (NGAS)'
+
+
+    def summary_info(self):
+        """
+        Subroutine to print summary of information about the class
+        """    
+
+        from NemesisPy.Data import gas_info
+
+        if self.ILBL==0:
+            print('Calculation type ILBL :: ',self.ILBL,' (k-distribution)')
+            print('Number of radiatively-active gaseous species :: ',self.NGAS)
+            gasname = ['']*self.NGAS
+            for i in range(self.NGAS):
+                gasname1 = gas_info[str(self.ID[i])]['name']
+                if self.ISO[i]!=0:
+                    gasname1 = gasname1+' ('+str(self.ISO[i])+')'
+                gasname[i] = gasname1
+            print('Gaseous species :: ',gasname)
+
+            print('Number of g-ordinates :: ',self.NG)
+
+            print('Number of spectral points :: ',self.NWAVE)
+            print('Wavelength range :: ',self.WAVE.min(),'-',self.WAVE.max())
+            print('Step size :: ',self.WAVE[1]-self.WAVE[0])
+
+            print('Spectral resolution of the k-tables (FWHM) :: ',self.FWHM)
+
+            print('Number of temperature levels :: ',self.NT)
+            print('Temperature range :: ',self.TEMP.min(),'-',self.TEMP.max(),'K')
+
+            print('Number of pressure levels :: ',self.NP)
+            print('Pressure range :: ',self.PRESS.min(),'-',self.PRESS.max(),'atm')
+
+        elif self.ILBL==2:
+            print('Calculation type ILBL :: ',self.ILBL,' (line-by-line)')
+            print('Number of radiatively-active gaseous species :: ',self.NGAS)
+            gasname = ['']*self.NGAS
+            for i in range(self.NGAS):
+                gasname1 = gas_info[str(self.ID[i])]['name']
+                if self.ISO[i]!=0:
+                    gasname1 = gasname1+' ('+str(self.ISO[i])+')'
+                gasname[i] = gasname1
+            print('Gaseous species :: ',gasname)
+
+            print('Number of spectral points :: ',self.NWAVE)
+            print('Wavelength range :: ',self.WAVE.min(),'-',self.WAVE.max())
+            print('Step size :: ',self.WAVE[1]-self.WAVE[0])
+
+            print('Number of temperature levels :: ',self.NT)
+            print('Temperature range :: ',self.TEMP.min(),'-',self.TEMP.max(),'K')
+
+            print('Number of pressure levels :: ',self.NP)
+            print('Pressure range :: ',self.PRESS.min(),'-',self.PRESS.max(),'atm')
+
+
+    def edit_WAVE(self, array):
+        """
+        Edit the wavenumbers (ISPACE=0) or wavelengths (ISPACE=1)
+        @param array: 1D array (NWAVE)
+        """
+        WAVE_array = np.array(array)
+
+        assert len(WAVE_array) == self.NWAVE,'WAVE should be (NWAVE)'
+
+        self.WAVE = WAVE_array
+
 
     def edit_K(self, K_array):
         """
@@ -107,6 +205,164 @@ class Spectroscopy_0:
             sys.exit('ILBL needs to be either 0 (K-tables) or 2 (LBL-tables)')
 
         self.K = K_array
+
+
+    def write_hdf5(self,runname):
+        """
+        Write the information about the k-tables or lbl-tables into the HDF5 file
+
+        @param runname: str
+            Name of the Nemesis run
+        """
+
+        import h5py
+
+        #Assessing that everything is correct
+        self.assess()
+
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Spectroscopy already exists
+        if ('/Spectroscopy' in f)==True:
+            del f['Spectroscopy']   #Deleting the Spectroscopy information that was previously written in the file
+
+        grp = f.create_group("Spectroscopy")
+
+        #Writing the main dimensions
+        dset = grp.create_dataset('NGAS',data=self.NGAS)
+        dset.attrs['title'] = "Number of radiatively active gases in atmosphere"
+
+        dset = grp.create_dataset('ILBL',data=self.ILBL)
+        dset.attrs['title'] = "Spectroscopy calculation type"
+        if self.ILBL==0:
+            dset.attrs['type'] = 'Correlated-k pre-tabulated look-up tables'
+        elif self.ILBL==2:
+            dset.attrs['type'] = 'Line-by-line pre-tabulated look-up tables'
+        else:
+            sys.exit('error :: ILBL must be 0 or 2')
+
+
+        if self.NGAS>0:
+
+            if((self.ILBL==0) or (self.ILBL==2)):
+                dt = h5py.special_dtype(vlen=str)
+                dset = grp.create_dataset('LOCATION',data=self.LOCATION,dtype=dt)
+                dset.attrs['title'] = "Location of the pre-tabulated tables"
+                #dset = grp.create_dataset('LOCATION', (self.NGAS),'S1000', self.LOCATION)
+                #dset.attrs['title'] = "Location of the pre-tabulated tables"
+
+        f.close()
+
+
+    def read_hdf5(self,runname):
+        """
+        Read the information about the Spectroscopy class from the HDF5 file
+
+        @param runname: str
+            Name of the Nemesis run
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Spectroscopy exists
+        e = "/Spectroscopy" in f
+        if e==False:
+            sys.exit('error :: Spectroscopy is not defined in HDF5 file')
+        else:
+
+            self.NGAS = np.int32(f.get('Spectroscopy/NGAS'))
+            self.ILBL = np.int32(f.get('Spectroscopy/ILBL'))
+
+            if self.NGAS>0:
+
+                #self.LOCATION = np.int32(f.get('Spectroscopy/LOCATION'))
+                LOCATION1 = f.get('Spectroscopy/LOCATION')
+                LOCATION = ['']*self.NGAS
+                for igas in range(self.NGAS):
+                    LOCATION[igas] = LOCATION1[igas].decode('ascii')
+                self.LOCATION = LOCATION
+
+                if self.ILBL==0:
+
+                    #Now reading the head of the binary files included in the .lls file
+                    nwavekta = np.zeros(self.NGAS,dtype='int')
+                    npresskta = np.zeros(self.NGAS,dtype='int')
+                    ntempkta = np.zeros(self.NGAS,dtype='int')
+                    ngkta = np.zeros(self.NGAS,dtype='int')
+                    gasIDkta = np.zeros(self.NGAS,dtype='int')
+                    isoIDkta = np.zeros(self.NGAS,dtype='int')
+                    for i in range(self.NGAS):
+                        nwave,wavekta,fwhmk,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels = read_ktahead(self.LOCATION[i])
+                        nwavekta[i] = nwave
+                        npresskta[i] = npress
+                        ntempkta[i] = ntemp
+                        ngkta[i] = ng
+                        gasIDkta[i] = gasID
+                        isoIDkta[i] = isoID
+
+                    if len(np.unique(nwavekta)) != 1:
+                        sys.exit('error :: Number of wavenumbers in all .kta files must be the same')
+                    if len(np.unique(npresskta)) != 1:
+                        sys.exit('error :: Number of pressure levels in all .kta files must be the same')
+                    if len(np.unique(ntempkta)) != 1:
+                        sys.exit('error :: Number of temperature levels in all .kta files must be the same')
+                    if len(np.unique(ngkta)) != 1:
+                        sys.exit('error :: Number of g-ordinates in all .kta files must be the same')
+
+                    self.ID = gasIDkta
+                    self.ISO = isoIDkta
+                    self.NP = npress
+                    self.NT = ntemp
+                    self.PRESS = presslevels
+                    self.TEMP = templevels
+                    self.NWAVE = nwave
+                    self.NG = ng
+                    self.DELG = del_g
+                    self.G_ORD = g_ord
+                    self.FWHM = fwhmk
+                    self.WAVE = wavekta
+
+                elif self.ILBL==2:
+
+                    #Now reading the head of the binary files included in the .lls file
+                    nwavelta = np.zeros(self.NGAS,dtype='int')
+                    npresslta = np.zeros(self.NGAS,dtype='int')
+                    ntemplta = np.zeros(self.NGAS,dtype='int')
+                    gasIDlta = np.zeros(self.NGAS,dtype='int')
+                    isoIDlta = np.zeros(self.NGAS,dtype='int')
+                    for i in range(self.NGAS):
+                        nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels = read_ltahead(self.LOCATION[i])
+                        nwavelta[i] = nwave
+                        npresslta[i] = npress
+                        ntemplta[i] = ntemp
+                        gasIDlta[i] = gasID
+                        isoIDlta[i] = isoID
+
+                    if len(np.unique(nwavelta)) != 1:
+                        sys.exit('error :: Number of wavenumbers in all .lta files must be the same')
+                    if len(np.unique(npresslta)) != 1:
+                        sys.exit('error :: Number of pressure levels in all .lta files must be the same')
+                    if len(np.unique(ntemplta)) != 1:
+                        sys.exit('error :: Number of temperature levels in all .lta files must be the same')
+
+                    self.ID = gasIDlta
+                    self.ISO = isoIDlta
+                    self.NP = npress
+                    self.NG = 1
+                    self.G_ORD = np.array([0.])
+                    self.DELG = np.array([1.0])
+                    self.NT = ntemp
+                    self.PRESS = presslevels
+                    self.TEMP = templevels
+                    self.NWAVE = nwave
+
+                    vmax = vmin + delv * (nwave-1)
+                    wavelta = np.linspace(vmin,vmax,nwave)
+                    #wavelta = np.round(wavelta,5)
+                    self.WAVE = wavelta
+
+        f.close()
 
 
     def read_lls(self, runname):
@@ -154,6 +410,8 @@ class Spectroscopy_0:
         self.ISO = isoIDlta
         self.NP = npress
         self.NG = 1
+        self.G_ORD = np.array([0.])
+        self.DELG = np.array([1.0])
         self.NT = ntemp
         self.PRESS = presslevels
         self.TEMP = templevels
@@ -822,62 +1080,6 @@ class Spectroscopy_0:
             kret = kgood
 
         return kret
-
-
-    def summary_info(self):
-        """
-        Subroutine to print summary of information about the class
-        """    
-
-        from NemesisPy.Data import gas_info
-
-        if self.ILBL==0:
-            print('Calculation type ILBL :: ',self.ILBL,' (k-distribution)')
-            print('Number of radiatively-active gaseous species :: ',self.NGAS)
-            gasname = ['']*self.NGAS
-            for i in range(self.NGAS):
-                gasname1 = gas_info[str(self.ID[i])]['name']
-                if self.ISO[i]!=0:
-                    gasname1 = gasname1+' ('+str(self.ISO[i])+')'
-                gasname[i] = gasname1
-            print('Gaseous species :: ',gasname)
-
-            print('Number of g-ordinates :: ',self.NG)
-
-            print('Number of spectral points :: ',self.NWAVE)
-            print('Wavelength range :: ',self.WAVE.min(),'-',self.WAVE.max())
-            print('Step size :: ',self.WAVE[1]-self.WAVE[0])
-
-            print('Spectral resolution of the k-tables (FWHM) :: ',self.FWHM)
-
-            print('Number of temperature levels :: ',self.NT)
-            print('Temperature range :: ',self.TEMP.min(),'-',self.TEMP.max(),'K')
-
-            print('Number of pressure levels :: ',self.NP)
-            print('Pressure range :: ',self.PRESS.min(),'-',self.PRESS.max(),'atm')
-
-        elif self.ILBL==2:
-            print('Calculation type ILBL :: ',self.ILBL,' (line-by-line)')
-            print('Number of radiatively-active gaseous species :: ',self.NGAS)
-            gasname = ['']*self.NGAS
-            for i in range(self.NGAS):
-                gasname1 = gas_info[str(self.ID[i])]['name']
-                if self.ISO[i]!=0:
-                    gasname1 = gasname1+' ('+str(self.ISO[i])+')'
-                gasname[i] = gasname1
-            print('Gaseous species :: ',gasname)
-
-            print('Number of spectral points :: ',self.NWAVE)
-            print('Wavelength range :: ',self.WAVE.min(),'-',self.WAVE.max())
-            print('Step size :: ',self.WAVE[1]-self.WAVE[0])
-
-            print('Number of temperature levels :: ',self.NT)
-            print('Temperature range :: ',self.TEMP.min(),'-',self.TEMP.max(),'K')
-
-            print('Number of pressure levels :: ',self.NP)
-            print('Pressure range :: ',self.PRESS.min(),'-',self.PRESS.max(),'atm')
-
-
 
 
 ###############################################################################################

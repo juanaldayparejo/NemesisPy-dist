@@ -117,7 +117,9 @@ class Measurement_0:
         self.runname = runname
         self.NGEOM = NGEOM
         self.FWHM = FWHM
+        self.ISPACE = ISPACE
         self.ISHAPE = ISHAPE
+        self.IFORM = IFORM
         self.LATITUDE = LATITUDE        
         self.LONGITUDE = LONGITUDE
         self.NAV = NAV       #np.zeros(NGEOM)
@@ -138,8 +140,317 @@ class Measurement_0:
         self.Y = None #np.zeros(NY)
         self.SE = None #np.zeros(NY,NY)
 
+        self.NFIL = None  #np.zeros(NCONV)
+        self.VFIL = None  #np.zeros(NFIL,NCONV)
+        self.AFIL = None  #np.zeros(NFIL,NCONV)
+
         self.NWAVE = None
         self.WAVE = None #np.zeros(NWAVE)
+
+
+    def assess(self):
+        """
+        Assess whether the different variables have the correct dimensions and types
+        """
+
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.NGEOM), np.integer) == True , \
+            'NGEOM must be int'
+        assert self.NGEOM > 0 , \
+            'NGEOM must be >0'
+        
+        assert np.issubdtype(type(self.IFORM), np.integer) == True , \
+            'IFORM must be int'
+        assert self.IFORM >= 0 , \
+            'IFORM must be >=0 and <=4'
+        assert self.IFORM <= 4 , \
+            'IFORM must be >=0 and <=4'
+
+        assert np.issubdtype(type(self.ISPACE), np.integer) == True , \
+            'ISPACE must be int'
+        assert self.ISPACE >= 0 , \
+            'ISPACE must be >=0 and <=1'
+        assert self.ISPACE <= 1 , \
+            'ISPACE must be >=0 and <=1'
+        
+        assert np.issubdtype(type(self.FWHM), np.float) == True , \
+            'FWHM must be float'
+        
+        assert len(self.NCONV) == self.NGEOM , \
+            'NCONV must have size (NGEOM)'
+        
+        assert self.VCONV.shape == (self.NCONV.max(),self.NGEOM) , \
+            'VCONV must have size (NCONV,NGEOM)'
+        
+        assert self.MEAS.shape == (self.NCONV.max(),self.NGEOM) , \
+            'MEAS must have size (NCONV,NGEOM)'
+        
+        assert self.ERRMEAS.shape == (self.NCONV.max(),self.NGEOM) , \
+            'ERRMEAS must have size (NCONV,NGEOM)'
+        
+        assert len(self.NAV) == self.NGEOM , \
+            'NAV must have size (NGEOM)'
+        
+        assert self.FLAT.shape == (self.NGEOM,self.NAV.max()) , \
+            'FLAT must have size (NGEOM,NAV)'
+        
+        assert self.FLON.shape == (self.NGEOM,self.NAV.max()) , \
+            'FLON must have size (NGEOM,NAV)'
+        
+        assert self.WGEOM.shape == (self.NGEOM,self.NAV.max()) , \
+            'WGEOM must have size (NGEOM,NAV)'
+        
+        assert self.EMISS_ANG.shape == (self.NGEOM,self.NAV.max()) , \
+            'EMISS_ANG must have size (NGEOM,NAV)'
+
+        #Checking if there are any limb-viewing geometries
+        if self.EMISS_ANG.min()<0.0:
+            assert self.TANHE.shape == (self.NGEOM,self.NAV.max()) , \
+                'TANHE must have size (NGEOM,NAV)'
+            
+        #Checking if there are any nadir-viewing / upward looking geometries
+        if self.EMISS_ANG.max() >= 0.0:
+            assert self.SOL_ANG.shape == (self.NGEOM,self.NAV.max()) , \
+                'SOL_ANG must have size (NGEOM,NAV)'
+            assert self.AZI_ANG.shape == (self.NGEOM,self.NAV.max()) , \
+                'AZI_ANG must have size (NGEOM,NAV)'
+
+
+        if self.FWHM > 0.0: #Analytical instrument lineshape
+
+            assert np.issubdtype(type(self.ISHAPE), np.integer) == True , \
+                'ISHAPE must be int'
+            
+        elif self.FWHM < 0.0: #Explicit instrument lineshape in each wavelength
+
+            assert len(np.unique(self.NCONV)) == 1 , \
+                'All geometries must have same number of spectral bins if FWHM<0'
+
+            assert len(self.NFIL) == self.NCONV[0] , \
+                'NFIL must have size (NCONV)'
+            
+            assert self.VFIL.shape == (self.NFIL.max(),self.NCONV[0]) , \
+                'VFIL must have size (NFIL,NCONV)'
+            
+            assert self.AFIL.shape == (self.NFIL.max(),self.NCONV[0]) , \
+                'AFIL must have size (NFIL.max,NCONV)'
+            
+
+    def write_hdf5(self,runname):
+        """
+        Write the Measurement parameters into an HDF5 file
+        """
+
+        import h5py
+
+        #Assessing that all the parameters have the correct type and dimension
+        self.assess()
+
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Atmosphere already exists
+        if ('/Measurement' in f)==True:
+            del f['Measurement']   #Deleting the Measurement information that was previously written in the file
+
+        grp = f.create_group("Measurement")
+
+        #Writing the spectral units
+        dset = grp.create_dataset('ISPACE',data=self.ISPACE)
+        dset.attrs['title'] = "Spectral units"
+        if self.ISPACE==0:
+            dset.attrs['units'] = 'Wavenumber / cm-1'
+        elif self.ISPACE==1:
+            dset.attrs['units'] = 'Wavelength / um'
+
+        #Writing the measurement units
+        dset = grp.create_dataset('IFORM',data=self.IFORM)
+        dset.attrs['title'] = "Measurement units"
+        
+        if self.ISPACE==0:  #Wavenumber space
+            if self.IFORM==0:
+                lunit = 'Radiance / W cm-2 sr-1 (cm-1)-1'
+            elif self.IFORM==1:
+                lunit = 'Secondary transit depth (Fplanet/Fstar) / Dimensionless'
+            elif self.IFORM==2:
+                lunit = 'Primary transit depth (100*Aplanet/Astar) / Dimensionless'
+            elif self.IFORM==3:
+                lunit = 'Integrated spectral power of planet / W (cm-1)-1'
+            elif self.IFORM==4:
+                lunit = 'Atmospheric transmission multiplied by solar flux / W cm-2 (cm-1)-1'
+
+        elif self.ISPACE==1:  #Wavelength space
+            if self.IFORM==0:
+                lunit = 'Radiance / W cm-2 sr-1 um-1'
+            elif self.IFORM==1:
+                lunit = 'Secondary transit depth (Fplanet/Fstar) / Dimensionless'
+            elif self.IFORM==2:
+                lunit = 'Primary transit depth (100*Aplanet/Astar) / Dimensionless'
+            elif self.IFORM==3:
+                lunit = 'Integrated spectral power of planet / W um-1'
+            elif self.IFORM==4:
+                lunit = 'Atmospheric transmission multiplied by solar flux / W cm-2 um-1'
+
+        dset.attrs['units'] = lunit
+
+        #Writing the number of geometries
+        dset = grp.create_dataset('NGEOM',data=self.NGEOM)
+        dset.attrs['title'] = "Number of measurement geometries"
+
+        #Defining the averaging points required to reconstruct the field of view 
+        dset = grp.create_dataset('NAV',data=self.NAV)
+        dset.attrs['title'] = "Number of averaging points needed to reconstruct the field-of-view"
+
+        dset = grp.create_dataset('FLAT',data=self.FLAT)
+        dset.attrs['title'] = "Latitude of each averaging point needed to reconstruct the field-of-view"
+        dset.attrs['unit'] = "Degrees"
+ 
+        dset = grp.create_dataset('FLON',data=self.FLON)
+        dset.attrs['title'] = "Longitude of each averaging point needed to reconstruct the field-of-view"
+        dset.attrs['unit'] = "Degrees"
+
+        dset = grp.create_dataset('WGEOM',data=self.WGEOM)
+        dset.attrs['title'] = "Weight of each averaging point needed to reconstruct the field-of-view"
+        dset.attrs['unit'] = ""
+
+        dset = grp.create_dataset('EMISS_ANG',data=self.EMISS_ANG)
+        dset.attrs['title'] = "Emission angle of each averaging point needed to reconstruct the field-of-view"
+        dset.attrs['unit'] = "Degrees"
+
+        #Checking if there are any limb-viewing geometries
+        if self.EMISS_ANG.min()<0.0:
+
+            dset = grp.create_dataset('TANHE',data=self.TANHE)
+            dset.attrs['title'] = "Tangent height of each averaging point needed to reconstruct the field-of-view"
+            dset.attrs['unit'] = "km"
+
+        #Checking if there are any nadir-viewing / upward looking geometries
+        if self.EMISS_ANG.max() >= 0.0:
+
+            dset = grp.create_dataset('SOL_ANG',data=self.SOL_ANG)
+            dset.attrs['title'] = "Solar zenith angle of each averaging point needed to reconstruct the field-of-view"
+            dset.attrs['unit'] = "Degrees"
+
+            dset = grp.create_dataset('AZI_ANG',data=self.AZI_ANG)
+            dset.attrs['title'] = "Azimuth angle of each averaging point needed to reconstruct the field-of-view"
+            dset.attrs['unit'] = "Degrees"
+
+        dset = grp.create_dataset('NCONV',data=self.NCONV)
+        dset.attrs['title'] = "Number of spectral bins in each geometry"
+
+        dset = grp.create_dataset('VCONV',data=self.VCONV)
+        dset.attrs['title'] = "Spectral bins"
+        if self.ISPACE==0:
+            dset.attrs['units'] = 'Wavenumber / cm-1'
+        elif self.ISPACE==1:
+            dset.attrs['units'] = 'Wavelength / um'
+
+        dset = grp.create_dataset('MEAS',data=self.MEAS)
+        dset.attrs['title'] = "Measured spectrum in each geometry"
+        dset.attrs['units'] = lunit
+
+        dset = grp.create_dataset('ERRMEAS',data=self.ERRMEAS)
+        dset.attrs['title'] = "Uncertainty in the measured spectrum in each geometry"
+        dset.attrs['units'] = lunit
+
+        if self.FWHM>0.0:
+            dset = grp.create_dataset('ISHAPE',data=self.ISHAPE)
+            dset.attrs['title'] = "Instrument lineshape"
+            if self.ISHAPE==0:
+                lils = 'Square function'
+            elif self.ISHAPE==1:
+                lils = 'Triangular function'
+            elif self.ISHAPE==2:
+                lils = 'Gaussian function'
+            elif self.ISHAPE==3:
+                lils = 'Hamming function'
+            elif self.ISHAPE==4:
+                lils = 'Hanning function'
+            dset.attrs['type'] = lils
+
+        dset = grp.create_dataset('FWHM',data=self.FWHM)
+        dset.attrs['title'] = "FWHM of instrument lineshape"
+        if self.FWHM>0.0:
+            if self.ISPACE==0:
+                dset.attrs['units'] = 'Wavenumber / cm-1'
+            elif self.ISPACE==1:
+                dset.attrs['units'] = 'Wavelength / um'
+            dset.attrs['type'] = 'Analytical lineshape ('+lils+')'
+        elif self.FWHM==0:
+            dset.attrs['type'] = 'Convolution already performed in k-tables'
+        elif self.FWHM<0.0:
+            dset.attrs['type'] = 'Explicit definition of instrument lineshape in each spectral bin'
+
+        if self.FWHM<0.0:
+            dset = grp.create_dataset('NFIL',data=self.NFIL)
+            dset.attrs['title'] = "Number of points required to define the ILS in each spectral bin"
+
+            if self.ISPACE==0:
+                dset = grp.create_dataset('VFIL',data=self.VFIL)
+                dset.attrs['title'] = "Wavenumber of the points required to define the ILS in each spectral bin"
+                dset.attrs['unit'] = "Wavenumber / cm-1"
+            elif self.ISPACE==1:
+                dset = grp.create_dataset('VFIL',data=self.VFIL)
+                dset.attrs['title'] = "Wavelength of the points required to define the ILS in each spectral bin"
+                dset.attrs['unit'] = "Wavelength / um"
+
+            dset = grp.create_dataset('AFIL',data=self.AFIL)
+            dset.attrs['title'] = "ILS in each spectral bin"
+            dset.attrs['unit'] = ""
+
+        f.close()
+
+
+    def read_hdf5(self,runname):
+        """
+        Read the Measurement properties from an HDF5 file
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Measurement exists
+        e = "/Measurement" in f
+        if e==False:
+            sys.exit('error :: Measurement is not defined in HDF5 file')
+        else:
+
+            self.NGEOM = np.int32(f.get('Measurement/NGEOM'))
+            self.ISPACE = np.int32(f.get('Measurement/ISPACE'))
+            self.IFORM = np.int32(f.get('Measurement/IFORM'))
+            self.NAV = np.array(f.get('Measurement/NAV'))
+            self.FLAT = np.array(f.get('Measurement/FLAT'))
+            self.FLON = np.array(f.get('Measurement/FLON'))
+            self.WGEOM = np.array(f.get('Measurement/WGEOM'))
+            self.EMISS_ANG = np.array(f.get('Measurement/EMISS_ANG'))
+
+            #Checking if there are any limb-viewing geometries
+            if self.EMISS_ANG.min()<0.0:
+                self.TANHE = np.array(f.get('Measurement/TANHE'))
+
+            #Checking if there are any nadir-viewing / upward looking geometries
+            if self.EMISS_ANG.max() >= 0.0:
+                self.SOL_ANG = np.array(f.get('Measurement/SOL_ANG'))
+                self.AZI_ANG = np.array(f.get('Measurement/AZI_ANG'))
+
+            self.NCONV = np.array(f.get('Measurement/NCONV'))
+            self.VCONV = np.array(f.get('Measurement/VCONV'))
+            self.MEAS = np.array(f.get('Measurement/MEAS'))
+            self.ERRMEAS = np.array(f.get('Measurement/ERRMEAS'))
+
+            self.FWHM = np.float64(f.get('Measurement/FWHM'))
+            if self.FWHM>0.0:
+                self.ISHAPE = np.int32(f.get('Measurement/ISHAPE'))
+            elif self.FWHM<0.0:
+                self.NFIL = np.array(f.get('Measurement/NFIL'))
+                self.VFIL = np.array(f.get('Measurement/VFIL'))
+                self.AFIL = np.array(f.get('Measurement/AFIL'))
+
+        f.close()
+
+        self.assess()
+
+        self.calc_MeasurementVector()
+            
 
     def edit_VCONV(self, VCONV_array):
         """
@@ -2161,7 +2472,7 @@ class Measurement_0:
 
 
 ###############################################################################################
-@jit(nopython=True)
+#@jit(nopython=True)
 def lblconv(nwave,vwave,y,nconv,vconv,ishape,fwhm):
 
     """
