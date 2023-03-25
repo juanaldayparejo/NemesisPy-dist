@@ -1883,7 +1883,201 @@ def write_hlay(nlayer,heightlay):
     f.close()
 
 
+###############################################################################################
+
+def convert_input_nemesis_hdf5(runname):
+
+    """
+        FUNCTION NAME : convert_input_nemesis_hdf5()
+        
+        DESCRIPTION : 
+
+            Routine to read the input files of a regular NEMESIS run (i.e. Fortran files) and write them
+            into the HDF5 files
+ 
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            HDF5 file with the inputs
+
+        CALLING SEQUENCE:
+        
+            convert_input_nemesis_hdf5(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (24/03/2023)
+    """
+ 
+    from NemesisPy.Layer.layer_split import read_hlay
+
+    #Reading the input files from the NEMESIS run (Fortran files)
+    ##################################################################
+
+    Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables = read_input_files(runname)
+
+    #Writing the inputs into HDF5 file
+    ####################################################################
+
+    #Spectroscopy
+    Spectroscopy.write_hdf5(runname)
+
+    #Measurement
+    Measurement.write_hdf5(runname)
+    
+    #Atmosphere
+    Atmosphere.LONGITUDE = 0.0   #Longitude is not defined in Fortran files, but here we need it
+    Atmosphere.write_hdf5(runname)
+
+    #Scattering
+    Scatter.write_hdf5(runname)
+    
+    #Surface
+    Surface.LATITUDE = Atmosphere.LATITUDE
+    Surface.LONGITUDE = Atmosphere.LONGITUDE
+    Surface.write_hdf5(runname)
+
+    #Stellar
+    if Stellar.SOLEXIST==True:
+        Stellar.write_hdf5(runname)
+
+    #CIA
+    if CIA is not None:
+        #Write CIA (not implemented yet)
+        sys.exit('error :: write_hdf5 for CIA has not been implemented yet')
+
+    #Layer
+    if Layer.LAYTYP==4:  #Read pressure levels from press.lay
+        sys.exit('error :: cannot read the file press.lay (not implemented yet)')
+    elif Layer.LAYTYP==5:  #Read height levels from height.lay
+        NLAY,H_base = read_hlay()
+        Layer.NLAY = NLAY
+        Layer.H_base = H_base*1.0e3   #metres
+
+    Layer.write_hdf5(runname)
+    
+
     ###############################################################################################
+
+def read_input_files_hdf5(runname):
+
+    """
+        FUNCTION NAME : read_input_files_hdf5()
+        
+        DESCRIPTION : 
+
+            Reads the NEMESIS HDF5 input file and fills the parameters in the reference classes.
+ 
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            Variables :: Python class defining the parameterisations and state vector
+            Measurement :: Python class defining the measurements 
+            Atmosphere :: Python class defining the reference atmosphere
+            Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
+            Scatter :: Python class defining the parameters required for scattering calculations
+            Stellar :: Python class defining the stellar spectrum
+            Surface :: Python class defining the surface
+            CIA :: Python class defining the Collision-Induced-Absorption cross-sections
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        CALLING SEQUENCE:
+        
+            Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables = read_input_files_hdf5(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (25/03/2023)
+    """
+
+    #Initialise Atmosphere class and read file
+    ##############################################################
+
+    Atmosphere = Atmosphere_0()
+
+    #Read gaseous atmosphere
+    Atmosphere.read_hdf5(runname)
+
+    #Initialise Layer class and read file
+    ###############################################################
+
+    Layer = Layer_0(Atmosphere.RADIUS)
+    Layer.read_hdf5(runname)
+
+    #Initialise Surface class and read file
+    ###############################################################
+
+    isurf = planet_info[str(Atmosphere.IPLANET)]["isurf"]
+    Surface = Surface_0()
+    if isurf==1:
+        Surface.read_hdf5(runname)
+    else:
+        Surface.GASGIANT=True
+
+    #Initialise Scatter class and read file
+    ###############################################################
+
+    Scatter = Scatter_0()
+    Scatter.read_hdf5(runname)
+
+    #Initialise CIA class and read files (.cia)  - NOT FROM HDF5 YET
+    ##############################################################
+
+    if os.path.exists(runname+'.cia')==True:
+        CIA = CIA_0(runname=runname)
+        CIA.read_cia()
+    else:
+        CIA = None
+
+    #Initialise Spectroscopy class and read file
+    ###############################################################
+
+    Spectroscopy = Spectroscopy_0()
+    Spectroscopy.read_hdf5(runname)
+
+    #Initialise Measurement class and read file
+    ###############################################################
+
+    Measurement = Measurement_0()
+    Measurement.read_hdf5(runname)
+
+    #Calculating the 'calculation wavelengths'
+    if Spectroscopy.ILBL==0:
+        Measurement.wavesetb(Spectroscopy,IGEOM=0)
+    elif Spectroscopy.ILBL==2:
+        Measurement.wavesetc(Spectroscopy,IGEOM=0)
+    else:
+        sys.exit('error :: ILBL has to be either 0 or 2')
+
+    #Now, reading k-tables or lbl-tables for the spectral range of interest
+    Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
+
+
+    #Reading Stellar class
+    ################################################################
+
+    Stellar = Stellar_0()
+    Stellar.read_hdf5(runname)
+
+    #Reading .apr file and Variables Class
+    #################################################################
+
+    Variables = Variables_0()
+    Variables.read_apr(runname,Atmosphere.NP)
+    Variables.XN = copy(Variables.XA)
+    Variables.SX = copy(Variables.SA)
+
+    return Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables
+
+
+
+###############################################################################################
 
 def read_input_files(runname):
 
