@@ -2472,7 +2472,7 @@ class Measurement_0:
 
 
 ###############################################################################################
-#@jit(nopython=True)
+@jit(nopython=True)
 def lblconv(nwave,vwave,y,nconv,vconv,ishape,fwhm):
 
     """
@@ -2510,8 +2510,8 @@ def lblconv(nwave,vwave,y,nconv,vconv,ishape,fwhm):
         
     """
 
-    yout = np.zeros((nconv))
-    ynor = np.zeros((nconv))
+    yout = np.zeros(nconv)
+    ynor = np.zeros(nconv)
 
     #Set total width of Hamming/Hanning function window in terms of
     #numbers of FWHMs for ISHAPE=3 and ISHAPE=4
