@@ -21,7 +21,7 @@ Optimal Estimation Class. It includes all parameters that are relevant for the r
 
 class OptimalEstimation_0:
 
-    def __init__(self, NITER=1, NX=1, NY=1, PHILIMIT=0.1):
+    def __init__(self, IRET=0, NITER=1, NX=1, NY=1, PHILIMIT=0.1):
 
         """
         Inputs
@@ -69,6 +69,9 @@ class OptimalEstimation_0:
 
         Methods
         -------
+        OptimalEstimation.read_hdf5()
+        OptimalEstimation.write_input_hdf5()
+        OptimalEstimation.write_output_hdf5()
         OptimalEstimation.edit_Y()
         OptimalEstimation.edit_SE()
         OptimalEstimation.edit_YN()
@@ -80,6 +83,7 @@ class OptimalEstimation_0:
         """
 
         #Input parameters
+        self.IRET = IRET
         self.NITER = NITER
         self.NX = NX
         self.NY = NY
@@ -98,6 +102,147 @@ class OptimalEstimation_0:
         self.XA = None #(NX)
         self.SA = None #(NX,NX)
         self.XN = None #(NX)
+
+    def assess_input(self):
+        """
+        Assess whether the different variables have the correct dimensions and types
+        """
+
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.IRET), np.integer) == True , \
+            'IRET must be int'
+        assert self.IRET == 0 , \
+            'IRET must be =0 for now'
+
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.NITER), np.integer) == True , \
+            'NITER must be int'
+
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.PHILIMIT), np.float) == True , \
+            'IRET must be int'
+        assert self.PHILIMIT > 0 , \
+            'PHILIMIT must be >0'
+
+
+    def write_input_hdf5(self,runname):
+        """
+        Write the Retrieval properties into an HDF5 file
+        """
+
+        import h5py
+
+        #Assessing that all the parameters have the correct type and dimension
+        self.assess_input()
+
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Retrieval already exists
+        if ('/Retrieval' in f)==True:
+            del f['Retrieval']   #Deleting the Atmosphere information that was previously written in the file
+
+        grp = f.create_group("Retrieval")
+
+        dset = grp.create_dataset('NITER',data=self.NITER)
+        dset.attrs['title'] = "Maximum number of iterations"
+
+        dset = grp.create_dataset('PHILIMIT',data=self.PHILIMIT)
+        dset.attrs['title'] = "Percentage convergence limit"
+        dset.attrs['units'] = "%"
+
+        dset = grp.create_dataset('IRET',data=self.IRET)
+        dset.attrs['title'] = "Retrieval engine type"
+        if self.IRET==0:
+            dset.attrs['type'] = "Optimal Estimation"
+
+        f.close()
+
+    def write_output_hdf5(self,runname):
+        """
+        Write the Retrieval outputs into an HDF5 file
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Retrieval already exists
+        if ('/Retrieval' in f)==False:
+            sys.exit('error :: Retrieval must be defined in HDF5 file to write the retrieval outputs')
+
+
+        #Optimal Estimation
+        #####################################################################
+
+        if self.IRET==0:
+
+            dset = f.create_dataset('Retrieval/Output/NX',data=self.NX)
+            dset.attrs['title'] = "Number of elements in state vector"
+
+            dset = f.create_dataset('Retrieval/Output/XN',data=self.XN)
+            dset.attrs['title'] = "Retrieved state vector"
+
+            dset = f.create_dataset('Retrieval/Output/SX',data=self.ST)
+            dset.attrs['title'] = "Retrieved covariance matrix"
+
+            dset = f.create_dataset('Retrieval/Output/XA',data=self.XA)
+            dset.attrs['title'] = "A priori state vector"
+
+            dset = f.create_dataset('Retrieval/Output/SA',data=self.SA)
+            dset.attrs['title'] = "A priori covariance matrix"
+
+
+        dset = f.create_dataset('Retrieval/Output/NY',data=self.NY)
+        dset.attrs['title'] = "Number of elements in measurement vector"
+
+        dset = f.create_dataset('Retrieval/Output/Y',data=self.Y)
+        dset.attrs['title'] = "Measurement vector"
+
+        dset = f.create_dataset('Retrieval/Output/SY',data=self.SE)
+        dset.attrs['title'] = "Measurement vector covariance matrix"
+
+        dset = f.create_dataset('Retrieval/Output/YERR',data=self.SE)
+        dset.attrs['title'] = "Measurement vector covariance matrix"
+
+        dset = f.create_dataset('Retrieval/Output/YN',data=self.YN)
+        dset.attrs['title'] = "Modelled measurement vector"
+
+        f.close()
+
+
+    def read_hdf5(self,runname):
+        """
+        Read the Retrieval properties from an HDF5 file
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Surface exists
+        e = "/Retrieval" in f
+        if e==False:
+            sys.exit('error :: Retrieval is not defined in HDF5 file')
+        else:
+
+            self.NITER = np.int32(f.get('Retrieval/NITER'))
+            self.IRET = np.int32(f.get('Retrieval/IRET'))
+            self.PHILIMIT = np.float64(f.get('Retrieval/PHILIMIT'))
+
+            #Checking if Retrieval already exists
+            if ('/Retrieval/Output' in f)==True:
+
+                self.NX = np.int32(f.get('Retrieval/Output/NX'))
+                self.NY = np.int32(f.get('Retrieval/Output/NY'))
+
+                self.XN = np.array(f.get('Retrieval/Output/XN'))
+                self.XA = np.array(f.get('Retrieval/Output/XA'))
+                self.ST = np.array(f.get('Retrieval/Output/SX'))
+                self.SA = np.array(f.get('Retrieval/Output/SA'))
+
+                self.YN = np.array(f.get('Retrieval/Output/YN'))
+                self.Y = np.array(f.get('Retrieval/Output/Y'))
+                self.SE = np.array(f.get('Retrieval/Output/SE'))
+
+        f.close()
 
     def edit_KK(self, KK_array):
         """

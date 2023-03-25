@@ -1160,7 +1160,7 @@ def read_inp(runname,Measurement=None,Scatter=None,Spectroscopy=None):
     Measurement.ISPACE=ispace
 
     if Scatter==None:
-        Scatter = Scatter_0
+        Scatter = Scatter_0()
     Scatter.ISPACE = ispace
     Scatter.ISCAT = iscat
 
@@ -1913,11 +1913,13 @@ def convert_input_nemesis_hdf5(runname):
     """
  
     from NemesisPy.Layer.layer_split import read_hlay
+    from NemesisPy.OptimalEstimation import OptimalEstimation_0
 
     #Reading the input files from the NEMESIS run (Fortran files)
     ##################################################################
 
     Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables = read_input_files(runname)
+    Measurement,Scatter,Spectroscopy,WOFF,fmerrname,NITER,PHILIMIT,NSPEC,IOFF,LIN = read_inp(runname,Measurement=Measurement,Scatter=Scatter,Spectroscopy=Spectroscopy)
 
     #Writing the inputs into HDF5 file
     ####################################################################
@@ -1959,6 +1961,10 @@ def convert_input_nemesis_hdf5(runname):
 
     Layer.write_hdf5(runname)
     
+    #Retrieval
+    Retrieval = OptimalEstimation_0(IRET=0,NITER=NITER,PHILIMIT=PHILIMIT)
+    Retrieval.write_input_hdf5(runname)
+
 
     ###############################################################################################
 
@@ -1991,10 +1997,12 @@ def read_input_files_hdf5(runname):
 
         CALLING SEQUENCE:
         
-            Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables = read_input_files_hdf5(runname)
+            Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval = read_input_files_hdf5(runname)
  
         MODIFICATION HISTORY : Juan Alday (25/03/2023)
     """
+
+    from NemesisPy.OptimalEstimation import OptimalEstimation_0
 
     #Initialise Atmosphere class and read file
     ##############################################################
@@ -2073,9 +2081,78 @@ def read_input_files_hdf5(runname):
     Variables.XN = copy(Variables.XA)
     Variables.SX = copy(Variables.SA)
 
-    return Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables
+    #Reading retrieval setup
+    #################################################################
 
+    Retrieval = OptimalEstimation_0()
+    Retrieval.read_hdf5(runname)
 
+    return Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval
+
+###############################################################################################
+
+def calc_retrieved_parameters(Variables,Retrieval):
+    """
+        FUNCTION NAME : read_input_files_hdf5()
+        
+        DESCRIPTION : 
+
+            Using the information about the parameterisation in Variables and the retrieved
+            state vector in Retrieval, this function returns the retrieved parameters.
+ 
+        INPUTS :
+      
+            Variables :: Python class including information about the retrieval parameterisations
+            Retrieval :: Python class including information about the retrieved state vector
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            nvar :: Number of retrieved model parameterisations
+            nxvar(nvar) :: Number of retrieved parameters in each model parameterisation
+            varident(3,nvar) :: ID of each retrieval parameterisation
+            varparam(:,nvar) :: Extra parameters (not retrieved) required to apply the parameterisation
+            aprparam(:,nvar) :: A priori parameters of each model
+            aprerrparam(:,nvar) :: Uncertainty in each a priori parameter of each model
+            retparam(:,nvar) :: Retrieved parameters of each model
+            reterrparam(:,nvar) :: Uncertainty in each retrieved parameter of each model
+
+        CALLING SEQUENCE:
+        
+            nvar,nxvar,varident,varparam,aprparam,aprerrparam,retparam,reterrparam = read_input_files_hdf5(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (25/03/2023)
+    """
+
+    retparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+    reterrparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+    aprparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+    aprerrparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+
+    nxtemp = 0
+    for ivar in range(Variables.NVAR):
+
+        for ip in range(Variables.NXVAR[ivar]):
+            ix = nxtemp + ip 
+            xa1 = Retrieval.XA[ix]
+            ea1 = np.sqrt(abs(Retrieval.SA[ix,ix]))
+            xn1 = Retrieval.XN[ix]
+            en1 = np.sqrt(abs(Retrieval.ST[ix,ix]))
+            if Variables.LX[ix]==1:
+                xa1 = np.exp(xa1)
+                ea1 = xa1*ea1
+                xn1 = np.exp(xn1)
+                en1 = xn1*en1
+
+            retparam[ip,ivar] = xn1
+            aprparam[ip,ivar] = xa1
+            reterrparam[ip,ivar] = en1
+            aprerrparam[ip,ivar] = ea1
+
+        nxtemp = nxtemp + Variables.NXVAR[ivar] 
+
+    return Variables.NVAR,Variables.NXVAR,Variables.VARIDENT,Variables.VARPARAM,aprparam,aprerrparam,retparam,reterrparam
 
 ###############################################################################################
 
