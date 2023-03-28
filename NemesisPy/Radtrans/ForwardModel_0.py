@@ -277,7 +277,7 @@ class ForwardModel_0:
 
                 SPECONV1 = self.Measurement.conv(SPEC,IGEOM=IGEOM,FWHMEXIST='')
 
-            elif Spectroscopy.ILBL==2: #LBL-tables
+            elif self.SpectroscopyX.ILBL==2: #LBL-tables
 
                 SPECONV1 = self.Measurement.lblconv(SPEC,IGEOM=IGEOM)
 

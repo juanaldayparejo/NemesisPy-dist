@@ -1966,7 +1966,7 @@ def convert_input_nemesis_hdf5(runname):
     Retrieval.write_input_hdf5(runname)
 
 
-    ###############################################################################################
+###############################################################################################
 
 def read_input_files_hdf5(runname):
 
@@ -2090,6 +2090,85 @@ def read_input_files_hdf5(runname):
     return Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval
 
 ###############################################################################################
+
+
+###############################################################################################
+
+def read_output_files_hdf5(runname):
+
+    """
+        FUNCTION NAME : read_output_files_hdf5()
+        
+        DESCRIPTION : 
+
+            Reads the NEMESIS HDF5 input file and fills the parameters in the reference classes
+            based on the retrieved state vector. In addition, it outputs the best fit to the spectra
+ 
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            Variables :: Python class defining the parameterisations and state vector
+            Measurement :: Python class defining the measurements 
+            Atmosphere :: Python class defining the reference atmosphere
+            Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
+            Scatter :: Python class defining the parameters required for scattering calculations
+            Stellar :: Python class defining the stellar spectrum
+            Surface :: Python class defining the surface
+            CIA :: Python class defining the Collision-Induced-Absorption cross-sections
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        CALLING SEQUENCE:
+        
+            Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval = read_output_files_hdf5(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (25/03/2023)
+    """
+
+    from NemesisPy.OptimalEstimation import OptimalEstimation_0
+
+    #Reading the input files
+    ##############################################################
+
+    Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval = read_input_files_hdf5(runname)
+
+
+    #Updating the classes based on the retrieved parameterisations
+    #################################################################
+
+    Variables.edit_XN(Retrieval.XN)
+
+    ForwardModel = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables)
+    ForwardModel.subprofretg()
+
+    Atmosphere2 = ForwardModel.AtmosphereX
+    Surface2 = ForwardModel.SurfaceX
+    Measurement2 = ForwardModel.MeasurementX
+    Spectroscopy2 = ForwardModel.SpectroscopyX
+    Scatter2 = ForwardModel.ScatterX
+    Stellar2 = ForwardModel.StellarX
+    CIA2 = ForwardModel.CIAX
+    Layer2 = ForwardModel.LayerX
+
+    #Calculating the modelled spectrum
+    ##################################################################
+
+    SPECMOD = np.zeros(Measurement2.MEAS.shape)
+    ix = 0
+    for i in range(Measurement2.NGEOM):
+        SPECMOD[0:Measurement2.NCONV[i],i] = Retrieval.YN[ix:ix+Measurement2.NCONV[i]]
+        ix = ix + Measurement2.NCONV[i]
+
+    Measurement2.edit_SPECMOD(SPECMOD)
+
+    return Atmosphere2,Measurement2,Spectroscopy2,Scatter2,Stellar2,Surface2,CIA2,Layer2,Variables,Retrieval
+
+###############################################################################################
+
 
 def calc_retrieved_parameters(Variables,Retrieval):
     """

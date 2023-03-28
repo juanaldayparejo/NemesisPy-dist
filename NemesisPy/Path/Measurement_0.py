@@ -99,6 +99,9 @@ class Measurement_0:
         Measurement vector (concatenation of all spectra in the class)
     SE : 2D array, float (NY,NY)
         Measurement uncertainty covariance matrix (assumed to be diagonal)
+    SPECMOD : 2D array, float (NCONV,NGEOM)
+        Modelled spectrum for each geometry
+
 
     Examples
     --------
@@ -139,6 +142,8 @@ class Measurement_0:
         self.NY = None #np.sum(NCONV)
         self.Y = None #np.zeros(NY)
         self.SE = None #np.zeros(NY,NY)
+
+        self.SPECMOD = None #np.zeros(NCONV,NGEOM)
 
         self.NFIL = None  #np.zeros(NCONV)
         self.VFIL = None  #np.zeros(NFIL,NCONV)
@@ -510,6 +515,26 @@ class Measurement_0:
                 'ERRMEAS should be NCONV.'
 
         self.ERRMEAS = ERRMEAS_array
+
+    def edit_SPECMOD(self, SPECMOD_array):
+        """
+        Edit the modelled spectrum in each geometry in each geometry
+
+        Parameters
+        ----------
+        SPECMOD_array : 2D array, float (NCONV,NGEOM)
+            Modelled spectrum in each geometry
+
+        """
+        SPECMOD_array = np.array(SPECMOD_array)
+        try:
+            assert SPECMOD_array.shape == (self.NCONV.max(), self.NGEOM),\
+                'SPECMOD should be NCONV by NGEOM.'
+        except:
+            assert SPECMOD_array.shape == (self.NCONV,) and self.NGEOM==1,\
+                'SPECMOD should be NCONV.'
+
+        self.SPECMOD = SPECMOD_array
 
     def edit_FLAT(self, FLAT_array):
         """

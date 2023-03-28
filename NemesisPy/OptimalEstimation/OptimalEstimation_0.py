@@ -80,6 +80,7 @@ class OptimalEstimation_0:
         OptimalEstimation.edit_XN()
         OptimalEstimation.edit_KK()
         OptimalEstimation.calc_gain_matrix()
+        OptimalEstimation.plot_bestfit()
         """
 
         #Input parameters
@@ -863,6 +864,26 @@ class OptimalEstimation_0:
         cax = divider.append_axes("right", size="5%", pad=0.05)
         cbar = plt.colorbar(im, cax=cax)
         cbar.set_label('Gradients (dR/dx)')
+        ax1.grid()
+        plt.tight_layout()
+        plt.show()
+
+    def plot_bestfit(self):
+        """
+        Function to plot the comparison between modelled and measured spectra
+        """
+
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        #fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+        fig = plt.figure(figsize=(10,4))
+        ax1 = plt.subplot2grid((1,3),(0,0),colspan=1,rowspan=2)
+        ax2 = plt.subplot2grid((1,3),(0,2),colspan=1,rowspan=1)
+        ax1.plot(range(self.NY),self.Y,c='black',label='Measured spectra')
+        ax1.plot(range(self.NY),self.YN,c='tab:red',label='Modelled spectra')
+        ax2.plot(range(self.NY),self.Y-self.YN,c='tab:red')
+        ax1.set_xlabel('Measurement vector element #')
+        ax1.set_ylabel('Radiance')
         ax1.grid()
         plt.tight_layout()
         plt.show()

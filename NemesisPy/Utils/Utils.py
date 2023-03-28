@@ -350,38 +350,3 @@ def gamma_dist(x,a,b,MakePlot=False):
 
     return fun
 
-###############################################################################################
-
-def check_inputs(Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer):
-
-    """
-    FUNCTION NAME : check_inputs()
-
-    DESCRIPTION : This function looks at the parameters describing the several Python classes used 
-                  in a NEMESIS run and quits the run if a given error appears in these variables.
-
-    INPUTS : 
-
-            Variables :: Python class defining the parameterisations and state vector
-            Measurement :: Python class defining the measurements 
-            Atmosphere :: Python class defining the reference atmosphere
-            Spectroscopy :: Python class defining the parameters required for the spectroscopic calculations
-            Scatter :: Python class defining the parameters required for scattering calculations
-            Stellar :: Python class defining the stellar spectrum
-            Surface :: Python class defining the surface
-            CIA :: Python class defining the Collision-Induced-Absorption cross-sections
-            Layer :: Python class defining the layering scheme to be applied in the calculations
-
-    OPTIONAL INPUTS: none
-            
-    OUTPUTS : none
-
-    CALLING SEQUENCE:
-
-        check_inputs(Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer)
-
-    MODIFICATION HISTORY : Juan Alday (29/04/2021)
-
-    """
-    dummy = 1
-    return dummy
