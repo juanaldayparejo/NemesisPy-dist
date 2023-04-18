@@ -21,7 +21,7 @@ Optimal Estimation Class. It includes all parameters that are relevant for the r
 
 class OptimalEstimation_0:
 
-    def __init__(self, IRET=0, NITER=1, NX=1, NY=1, PHILIMIT=0.1):
+    def __init__(self, IRET=0, NITER=1, NX=1, NY=1, PHILIMIT=0.1, NCORES=1):
 
         """
         Inputs
@@ -35,6 +35,8 @@ class OptimalEstimation_0:
             Number of elements in measurement vector    
         @param NX: int,
             Number of elements in state vector
+        @param NCORES: int,
+            Number of cores available for parallel computations
 
         Attributes
         ----------
@@ -88,7 +90,8 @@ class OptimalEstimation_0:
         self.NITER = NITER
         self.NX = NX
         self.NY = NY
-        self.PHILIMIT = PHILIMIT       
+        self.PHILIMIT = PHILIMIT      
+        self.NCORES = NCORES  
 
         # Input the following profiles using the edit_ methods.
         self.KK = None #(NY,NX)
@@ -118,6 +121,12 @@ class OptimalEstimation_0:
         #Checking some common parameters to all cases
         assert np.issubdtype(type(self.NITER), np.integer) == True , \
             'NITER must be int'
+            
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.NCORES), np.integer) == True , \
+            'NCORES must be int'
+        assert self.NCORES >= 1 , \
+            'NCORES must be >= 1'
 
         #Checking some common parameters to all cases
         assert np.issubdtype(type(self.PHILIMIT), np.float) == True , \
@@ -145,6 +154,9 @@ class OptimalEstimation_0:
 
         dset = grp.create_dataset('NITER',data=self.NITER)
         dset.attrs['title'] = "Maximum number of iterations"
+        
+        dset = grp.create_dataset('NCORES',data=self.NCORES)
+        dset.attrs['title'] = "Number of cores available for parallel computations"
 
         dset = grp.create_dataset('PHILIMIT',data=self.PHILIMIT)
         dset.attrs['title'] = "Percentage convergence limit"
@@ -157,7 +169,7 @@ class OptimalEstimation_0:
 
         f.close()
 
-    def write_output_hdf5(self,runname):
+    def write_output_hdf5(self,runname,Variables):
         """
         Write the Retrieval outputs into an HDF5 file
         """
@@ -165,46 +177,113 @@ class OptimalEstimation_0:
         import h5py
 
         f = h5py.File(runname+'.h5','a')
+        
         #Checking if Retrieval already exists
-        if ('/Retrieval' in f)==False:
-            sys.exit('error :: Retrieval must be defined in HDF5 file to write the retrieval outputs')
+        if ('/Retrieval' in f)==True:
+            del f['Retrieval']   #Deleting the Atmosphere information that was previously written in the file
 
+        grp = f.create_group("Retrieval")
+
+        dset = grp.create_dataset('NITER',data=self.NITER)
+        dset.attrs['title'] = "Maximum number of iterations"
+
+        dset = grp.create_dataset('PHILIMIT',data=self.PHILIMIT)
+        dset.attrs['title'] = "Percentage convergence limit"
+        dset.attrs['units'] = "%"
+
+        dset = grp.create_dataset('IRET',data=self.IRET)
+        dset.attrs['title'] = "Retrieval engine type"
+        if self.IRET==0:
+            dset.attrs['type'] = "Optimal Estimation"
 
         #Optimal Estimation
         #####################################################################
 
         if self.IRET==0:
 
-            dset = f.create_dataset('Retrieval/Output/NX',data=self.NX)
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/NX',data=self.NX)
             dset.attrs['title'] = "Number of elements in state vector"
 
-            dset = f.create_dataset('Retrieval/Output/XN',data=self.XN)
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/XN',data=self.XN)
             dset.attrs['title'] = "Retrieved state vector"
 
-            dset = f.create_dataset('Retrieval/Output/SX',data=self.ST)
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SX',data=self.ST)
             dset.attrs['title'] = "Retrieved covariance matrix"
 
-            dset = f.create_dataset('Retrieval/Output/XA',data=self.XA)
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/XA',data=self.XA)
             dset.attrs['title'] = "A priori state vector"
 
-            dset = f.create_dataset('Retrieval/Output/SA',data=self.SA)
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SA',data=self.SA)
             dset.attrs['title'] = "A priori covariance matrix"
 
 
-        dset = f.create_dataset('Retrieval/Output/NY',data=self.NY)
-        dset.attrs['title'] = "Number of elements in measurement vector"
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/NY',data=self.NY)
+            dset.attrs['title'] = "Number of elements in measurement vector"
 
-        dset = f.create_dataset('Retrieval/Output/Y',data=self.Y)
-        dset.attrs['title'] = "Measurement vector"
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/Y',data=self.Y)
+            dset.attrs['title'] = "Measurement vector"
 
-        dset = f.create_dataset('Retrieval/Output/SY',data=self.SE)
-        dset.attrs['title'] = "Measurement vector covariance matrix"
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SY',data=self.SE)
+            dset.attrs['title'] = "Measurement vector covariance matrix"
 
-        dset = f.create_dataset('Retrieval/Output/YERR',data=self.SE)
-        dset.attrs['title'] = "Measurement vector covariance matrix"
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/YERR',data=self.SE)
+            dset.attrs['title'] = "Measurement vector covariance matrix"
 
-        dset = f.create_dataset('Retrieval/Output/YN',data=self.YN)
-        dset.attrs['title'] = "Modelled measurement vector"
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/YN',data=self.YN)
+            dset.attrs['title'] = "Modelled measurement vector"
+
+
+        #Writing the parameters in the same form as the input .apr file
+        APRPARAM = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+        APRERRPARAM = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+        RETPARAM = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+        RETERRPARAM = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
+        ix = 0
+        for ivar in range(Variables.NVAR):
+
+            for i in range(Variables.NXVAR[ivar]):
+                
+                xa1 = self.XA[ix]
+                ea1 = np.sqrt(abs(self.SA[ix,ix]))
+                xn1 = self.XN[ix]
+                en1 = np.sqrt(abs(self.ST[ix,ix]))
+                if Variables.LX[ix]==1:
+                    xa1 = np.exp(xa1)
+                    ea1 = xa1*ea1
+                    xn1 = np.exp(xn1)
+                    en1 = xn1*en1
+
+                RETPARAM[i,ivar] = xn1
+                RETERRPARAM[i,ivar] = en1
+                APRPARAM[i,ivar] = xa1
+                APRERRPARAM[i,ivar] = ea1
+
+                ix = ix + 1
+
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/NVAR',data=Variables.NVAR)
+        dset.attrs['title'] = "Number of retrieved model parameterisations"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/NXVAR',data=Variables.NXVAR)
+        dset.attrs['title'] = "Number of parameters associated with each model parameterisation"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/VARIDENT',data=Variables.VARIDENT)
+        dset.attrs['title'] = "Variable parameterisation ID"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/VARPARAM',data=Variables.VARPARAM)
+        dset.attrs['title'] = "Extra parameters required to model the parameterisations (not retrieved)"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/RETPARAM',data=RETPARAM)
+        dset.attrs['title'] = "Retrieved parameters required to model the parameterisations"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/RETERRPARAM',data=RETERRPARAM)
+        dset.attrs['title'] = "Uncertainty in the retrieved parameters required to model the parameterisations"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/APRPARAM',data=APRPARAM)
+        dset.attrs['title'] = "A priori parameters required to model the parameterisations"
+
+        dset = f.create_dataset('Retrieval/Output/Parameters/APRERRPARAM',data=APRERRPARAM)
+        dset.attrs['title'] = "Uncertainty in the a priori parameters required to model the parameterisations"
 
         f.close()
 
@@ -231,17 +310,17 @@ class OptimalEstimation_0:
             #Checking if Retrieval already exists
             if ('/Retrieval/Output' in f)==True:
 
-                self.NX = np.int32(f.get('Retrieval/Output/NX'))
-                self.NY = np.int32(f.get('Retrieval/Output/NY'))
+                self.NX = np.int32(f.get('Retrieval/Output/OptimalEstimation/NX'))
+                self.NY = np.int32(f.get('Retrieval/Output/OptimalEstimation/NY'))
 
-                self.XN = np.array(f.get('Retrieval/Output/XN'))
-                self.XA = np.array(f.get('Retrieval/Output/XA'))
-                self.ST = np.array(f.get('Retrieval/Output/SX'))
-                self.SA = np.array(f.get('Retrieval/Output/SA'))
+                self.XN = np.array(f.get('Retrieval/Output/OptimalEstimation/XN'))
+                self.XA = np.array(f.get('Retrieval/Output/OptimalEstimation/XA'))
+                self.ST = np.array(f.get('Retrieval/Output/OptimalEstimation/SX'))
+                self.SA = np.array(f.get('Retrieval/Output/OptimalEstimation/SA'))
 
-                self.YN = np.array(f.get('Retrieval/Output/YN'))
-                self.Y = np.array(f.get('Retrieval/Output/Y'))
-                self.SE = np.array(f.get('Retrieval/Output/SE'))
+                self.YN = np.array(f.get('Retrieval/Output/OptimalEstimation/YN'))
+                self.Y = np.array(f.get('Retrieval/Output/OptimalEstimation/Y'))
+                self.SE = np.array(f.get('Retrieval/Output/OptimalEstimation/SE'))
 
         f.close()
 

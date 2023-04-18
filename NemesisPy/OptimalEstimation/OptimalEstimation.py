@@ -71,6 +71,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
     """
 
     from NemesisPy import OptimalEstimation_0
+    from NemesisPy import ForwardModel_0
     from NemesisPy import jacobian_nemesisSO,jacobian_nemesis
 
     #Creating class and including inputs
