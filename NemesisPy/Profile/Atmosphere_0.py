@@ -170,7 +170,11 @@ class Atmosphere_0:
                 'T must have size (NP)'
 
             if self.AMFORM==0:            
-                assert self.MOLWT is not None == True , \
+                if self.MOLWT is not None:
+                    exists = True
+                else:
+                    exists = False           
+                assert exists == True , \
                     'MOLWT must be define if AMFORM=0'
             
             assert self.VMR.shape == (self.NP,self.NVMR) , \
@@ -197,8 +201,12 @@ class Atmosphere_0:
             assert self.T.shape == (self.NP,self.NLOCATIONS) , \
                 'T must have size (NP,NLOCATIONS)'
             
-            if self.AMFORM==0:            
-                assert self.MOLWT is not None == True , \
+            if self.AMFORM==0:
+                if self.MOLWT is not None:
+                    exists = True
+                else:
+                    exists = False           
+                assert exists == True , \
                     'MOLWT must be define if AMFORM=0'
                 
             assert self.VMR.shape == (self.NP,self.NVMR,self.NLOCATIONS) , \

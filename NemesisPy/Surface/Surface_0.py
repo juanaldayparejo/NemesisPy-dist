@@ -155,7 +155,7 @@ class Surface_0:
         self.LATITUDE = None   #float or (NLOCATIONS) 
         self.LONGITUDE = None  #float or (NLOCATIONS) 
         self.TSURF = None      #float or (NLOCATIONS) 
-        self.VEM = None #(NEM) or (NEM,NLOCATIONS)
+        self.VEM = None #(NEM) or (NEM)
         self.EMISSIVITY = None #(NEM) or (NEM,NLOCATIONS)
 
         #Hapke parameters
@@ -1333,7 +1333,7 @@ class Surface_0:
     ##################################################################################################################
     ################################################################################################################## 
 
-    def plot_tsurf_map(self,subobs_lat=None,subobs_lon=None):
+    def plot_tsurf_map(self,subobs_lat=None,subobs_lon=None,cmap='viridis'):
         """
         Function to plot the surface temperature on a map 
         """
@@ -1341,7 +1341,7 @@ class Surface_0:
         from mpl_toolkits.basemap import Basemap
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-        fig,ax1 = plt.subplots(1,1,figsize=(6,6))
+        fig,ax1 = plt.subplots(1,1,figsize=(5,5))
 
         #Plotting the geometry
         if((subobs_lat is not None) & (subobs_lon is not None)):
@@ -1354,7 +1354,7 @@ class Surface_0:
         lats = map.drawparallels(np.linspace(-90, 90, 13))
         lons = map.drawmeridians(np.linspace(-180, 180, 13))
 
-        im = map.scatter(self.LONGITUDE,self.LATITUDE,latlon=True,c=self.TSURF)
+        im = map.scatter(self.LONGITUDE,self.LATITUDE,latlon=True,c=self.TSURF,cmap=cmap)
 
         # create an axes on the right side of ax. The width of cax will be 5%
         # of ax and the padding between cax and ax will be fixed at 0.05 inch.

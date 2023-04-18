@@ -135,6 +135,7 @@ class Stellar_0:
         """
 
         import h5py
+        from NemesisPy.Utils import file_lines
 
         if solfile is not None:
 
@@ -170,6 +171,7 @@ class Stellar_0:
                 rad[i] = float(s[1])
         
             fsol.close()
+
 
             self.RADIUS = solrad
             self.ISPACE = ispace

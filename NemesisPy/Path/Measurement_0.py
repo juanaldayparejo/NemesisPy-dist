@@ -2577,7 +2577,8 @@ def lblconv(nwave,vwave,y,nconv,vconv,ishape,fwhm):
                 #Gaussian instrument shape
                 f1 = np.exp(-((vwave[inwave[i]]-vcen)/sig)**2.0)
             else:
-                sys.exit('lblconv :: ishape not included yet in function')
+                #sys.exit('lblconv :: ishape not included yet in function')
+                dummy = 1
 
             if f1>0.0:
                 yout[j] = yout[j] + f1*y[inwave[i]]

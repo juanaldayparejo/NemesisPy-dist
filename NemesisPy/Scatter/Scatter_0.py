@@ -45,6 +45,7 @@ class Scatter_0:
             Flag indicating how the aerosol phase function needs to be computed (only relevant for ISCAT>0):
             (0) Phase function is computed from the associated Henyey-Greenstein parameters stored in G1,G2
             (1) Phase function is computed from the Mie-Theory parameters stored in PHASE
+            (3) Phase function is computed from the Legendre Polynomials stored in WLPOL
         @param NDUST: int,
             Number of aerosol populations included in the atmosphere
         @param NMU: int,
