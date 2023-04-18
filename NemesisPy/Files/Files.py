@@ -29,6 +29,7 @@ from NemesisPy.Layer import *
 from NemesisPy.Radtrans import *
 from NemesisPy.Surface import *
 from NemesisPy.Scatter import *
+from NemesisPy.OptimalEstimation import *
 
 ###############################################################################################
 
@@ -1962,7 +1963,7 @@ def convert_input_nemesis_hdf5(runname):
     Layer.write_hdf5(runname)
     
     #Retrieval
-    Retrieval = OptimalEstimation_0(IRET=0,NITER=NITER,PHILIMIT=PHILIMIT)
+    Retrieval = OptimalEstimation_0(IRET=0,NITER=NITER,PHILIMIT=PHILIMIT,NCORES=1)
     Retrieval.write_input_hdf5(runname)
 
 
@@ -2091,6 +2092,109 @@ def read_input_files_hdf5(runname):
 
 ###############################################################################################
 
+def read_retparam_hdf5(runname):
+    """
+
+        DESCRIPTION : 
+
+            Read the retrieved parameters from the HDF5 file
+
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            nvar :: Number of retrieved model parameterisations
+            nxvar(nvar) :: Number of parameters associated with each model parameterisation
+            varident(nvar,3) :: Variable parameterisation ID
+            varparam(nvar,nparam) :: Extra parameters required to model the parameterisations (not retrieved)
+            aprparam(nxvar,nvar) :: A priori parameters required to model the parameterisations
+            aprerrparam(nxvar,nvar) :: Uncertainty in the a priori parameters required to model the parameterisations 
+            retparam(nxvar,nvar) :: Retrieved parameters required to model the parameterisations
+            reterrparam(nxvar,nvar) :: Uncertainty in the retrieved parameters required to model the parameterisations
+
+
+        CALLING SEQUENCE:
+        
+            nvar,nxvar,varident,varparam,aprparam,aprerrparam,retparam,reterrparam = read_retparam_hdf5(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (25/03/2023)
+    """
+
+    import h5py
+
+    f = h5py.File(runname+'.h5','r')
+
+    #Checking if Surface exists
+    e = "/Retrieval" in f
+    if e==False:
+        sys.exit('error :: Retrieval is not defined in HDF5 file')
+    else:
+
+        #Checking if Retrieval already exists
+        if ('/Retrieval/Output/Parameters' in f)==True:
+
+            NVAR = np.int32(f.get('Retrieval/Output/Parameters/NVAR'))
+            NXVAR = np.array(f.get('Retrieval/Output/Parameters/NXVAR'))
+            VARIDENT = np.array(f.get('Retrieval/Output/Parameters/VARIDENT'))
+            VARPARAM = np.array(f.get('Retrieval/Output/Parameters/VARPARAM'))
+            RETPARAM = np.array(f.get('Retrieval/Output/Parameters/RETPARAM'))
+            RETERRPARAM = np.array(f.get('Retrieval/Output/Parameters/RETERRPARAM'))
+            APRPARAM = np.array(f.get('Retrieval/Output/Parameters/APRPARAM'))
+            APRERRPARAM = np.array(f.get('Retrieval/Output/Parameters/APRERRPARAM'))
+
+        else:
+
+            sys.exit('error :: Retrieval/Output/Parameters is not defined in HDF5 file')
+
+
+    return NVAR,NXVAR,VARIDENT,VARPARAM,APRPARAM,APRERRPARAM,RETPARAM,RETERRPARAM
+
+###############################################################################################
+
+def read_bestfit_hdf5(runname):
+    """
+
+        DESCRIPTION : 
+
+            Read the best fit from the HDF5 file and include it in the Measurement class
+
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            Measurement :: Python class defining the measurement and best fit to the data
+
+        CALLING SEQUENCE:
+        
+            Measurement = read_bestfit_hdf5(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (25/03/2023)
+    """
+
+    Retrieval = OptimalEstimation_0()
+    Retrieval.read_hdf5(runname)
+
+    Measurement = Measurement_0()
+    Measurement.read_hdf5(runname)
+
+    SPECMOD = np.zeros(Measurement.MEAS.shape)
+    ix = 0
+    for i in range(Measurement.NGEOM):
+        SPECMOD[0:Measurement.NCONV[i],i] = Retrieval.YN[ix:ix+Measurement.NCONV[i]]
+        ix = ix + Measurement.NCONV[i]
+
+    Measurement.edit_SPECMOD(SPECMOD)
+
+    return Measurement
+
 
 ###############################################################################################
 
@@ -2166,72 +2270,6 @@ def read_output_files_hdf5(runname):
     Measurement2.edit_SPECMOD(SPECMOD)
 
     return Atmosphere2,Measurement2,Spectroscopy2,Scatter2,Stellar2,Surface2,CIA2,Layer2,Variables,Retrieval
-
-###############################################################################################
-
-
-def calc_retrieved_parameters(Variables,Retrieval):
-    """
-        FUNCTION NAME : read_input_files_hdf5()
-        
-        DESCRIPTION : 
-
-            Using the information about the parameterisation in Variables and the retrieved
-            state vector in Retrieval, this function returns the retrieved parameters.
- 
-        INPUTS :
-      
-            Variables :: Python class including information about the retrieval parameterisations
-            Retrieval :: Python class including information about the retrieved state vector
-
-        OPTIONAL INPUTS: none
-        
-        OUTPUTS : 
-
-            nvar :: Number of retrieved model parameterisations
-            nxvar(nvar) :: Number of retrieved parameters in each model parameterisation
-            varident(3,nvar) :: ID of each retrieval parameterisation
-            varparam(:,nvar) :: Extra parameters (not retrieved) required to apply the parameterisation
-            aprparam(:,nvar) :: A priori parameters of each model
-            aprerrparam(:,nvar) :: Uncertainty in each a priori parameter of each model
-            retparam(:,nvar) :: Retrieved parameters of each model
-            reterrparam(:,nvar) :: Uncertainty in each retrieved parameter of each model
-
-        CALLING SEQUENCE:
-        
-            nvar,nxvar,varident,varparam,aprparam,aprerrparam,retparam,reterrparam = read_input_files_hdf5(runname)
- 
-        MODIFICATION HISTORY : Juan Alday (25/03/2023)
-    """
-
-    retparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
-    reterrparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
-    aprparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
-    aprerrparam = np.zeros((Variables.NXVAR.max(),Variables.NVAR))
-
-    nxtemp = 0
-    for ivar in range(Variables.NVAR):
-
-        for ip in range(Variables.NXVAR[ivar]):
-            ix = nxtemp + ip 
-            xa1 = Retrieval.XA[ix]
-            ea1 = np.sqrt(abs(Retrieval.SA[ix,ix]))
-            xn1 = Retrieval.XN[ix]
-            en1 = np.sqrt(abs(Retrieval.ST[ix,ix]))
-            if Variables.LX[ix]==1:
-                xa1 = np.exp(xa1)
-                ea1 = xa1*ea1
-                xn1 = np.exp(xn1)
-                en1 = xn1*en1
-
-            retparam[ip,ivar] = xn1
-            aprparam[ip,ivar] = xa1
-            reterrparam[ip,ivar] = en1
-            aprerrparam[ip,ivar] = ea1
-
-        nxtemp = nxtemp + Variables.NXVAR[ivar] 
-
-    return Variables.NVAR,Variables.NXVAR,Variables.VARIDENT,Variables.VARPARAM,aprparam,aprerrparam,retparam,reterrparam
 
 ###############################################################################################
 
