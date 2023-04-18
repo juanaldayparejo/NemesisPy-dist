@@ -656,39 +656,84 @@ class Atmosphere_0:
             
         """
 
-        if self.NLOCATIONS>1:
-            sys.exit('error :: adjust_hydrostatP only works if NLOCATIONS = 1')
+        #if self.NLOCATIONS>1:
+        #    sys.exit('error :: adjust_hydrostatP only works if NLOCATIONS = 1')
 
-        #First find the level below the reference altitude
-        alt0,ialt = find_nearest(self.H,htan)
-        if ( (alt0>htan) & (ialt>0)):
-            ialt = ialt -1
+        if self.NLOCATIONS==1:
 
-        #Calculating the gravity at each altitude level
-        self.calc_grav()
+            #First find the level below the reference altitude
+            alt0,ialt = find_nearest(self.H,htan)
+            if ( (alt0>htan) & (ialt>0)):
+                ialt = ialt -1
 
-        #Calculate the scaling factor
-        R = const["R"]
-        scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
+            #Calculating the gravity at each altitude level
+            self.calc_grav()
 
-        sh =  0.5*(scale[ialt]+scale[ialt+1])
-        delh = self.H[ialt+1]-htan
-        p = np.zeros(self.NP)
-        p[ialt+1] = ptan*np.exp(-delh/sh)
-        delh = self.H[ialt]-htan
-        p[ialt] = ptan*np.exp(-delh/sh)
+            #Calculate the scaling factor
+            R = const["R"]
+            scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
 
-        for i in range(ialt+2,self.NP):
-            sh =  0.5*(scale[i-1]+scale[i])
-            delh = self.H[i]-self.H[i-1]
-            p[i] = p[i-1]*np.exp(-delh/sh)
+            sh =  0.5*(scale[ialt]+scale[ialt+1])
+            delh = self.H[ialt+1]-htan
+            p = np.zeros(self.NP)
+            p[ialt+1] = ptan*np.exp(-delh/sh)
+            delh = self.H[ialt]-htan
+            p[ialt] = ptan*np.exp(-delh/sh)
 
-        for i in range(ialt-1,-1,-1):
-            sh =  0.5*(scale[i+1]+scale[i])
-            delh = self.H[i]-self.H[i+1]
-            p[i] = p[i+1]*np.exp(-delh/sh)
+            for i in range(ialt+2,self.NP):
+                sh =  0.5*(scale[i-1]+scale[i])
+                delh = self.H[i]-self.H[i-1]
+                p[i] = p[i-1]*np.exp(-delh/sh)
 
-        self.edit_P(p)
+            for i in range(ialt-1,-1,-1):
+                sh =  0.5*(scale[i+1]+scale[i])
+                delh = self.H[i]-self.H[i+1]
+                p[i] = p[i+1]*np.exp(-delh/sh)
+
+            self.edit_P(p)
+            
+        else:
+            
+            #Checking that htan and ptan are arrays with size NLOCATIONS
+            if len(htan)!=self.NLOCATIONS:
+                sys.exit('error in adjus_thydrostatP :: htan must have NLOCATION elements')
+
+            if len(ptan)!=self.NLOCATIONS:
+                sys.exit('error in adjus_thydrostatP :: ptan must have NLOCATION elements')
+            
+            for iLOC in range(self.NLOCATIONS):
+            
+                #First find the level below the reference altitude
+                alt0,ialt = find_nearest(self.H[:,iLOC],htan[iLOC])
+                if ( (alt0>htan[iLOC]) & (ialt>0)):
+                    ialt = ialt -1
+
+                #Calculating the gravity at each altitude level
+                self.calc_grav()
+
+                #Calculate the scaling factor
+                R = const["R"]
+                scale = R * self.T[:,iLOC] / (self.MOLWT[:,iLOC] * self.GRAV[:,iLOC])   #scale height (m)
+
+                sh =  0.5*(scale[ialt]+scale[ialt+1])
+                delh = self.H[ialt+1,iLOC]-htan[iLOC]
+                p = np.zeros(self.NP)
+                p[ialt+1] = ptan[iLOC]*np.exp(-delh/sh)
+                delh = self.H[ialt,iLOC]-htan[iLOC]
+                p[ialt] = ptan[iLOC]*np.exp(-delh/sh)
+
+                for i in range(ialt+2,self.NP):
+                    sh =  0.5*(scale[i-1]+scale[i])
+                    delh = self.H[i,iLOC]-self.H[i-1,iLOC]
+                    p[i] = p[i-1]*np.exp(-delh/sh)
+
+                for i in range(ialt-1,-1,-1):
+                    sh =  0.5*(scale[i+1]+scale[i])
+                    delh = self.H[i,iLOC]-self.H[i+1,iLOC]
+                    p[i] = p[i+1]*np.exp(-delh/sh)
+
+                #self.edit_P(p)
+                self.P[:,iLOC] = p[:]
 
 
     def adjust_hydrostatH(self):
@@ -699,57 +744,113 @@ class Atmosphere_0:
         Note : Only valid if NLOCATIONS = 1
         """
 
-        if self.NLOCATIONS>1:
-            sys.exit('error :: adjust_hydrostatP only works if NLOCATIONS = 1')
-
-        #First find the level closest to the 0m altitude
-        alt0,ialt = find_nearest(self.H,0.0)
-        if ( (alt0>0.0) & (ialt>0)):
-            ialt = ialt -1
+        #if self.NLOCATIONS>1:
+        #    sys.exit('error :: adjust_hydrostatH only works if NLOCATIONS = 1')
 
 
-        xdepth = 100.
-        while xdepth>1:
+        if self.NLOCATIONS==1:
 
-            h = np.zeros(self.NP)
-            p = np.zeros(self.NP)
-            h[:] = self.H
-            p[:] = self.P
+            #First find the level closest to the 0m altitudef
+            alt0,ialt = find_nearest(self.H,0.0)
+            if ( (alt0>0.0) & (ialt>0)):
+                ialt = ialt -1
 
-            #Calculating the atmospheric depth
-            atdepth = h[self.NP-1] - h[0]
 
-            #Calculate the gravity at each altitude level
-            self.calc_grav()
+            xdepth = 100.
+            while xdepth>1:
 
-            #Calculate the scale height
-            R = const["R"]
-            scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
+                h = np.zeros(self.NP)
+                p = np.zeros(self.NP)
+                h[:] = self.H
+                p[:] = self.P
 
-            p[:] = self.P
-            if ((ialt>0) & (ialt<self.NP-1)):
-                h[ialt] = 0.0
+                #Calculating the atmospheric depth
+                atdepth = h[self.NP-1] - h[0]
 
-            nupper = self.NP - ialt - 1
-            for i in range(ialt+1,self.NP):
-                sh = 0.5 * (scale[i-1] + scale[i])
-                #self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
-                h[i] = h[i-1] - sh * np.log(p[i]/p[i-1])
+                #Calculate the gravity at each altitude level
+                self.calc_grav()
 
-            for i in range(ialt-1,-1,-1):
-                sh = 0.5 * (scale[i+1] + scale[i])
-                #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])
-                h[i] = h[i+1] - sh * np.log(p[i]/p[i+1])
+                #Calculate the scale height
+                R = const["R"]
+                scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
 
-            #atdepth1 = self.H[self.NP-1] - self.H[0]
-            atdepth1 = h[self.NP-1] - h[0]
+                p[:] = self.P
+                if ((ialt>0) & (ialt<self.NP-1)):
+                    h[ialt] = 0.0
 
-            xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
+                nupper = self.NP - ialt - 1
+                for i in range(ialt+1,self.NP):
+                    sh = 0.5 * (scale[i-1] + scale[i])
+                    #self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
+                    h[i] = h[i-1] - sh * np.log(p[i]/p[i-1])
 
-            self.H = h[:]
+                for i in range(ialt-1,-1,-1):
+                    sh = 0.5 * (scale[i+1] + scale[i])
+                    #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])
+                    h[i] = h[i+1] - sh * np.log(p[i]/p[i+1])
 
-            #Re-Calculate the gravity at each altitude level
-            self.calc_grav()
+                #atdepth1 = self.H[self.NP-1] - self.H[0]
+                atdepth1 = h[self.NP-1] - h[0]
+
+                xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
+
+                self.H = h[:]
+
+                #Re-Calculate the gravity at each altitude level
+                self.calc_grav()
+                
+        else:
+            
+            for iLOC in range(self.NLOCATIONS):
+                
+                #First find the level closest to the 0m altitude
+                alt0,ialt = find_nearest(self.H[:,iLOC],0.0)
+                if ( (alt0>0.0) & (ialt>0)):
+                    ialt = ialt -1
+
+
+                xdepth = 100.
+                while xdepth>1:
+
+                    h = np.zeros(self.NP)
+                    p = np.zeros(self.NP)
+                    h[:] = self.H[:,iLOC]
+                    p[:] = self.P[:,iLOC]
+
+                    #Calculating the atmospheric depth
+                    atdepth = h[self.NP-1] - h[0]
+
+                    #Calculate the gravity at each altitude level
+                    self.calc_grav()
+
+                    #Calculate the scale height
+                    R = const["R"]
+                    scale = R * self.T[:,iLOC] / (self.MOLWT[:,iLOC] * self.GRAV[:,iLOC])   #scale height (m)
+
+                    p[:] = self.P[:,iLOC]
+                    if ((ialt>0) & (ialt<self.NP-1)):
+                        h[ialt] = 0.0
+
+                    nupper = self.NP - ialt - 1
+                    for i in range(ialt+1,self.NP):
+                        sh = 0.5 * (scale[i-1] + scale[i])
+                        #self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
+                        h[i] = h[i-1] - sh * np.log(p[i]/p[i-1])
+
+                    for i in range(ialt-1,-1,-1):
+                        sh = 0.5 * (scale[i+1] + scale[i])
+                        #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])
+                        h[i] = h[i+1] - sh * np.log(p[i]/p[i+1])
+
+                    #atdepth1 = self.H[self.NP-1] - self.H[0]
+                    atdepth1 = h[self.NP-1] - h[0]
+
+                    xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
+
+                    self.H[:,iLOC] = h[:]
+
+                    #Re-Calculate the gravity at each altitude level
+                    self.calc_grav()
 
 
     def add_gas(self,gasID,isoID,vmr):
