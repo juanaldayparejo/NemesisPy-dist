@@ -189,11 +189,13 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy.Models import subprofretg
-        from NemesisPy.Path import AtmCalc_0,Path_0,calc_path
-        from NemesisPy import find_nearest,subspecret
-        from scipy import interpolate
         from copy import copy
+        
+        if self.Atmosphere.NLOCATIONS!=1:
+            sys.exit('error in nemesisfm :: NemesisPy has not been setup for dealing with multiple locations yet')
+            
+        if self.Surface.NLOCATIONS!=1:
+            sys.exit('error in nemesisfm :: NemesisPy has not been setup for dealing with multiple locations yet')
 
         #Estimating the number of calculations that will need to be computed to model the spectra
         #included in the Measurement class (taking into account al geometries and averaging points)
@@ -323,14 +325,15 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg
-        from NemesisPy.Radtrans import lblconv
-        from NemesisPy import find_nearest,subspecret
-        from scipy import interpolate
         from copy import copy
-        from NemesisPy.Radtrans.Radtrans import CIRSradg
         from NemesisPy.Radtrans.Radtrans import map2pro
         from NemesisPy.Radtrans.Radtrans import map2xvec
+        
+        if self.Atmosphere.NLOCATIONS!=1:
+            sys.exit('error in nemesisfm :: NemesisPy has not been setup for dealing with multiple locations yet')
+            
+        if self.Surface.NLOCATIONS!=1:
+            sys.exit('error in nemesisfm :: NemesisPy has not been setup for dealing with multiple locations yet')
 
         #Estimating the number of calculations that will need to be computed to model the spectra
         #included in the Measurement class (taking into account al geometries and averaging points)
@@ -671,6 +674,174 @@ class ForwardModel_0:
 
         return SPECONV,dSPECONV
 
+
+    ###############################################################################################
+
+    def nemesisMAPfm(self):
+
+        """
+            FUNCTION NAME : nemesisMAPfm()
+
+            DESCRIPTION : This function computes a forward model of a map with several pixels. 
+                          The method implemented here assumes that ALL forward models required to
+                          construct the map coincide exactly with the locations at which the Atmosphere
+                          and Surface are defined. Namely, this means that:
+
+                            - Measurement.FLAT = Atmosphere.LATITUDE = Surface.LATITUDE
+                            - Measurement.FLON = Atmosphere.LONGITUDE = Surface.LONGITUDE
+                            
+                          The only exception for FLAT and FLON not to be equal to the points in the Atmosphere
+                          and Surface is if they are equal to -999. In this case, that particular forward model
+                          will be zero at all wavelengths. This exception is included to properly reconstruct
+                          the FOV of the instrument, in the case that it includes points outside the planet's disk.
+                          
+                          In order to optimise the computations, a forward model is calculated at every LOCATION
+                          defined in Atmosphere/Surface (or at every unique FLAT/FLON). The forward models are
+                          then combined as required to perform the convolution with the Point Spread Function (WGEOM)
+                          of the instrument.
+
+            INPUTS : none
+
+            OPTIONAL INPUTS: none
+
+            OUTPUTS :
+
+                SPECMOD(NCONV,NGEOM) :: Modelled spectra
+
+            CALLING SEQUENCE:
+
+                ForwardModel.nemesisMAPfm()
+
+            MODIFICATION HISTORY : Juan Alday (18/04/2023)
+
+        """
+
+        from copy import copy
+        
+        
+        #Checking that all FLAT and FLON points exist in the Atmosphere and Surface
+        for iGEOM in range(self.Measurement.NGEOM):
+            for iAV in range(self.Measurement.NAV[iGEOM]):
+                
+                iex = np.where( (self.Atmosphere.LATITUDE==self.Measurement.FLAT[iAV,iGEOM]) & \
+                                (self.Atmosphere.LONGITUDE==self.Measurement.FLON[iAV,iGEOM]) & \
+                                (self.Surface.LATITUDE==self.Measurement.FLAT[iAV,iGEOM]) & \
+                                (self.Surface.LONGITUDE==self.Measurement.FLON[iAV,iGEOM]) )[0]
+                
+                if len(iex)==0:
+                    sys.exit('error in nemesisMAPfm :: All FLAT/FLON points for the forward model must coincide with the locations in Atmosphere and Surface')
+                
+        
+        
+        #Calculating a forward model for each LOCATION on the planet
+        for ISPEC in range(self.Atmosphere.NLOCATIONS):
+            
+            print('subprogretg :: Update the parameters in all surface locations')
+            
+            print('Select MeasurementX (viewing angles) for this particular location')
+            
+            print('update viewing angles in ScatterX')
+            
+            print('Select AtmosphereX and SurfaceX at desired location')
+            
+            print('Perform forward model only in desired location')
+            
+            
+        sys.exit()
+        
+        
+        
+
+        #Estimating the number of calculations that will need to be computed to model the spectra
+        #included in the Measurement class (taking into account al geometries and averaging points)
+        NCALC = np.sum(self.Measurement.NAV)
+        SPECONV = np.zeros(self.Measurement.MEAS.shape) #Initalise the array where the spectra will be stored (NWAVE,NGEOM)
+        for IGEOM in range(self.Measurement.NGEOM):
+
+            #Calculating new wave array
+            if self.Spectroscopy.ILBL==0:
+                self.Measurement.wavesetb(self.Spectroscopy,IGEOM=IGEOM)
+            if self.Spectroscopy.ILBL==2:
+                self.Measurement.wavesetc(self.Spectroscopy,IGEOM=IGEOM)
+
+            #Initialise array for averaging spectra (if required by NAV>1)
+            SPEC = np.zeros(self.Measurement.NWAVE)
+            dSPEC = np.zeros((self.Measurement.NWAVE,self.Variables.NX))
+            WGEOMTOT = 0.0
+            for IAV in range(self.Measurement.NAV[IGEOM]):
+
+                #Selecting the relevant Measurement
+                self.select_Measurement(IGEOM,IAV)
+
+                #Making copy of classes to avoid overwriting them
+                self.AtmosphereX = copy(self.Atmosphere)
+                self.ScatterX = copy(self.Scatter)
+                self.StellarX = copy(self.Stellar)
+                self.SurfaceX = copy(self.Surface)
+                self.SpectroscopyX = copy(self.Spectroscopy)
+                self.LayerX = copy(self.Layer)
+                self.CIAX = copy(self.CIA)
+                flagh2p = False
+
+                #Updating the required parameters based on the current geometry
+                self.ScatterX.SOL_ANG = self.MeasurementX.SOL_ANG[0,0]
+                self.ScatterX.EMISS_ANG = self.MeasurementX.EMISS_ANG[0,0]
+                self.ScatterX.AZI_ANG = self.MeasurementX.AZI_ANG[0,0]
+
+                if self.SpectroscopyX.ILBL==0:
+                    self.MeasurementX.wavesetb(self.SpectroscopyX,IGEOM=IGEOM)
+                if self.SpectroscopyX.ILBL==2:
+                    self.MeasurementX.wavesetc(self.SpectroscopyX,IGEOM=IGEOM)
+
+                #Changing the different classes taking into account the parameterisations in the state vector
+                xmap = self.subprofretg()
+
+                #Calling gsetpat to split the new reference atmosphere and calculate the path
+                self.calc_path()
+
+                #Calling CIRSrad to perform the radiative transfer calculations
+                #SPEC1 = CIRSrad(self.runname,self.Variables.self.MeasurementX,self.AtmosphereX,self.SpectroscopyX,self.ScatterX,self.StellarX,self.SurfaceX,self.CIAX,self.LayerX,self.PathX)
+                SPEC1X = self.CIRSrad() #()
+
+                if self.PathX.NPATH>1:  #If the calculation type requires several paths for a given geometry (e.g. netflux calculation)
+                    SPEC1 = np.zeros((self.PathX.NPATH*self.MeasurementX.NWAVE,1))  #We linearise all paths into 1 measurement
+                    ip = 0
+                    for iPath in range(self.PathX.NPATH):
+                        SPEC1[ip:ip+self.MeasurementX.NWAVE,0] = SPEC1X[:,iPath]
+                else:
+                    SPEC1 = SPEC1X
+
+                #Averaging the spectra in case NAV>1
+                if self.MeasurementX.NAV[IGEOM]>1:
+                    SPEC[:] = SPEC[:] + self.Measurement.WGEOM[IGEOM,IAV] * SPEC1[:,0]
+                    WGEOMTOT = WGEOMTOT + self.Measurement.WGEOM[IGEOM,IAV]
+                else:
+                    SPEC[:] = SPEC1[:,0]
+
+            if self.Measurement.NAV[IGEOM]>1:
+                SPEC[:] = SPEC[:] / WGEOMTOT
+
+            #Applying any changes to the spectra required by the state vector
+            SPEC,dSPEC = self.subspecret(SPEC,dSPEC)
+
+            #Convolving the spectra with the Instrument line shape
+            if self.SpectroscopyX.ILBL==0: #k-tables
+
+                if os.path.exists(self.runname+'.fwh')==True:
+                    FWHMEXIST=self.runname
+                else:
+                    FWHMEXIST=''
+
+                SPECONV1 = self.Measurement.conv(SPEC,IGEOM=IGEOM,FWHMEXIST='')
+
+            elif self.SpectroscopyX.ILBL==2: #LBL-tables
+
+                SPECONV1 = self.Measurement.lblconv(SPEC,IGEOM=IGEOM)
+
+            SPECONV[0:self.Measurement.NCONV[IGEOM],IGEOM] = SPECONV1[0:self.Measurement.NCONV[IGEOM]]
+
+        return SPECONV
+
     ###############################################################################################
 
     def jacobian_nemesis(self,NCores=1,nemesisSO=False):
@@ -761,6 +932,8 @@ class ForwardModel_0:
         #################################################################################
 
         #self.Variables.NUM[:] = 1     #Uncomment for trying numerical differentiation
+        if self.Scatter.ISCAT!=0:
+            self.Variables.NUM[:] = 1  #If scattering is present, gradients are calculated numerically
 
         ian1 = np.where(self.Variables.NUM==0)  #Gradients calculated using CIRSradg
         ian1 = ian1[0]
@@ -803,7 +976,7 @@ class ForwardModel_0:
 
 
         #Calling the forward model nfm times to calculate the measurement vector for each case
-        YNtot = np.zeros([self.Measurement.NY,nfm])
+        YNtot = np.zeros((self.Measurement.NY,nfm))
 
         print('Calculating numerical part of the Jacobian :: running '+str(nfm)+' forward models ')
         if NCores>1:
@@ -905,22 +1078,6 @@ class ForwardModel_0:
 
         """
 
-        #First determining whether there are multiple latitudes/longitudes in the Atmosphere or Surface
-        #If so, calculating the relevant surface and atmospheric properties at the latitude and longitude of the observation
-
-        if self.Atmosphere.NLOCATIONS>1:
-
-            #Selecting the relevant atmospheric profiles
-            self.AtmosphereX.NLOCATIONS = 1
-            self.select_Profile(self.MeasurementX.LATITUDE,self.MeasurementX.LONGITUDE)
-
-        if self.Surface.NLOCATIONS>1:
-
-            #Selecting the relevant surface properties
-            self.SurfaceX.NLOCATIONS = 1
-            self.select_Surface(self.MeasurementX.LATITUDE,self.MeasurementX.LONGITUDE)
-
-
         #Checking if hydrostatic equilibrium needs to be used for any parameterisation
         if self.Variables.JPRE!=-1:
             self.adjust_hydrostat = True
@@ -954,13 +1111,19 @@ class ForwardModel_0:
         rho = self.AtmosphereX.calc_rho() #kg/m3
 
         #Initialising xmap
-        xmap = np.zeros((self.Variables.NX,self.AtmosphereX.NVMR+2+self.AtmosphereX.NDUST,self.AtmosphereX.NP))
+        if self.AtmosphereX.NLOCATIONS==1:
+            xmap = np.zeros((self.Variables.NX,self.AtmosphereX.NVMR+2+self.AtmosphereX.NDUST,self.AtmosphereX.NP))
+        else:
+            sys.exit('error in subprofretg :: subprofretg has not been upgraded yet to deal with multiple locations')
+            xmap = np.zeros((self.Variables.NX,self.AtmosphereX.NVMR+2+self.AtmosphereX.NDUST,self.AtmosphereX.NP,self.AtmosphereX.NLOCATIONS))
 
         #Going through the different variables an updating the atmosphere accordingly
         ix = 0
         for ivar in range(self.Variables.NVAR):
 
-            if self.Variables.VARIDENT[ivar,2]<=100:
+
+            #Model parameterisation applies to an atmospheric parameter 
+            if((self.Variables.VARIDENT[ivar,2]<=100)):
 
                 #Reading the atmospheric profile which is going to be changed by the current variable
                 xref = np.zeros([self.AtmosphereX.NP])
@@ -989,7 +1152,48 @@ class ForwardModel_0:
 
                     ipar = self.AtmosphereX.NVMR + jcont
 
-            x1 = np.zeros(self.AtmosphereX.NP)
+                x1 = np.zeros(self.AtmosphereX.NP)
+
+            #Model parameterisation applies to atmospheric parameters in multiple locations
+            elif ((self.Variables.VARIDENT[ivar,2]>=1000) & (self.Variables.VARIDENT[ivar,2]<=1100)):
+
+                if self.AtmosphereX.NLOCATIONS<=1:
+                    sys.exit('error in subprofretg :: Models 1000-1100 are meant to be used for models of atmospheric properties in multiple locations')
+
+                #Reading the atmospheric profile which is going to be changed by the current variable
+                xref = np.zeros((self.AtmosphereX.NP,self.AtmosphereX.NLOCATIONS))
+
+                if self.Variables.VARIDENT[ivar,0]==0:     #Temperature is to be retrieved
+                    xref[:,:] = self.AtmosphereX.T[:,:]
+                    ipar = self.AtmosphereX.NVMR
+                elif self.Variables.VARIDENT[ivar,0]>0:    #Gas VMR is to be retrieved
+                    jvmr = np.where( (np.array(self.AtmosphereX.ID)==self.Variables.VARIDENT[ivar,0]) & (np.array(self.AtmosphereX.ISO)==self.Variables.VARIDENT[ivar,1]) )
+                    jvmr = int(jvmr[0])
+                    xref[:,:] = self.AtmosphereX.VMR[:,jvmr,:]
+                    ipar = jvmr
+                elif self.Variables.VARIDENT[ivar,0]<0:
+                    jcont = -int(self.Variables.VARIDENT[ivar,0])
+                    if jcont>self.AtmosphereX.NDUST+2:
+                        sys.exit('error :: Variable outside limits',self.Variables.VARIDENT[ivar,0],self.Variables.VARIDENT[ivar,1],self.Variables.VARIDENT[ivar,2])
+                    elif jcont==self.AtmosphereX.NDUST+1:   #Para-H2
+                        if flagh2p==True:
+                            xref[:,:] = self.AtmosphereX.PARAH2[:,:]
+                        else:
+                            sys.exit('error :: Para-H2 is declared as variable but atmosphere is not from Giant Planet')
+                    elif abs(jcont)==self.AtmosphereX.NDUST+2: #Fractional cloud cover
+                        xref[:,:] = self.AtmosphereX.FRAC[:,:]
+                    else:
+                        xref[:,:] = self.AtmosphereX.DUST[:,jcont-1,:]
+
+                    ipar = self.AtmosphereX.NVMR + jcont
+
+                x1 = np.zeros((self.AtmosphereX.NP,self.AtmosphereX.NLOCATIONS))
+
+
+
+
+            #Looping through each model
+            #######################################################################
 
             if self.Variables.VARIDENT[ivar,2]==-1:
 #           Model -1. Continuous aerosol profile in particles cm-3
@@ -1066,6 +1270,9 @@ class ForwardModel_0:
                 xmap[ix:ix+self.Variables.NXVAR[ivar],:,0:self.AtmosphereX.NP] = xmap1[:,:,:]
 
                 ix = ix + self.Variables.NXVAR[ivar]
+
+
+
 
             elif self.Variables.VARIDENT[ivar,0]==228:
 #           Model 228. Retrieval of instrument line shape for ACS-MIR and wavelength calibration
@@ -1236,7 +1443,7 @@ class ForwardModel_0:
                 ipar = -1
                 ix = ix + self.Variables.NXVAR[ivar]
 
-            elif Variables.VARIDENT[ivar,0]==999:
+            elif self.Variables.VARIDENT[ivar,0]==999:
 #           Model 999. Retrieval of surface temperature
 #           ***************************************************************
 
@@ -1244,6 +1451,15 @@ class ForwardModel_0:
                 self.SurfaceX.TSURF = tsurf
 
                 ipar = -1
+                ix = ix + self.Variables.NXVAR[ivar]
+                
+            elif self.Variables.VARIDENT[ivar,2]==1002:
+#           Model 1002. Scaling factors at multiple locations
+#           ***************************************************************
+
+                self.AtmosphereX,xmap1 = model1002(self.AtmosphereX,ipar,self.Variables.XN[ix:ix+self.Variables.NXVAR[ivar]])
+                xmap[ix:ix+self.Variables.NXVAR[ivar],:,0:self.AtmosphereX.NP,0:self.AtmosphereX.NLOCATIONS] = xmap1[:,:,:,:]
+
                 ix = ix + self.Variables.NXVAR[ivar]
 
             else:

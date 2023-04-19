@@ -322,7 +322,7 @@ def model2(atm,ipar,scf,MakePlot=False):
 def model3(atm,ipar,scf,MakePlot=False):
     
     """
-        FUNCTION NAME : model2()
+        FUNCTION NAME : model3()
         
         DESCRIPTION :
         
@@ -1411,3 +1411,108 @@ def model887(Scatter,xsc,idust,MakePlot=False):
         plt.tight_layout()
         plt.show()
     
+
+###############################################################################################
+
+def model1002(atm,ipar,scf,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model2()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 1002 in NEMESIS.
+            
+            This is the same as model 2, but applied simultaneously in different planet locations
+            In this model, the atmospheric parameters are scaled using a single factor with 
+            respect to the vertical profiles in the reference atmosphere
+        
+        INPUTS :
+        
+            atm :: Python class defining the atmosphere
+
+            ipar :: Atmospheric parameter to be changed
+                    (0 to NVMR-1) :: Gas VMR
+                    (NVMR) :: Temperature
+                    (NVMR+1 to NVMR+NDUST-1) :: Aerosol density
+                    (NVMR+NDUST) :: Para-H2
+                    (NVMR+NDUST+1) :: Fractional cloud coverage
+
+            scf(nlocations) :: Scaling factors at the different locations
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            atm :: Updated atmospheric class
+            xmap(nlocations,ngas+2+ncont,npro,nlocations) :: Matrix of relating funtional derivatives to 
+                                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,xmap = model1002(atm,ipar,scf)
+        
+        MODIFICATION HISTORY : Juan Alday (19/04/2023)
+        
+    """
+
+    npar = atm.NVMR+2+atm.NDUST
+    xmap = np.zeros((atm.NLOCATIONS,npar,atm.NP,atm.NLOCATIONS))
+
+    if len(scf)!=atm.NLOCATIONS:
+        sys.exit('error in model 1002 :: The number of scaling factors must be the same as the number of locations in Atmosphere')
+
+    if atm.NLOCATIONS<=1:
+        sys.exit('error in model 1002 :: This model can be applied only if NLOCATIONS>1')
+
+    x1 = np.zeros((atm.NP,atm.NLOCATIONS))
+    xref = np.zeros((atm.NP,atm.NLOCATIONS))
+    if ipar<atm.NVMR:  #Gas VMR
+        jvmr = ipar
+        xref[:,:] = atm.VMR[:,jvmr,:]
+        x1[:,:] = atm.VMR[:,jvmr,:] * scf[:]
+        atm.VMR[:,jvmr,:] =  x1
+    elif ipar==atm.NVMR: #Temperature
+        xref[:] = atm.T[:,:]
+        x1[:] = np.transpose(np.transpose(atm.T[:,:]) * scf[:])
+        atm.T[:,:] = x1 
+    elif ipar>atm.NVMR:
+        jtmp = ipar - (atm.NVMR+1)
+        if jtmp<atm.NDUST:
+            xref[:] = atm.DUST[:,jtmp,:]
+            x1[:] = np.transpose(np.transpose(atm.DUST[:,jtmp,:]) * scf[:])
+            atm.DUST[:,jtmp,:] = x1
+        elif jtmp==atm.NDUST:
+            xref[:] = atm.PARAH2[:,:]
+            x1[:] = np.transpose(np.transpose(atm.PARAH2[:,:]) * scf)
+            atm.PARAH2[:,:] = x1
+        elif jtmp==atm.NDUST+1:
+            xref[:] = atm.FRAC[:,:]
+            x1[:] = np.transpose(np.transpose(atm.FRAC[:,:]) * scf)
+            atm.FRAC[:,:] = x1
+
+    for j in range(atm.NLOCATIONS):
+        xmap[j,ipar,:,j] = xref[:,j]
+        
+    if MakePlot==True:
+        
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        
+        fig,ax1 = plt.subplots(1,1,figsize=(6,4))
+        im1 = ax1.scatter(atm.LONGITUDE,atm.LATITUDE,c=scf,cmap='jet',vmin=scf.min(),vmax=scf.max())
+        ax1.grid()
+        ax1.set_xlabel('Longitude / deg')
+        ax1.set_ylabel('Latitude / deg')
+        ax1.set_xlim(-180.,180.)
+        ax1.set_ylim(-90.,90.)
+        ax1.set_title('Model 1002')
+        
+        divider = make_axes_locatable(ax1)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar1 = plt.colorbar(im1, cax=cax)
+        cbar1.set_label('Scaling factor')
+        
+        plt.tight_layout()
+        plt.show()
+ 
+    return atm,xmap

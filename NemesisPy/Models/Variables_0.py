@@ -134,7 +134,7 @@ class Variables_0:
         #assert len(VARPARAM_array[0,:]) == self.NPARAM, 'VARPARAM should have (NVAR,NPARAM) elements'
         self.VARPARAM = VARPARAM_array
 
-    def calc_NXVAR(self, NPRO):
+    def calc_NXVAR(self, NPRO, NLOCATIONS=1):
         """
         Calculate the array defining the number of parameters in the state 
         vector associated with each model
@@ -256,6 +256,14 @@ class Variables_0:
                 nxvar[i] = int(ipar)
             elif imod == 999:
                 nxvar[i] = 1
+                
+            
+            #Parameterisations for multiple locations on planet
+            elif imod == 1002:
+                nxvar[i] = 1 * NLOCATIONS    
+            elif imod == 1999:
+                nxvar[i] = 1 * NLOCATIONS
+            
             else:
                 sys.exit('error :: varID not included in calc_NXVAR()')
 
@@ -384,9 +392,10 @@ class Variables_0:
                 
         self.FIX = ifix
 
-    def read_apr(self,runname,npro):
+
+    def read_hdf5(self,runname,npro):
         """
-        Read the .apr file, which contains information about the variables and
+        Read the Variables field of the HDF5 file, which contains information about the variables and
         parametrisations that are to be retrieved, as well as their a priori values.
         These parameters are then included in the Variables class.
         
@@ -400,6 +409,50 @@ class Variables_0:
             Name of the Nemesis run
         @param NPRO: int
             Number of altitude levels in the reference atmosphere
+        """
+
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Variables exists
+        e = "/Variables" in f
+        if e==False:
+            sys.exit('error :: Variables is not defined in HDF5 file')
+        else:
+
+            self.NVAR = np.int32(f.get('Scatter/NVAR'))
+            
+
+
+
+
+    def read_apr(self,runname,npro,nlocations=1):
+        """
+        Read the .apr file, which contains information about the variables and
+        parametrisations that are to be retrieved, as well as their a priori values.
+        These parameters are then included in the Variables class.
+        
+        N.B. In this code, the apriori and retrieved vectors x are usually
+        converted to logs, all except for temperature and fractional scale heights
+        This is done to reduce instabilities when different parts of the
+        vectors and matrices hold vastly different sized properties. e.g.
+        cloud x-section and base height.
+
+        Inputs
+        ---------------
+
+        @param runname: str
+            Name of the Nemesis run
+        @param NPRO: int
+            Number of altitude levels in the reference atmosphere
+            
+        Optional inputs
+        ----------------
+        
+        @param NLOCATIONS: int
+            Number of locations in the reference atmosphere/surface
+        
         """
 
         from NemesisPy import Scatter_0
@@ -1262,7 +1315,138 @@ class Variables_0:
                     jsurf = ix
             
                     ix = ix + 1
+                    
+                    
+                elif varident[i,2] == 1002:
+#               ******** scaling of atmospheric profiles at multiple locations (linear scale)
+                    
+                    s = f.readline().split()
+                    
+                    #Reading file with the a priori information
+                    f1 = open(s[0],'r') 
+                    s = np.fromfile(f1,sep=' ',count=2,dtype='float')   #nlocations and correlation length
+                    nlocs = int(s[0])   #number of locations
+                    clen = int(s[1])    #correlation length (degress)
+                    
+                    if nlocs != nlocations:
+                        sys.exit('error in model 1002 :: number of locations must be the same as in Surface and Atmosphere')
+                        
+                    lats = np.zeros(nlocs)
+                    lons = np.zeros(nlocs)
+                    sfactor = np.zeros(nlocs)
+                    efactor = np.zeros(nlocs)
+                    for iloc in range(nlocs):
+                        
+                        s = np.fromfile(f1,sep=' ',count=4,dtype='float')   
+                        lats[iloc] = float(s[0])    #latitude of the location
+                        lons[iloc] = float(s[1])    #longitude of the location
+                        sfactor[iloc] = float(s[2])   #scaling value
+                        efactor[iloc] = float(s[3])   #uncertainty in scaling value
+                        
+                    f1.close()
+                    
 
+                    #Including the parameters in the state vector
+                    varparam[i,0] = nlocs
+                    iparj = 1
+                    for iloc in range(nlocs):
+                        
+                        #Including lats and lons in varparam
+                        varparam[i,iparj]  = lats[iloc]
+                        iparj = iparj + 1
+                        varparam[i,iparj] = lons[iloc]
+                        iparj = iparj + 1
+                        
+                        #Including surface temperature in the state vector
+                        x0[ix] = sfactor[iloc]
+                        sx[ix,ix] = sfactor[iloc]**2.0
+                        lx[ix] = 0     #linear scale
+                        inum[ix] = 0   #analytical calculation of jacobian
+                        
+                    #Defining the correlation between surface pixels 
+                    for j in range(nlocs):
+                        for k in range(nlocs):
+                            s1 = np.sin(lats[j]/180.*np.pi)
+                            s2 = np.sin(lats[k]/180.*np.pi)
+                            c1 = np.cos(lats[j]/180.*np.pi)
+                            c2 = np.cos(lats[k]/180.*np.pi)
+                            c3 = np.cos( (lons[j]-lons[k])/180.*np.pi )
+                            psi = np.arccos( s1*s2 + c1*c2*c3 ) / np.pi * 180.   #angular distance (degrees)
+                            arg = abs(delv/clen)
+                            xfac = np.exp(-arg)
+                            if xfac>0.001:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
+                        
+                    jsurf = ix
+                        
+                    ix = ix + nlocs
+                    
+                    
+                elif varident[i,2] == 1999:
+#               ******** surface temperature at multiple locations
+                    
+                    s = f.readline().split()
+                    
+                    #Reading file with the a priori information
+                    f1 = open(s[0],'r') 
+                    s = np.fromfile(f1,sep=' ',count=2,dtype='float')   #nlocations and correlation length
+                    nlocs = int(s[0])   #number of locations
+                    clen = int(s[1])    #correlation length (degress)
+                    
+                    if nlocs != nlocations:
+                        sys.exit('error in model 1999 :: number of locations must be the same as in Surface and Atmosphere')
+                        
+                    lats = np.zeros(nlocs)
+                    lons = np.zeros(nlocs)
+                    tsurf = np.zeros(nlocs)
+                    esurf = np.zeros(nlocs)
+                    for iloc in range(nlocs):
+                        
+                        s = np.fromfile(f1,sep=' ',count=4,dtype='float')   
+                        lats[iloc] = float(s[0])    #latitude of the location
+                        lons[iloc] = float(s[1])    #longitude of the location
+                        tsurf[iloc] = float(s[2])   #surface temperature
+                        esurf[iloc] = float(s[3])   #error in surface temperature
+                        
+                    f1.close()
+                    
+
+                    #Including the parameters in the state vector
+                    varparam[i,0] = nlocs
+                    iparj = 1
+                    for iloc in range(nlocs):
+                        
+                        #Including lats and lons in varparam
+                        varparam[i,iparj]  = lats[iloc]
+                        iparj = iparj + 1
+                        varparam[i,iparj] = lons[iloc]
+                        iparj = iparj + 1
+                        
+                        #Including surface temperature in the state vector
+                        x0[ix] = tsurf[iloc]
+                        sx[ix,ix] = esurf[iloc]**2.0
+                        lx[ix] = 0     #linear scale
+                        inum[ix] = 0   #analytical calculation of jacobian
+                        
+                    #Defining the correlation between surface pixels 
+                    for j in range(nlocs):
+                        for k in range(nlocs):
+                            s1 = np.sin(lats[j]/180.*np.pi)
+                            s2 = np.sin(lats[k]/180.*np.pi)
+                            c1 = np.cos(lats[j]/180.*np.pi)
+                            c2 = np.cos(lats[k]/180.*np.pi)
+                            c3 = np.cos( (lons[j]-lons[k])/180.*np.pi )
+                            psi = np.arccos( s1*s2 + c1*c2*c3 ) / np.pi * 180.   #angular distance (degrees)
+                            arg = abs(delv/clen)
+                            xfac = np.exp(-arg)
+                            if xfac>0.001:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
+                        
+                    jsurf = ix
+                        
+                    ix = ix + nlocs
 
 
         f.close()
