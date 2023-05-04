@@ -2078,7 +2078,7 @@ def read_input_files_hdf5(runname):
     #################################################################
 
     Variables = Variables_0()
-    Variables.read_apr(runname,Atmosphere.NP)
+    Variables.read_apr(runname,Atmosphere.NP,nlocations=Atmosphere.NLOCATIONS)
     Variables.XN = copy(Variables.XA)
     Variables.SX = copy(Variables.SA)
 
