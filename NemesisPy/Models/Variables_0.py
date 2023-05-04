@@ -134,7 +134,7 @@ class Variables_0:
         #assert len(VARPARAM_array[0,:]) == self.NPARAM, 'VARPARAM should have (NVAR,NPARAM) elements'
         self.VARPARAM = VARPARAM_array
 
-    def calc_NXVAR(self, NPRO, NLOCATIONS=1):
+    def calc_NXVAR(self, NPRO, nlocations=1):
         """
         Calculate the array defining the number of parameters in the state 
         vector associated with each model
@@ -260,9 +260,9 @@ class Variables_0:
             
             #Parameterisations for multiple locations on planet
             elif imod == 1002:
-                nxvar[i] = 1 * NLOCATIONS    
+                nxvar[i] = 1 * nlocations   
             elif imod == 1999:
-                nxvar[i] = 1 * NLOCATIONS
+                nxvar[i] = 1 * nlocations
             
             else:
                 sys.exit('error :: varID not included in calc_NXVAR()')
@@ -477,8 +477,8 @@ class Variables_0:
         jlogg = -1
         jfrac = -1
         sxminfac = 0.001
-        mparam = 200        #Giving big sizes but they will be re-sized
-        mx = 2000
+        mparam = 500        #Giving big sizes but they will be re-sized
+        mx = 10000
         varident = np.zeros([nvar,3],dtype='int')
         varparam = np.zeros([nvar,mparam])
         lx = np.zeros([mx],dtype='int')
@@ -1344,7 +1344,6 @@ class Variables_0:
                         efactor[iloc] = float(s[3])   #uncertainty in scaling value
                         
                     f1.close()
-                    
 
                     #Including the parameters in the state vector
                     varparam[i,0] = nlocs
@@ -1352,30 +1351,50 @@ class Variables_0:
                     for iloc in range(nlocs):
                         
                         #Including lats and lons in varparam
-                        varparam[i,iparj]  = lats[iloc]
-                        iparj = iparj + 1
-                        varparam[i,iparj] = lons[iloc]
-                        iparj = iparj + 1
+                        #varparam[i,iparj]  = lats[iloc]
+                        #iparj = iparj + 1
+                        #varparam[i,iparj] = lons[iloc]
+                        #iparj = iparj + 1
+                        
+                        #if iparj==mparam:
+                        #    sys.exit('error in reading .apr :: Need to increase the mparam')
                         
                         #Including surface temperature in the state vector
-                        x0[ix] = sfactor[iloc]
-                        sx[ix,ix] = sfactor[iloc]**2.0
-                        lx[ix] = 0     #linear scale
-                        inum[ix] = 0   #analytical calculation of jacobian
+                        x0[ix+iloc] = sfactor[iloc]
+                        sx[ix+iloc,ix+iloc] = sfactor[iloc]**2.0
+                        lx[ix+iloc] = 0     #linear scale
+                        inum[ix+iloc] = 0   #analytical calculation of jacobian
+                        
                         
                     #Defining the correlation between surface pixels 
+                    #for j in range(nlocs):
+                    #    print(j)
+                        
+                    #    for k in range(nlocs):
+                    #        s1 = np.sin(lats[j]/180.*np.pi)
+                    #        s2 = np.sin(lats[k]/180.*np.pi)
+                    #        c1 = np.cos(lats[j]/180.*np.pi)
+                    #        c2 = np.cos(lats[k]/180.*np.pi)
+                    #        c3 = np.cos( (lons[j]-lons[k])/180.*np.pi )
+                    #        psi = np.arccos( s1*s2 + c1*c2*c3 ) / np.pi * 180.   #angular distance (degrees)
+                    #        arg = abs(psi/clen)
+                    #        xfac = np.exp(-arg)
+                    #        if xfac>0.001:
+                    #            sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                    #            sx[ix+k,ix+j] = sx[ix+j,ix+k]
+                    
                     for j in range(nlocs):
+                        s1 = np.sin(lats[j]/180.*np.pi)
+                        s2 = np.sin(lats/180.*np.pi)
+                        c1 = np.cos(lats[j]/180.*np.pi)
+                        c2 = np.cos(lats/180.*np.pi)
+                        c3 = np.cos( (lons[j]-lons)/180.*np.pi )
+                        psi = np.arccos( s1*s2 + c1*c2*c3 ) / np.pi * 180.   #angular distance (degrees)
+                        arg = abs(psi/clen)
+                        xfac = np.exp(-arg)
                         for k in range(nlocs):
-                            s1 = np.sin(lats[j]/180.*np.pi)
-                            s2 = np.sin(lats[k]/180.*np.pi)
-                            c1 = np.cos(lats[j]/180.*np.pi)
-                            c2 = np.cos(lats[k]/180.*np.pi)
-                            c3 = np.cos( (lons[j]-lons[k])/180.*np.pi )
-                            psi = np.arccos( s1*s2 + c1*c2*c3 ) / np.pi * 180.   #angular distance (degrees)
-                            arg = abs(delv/clen)
-                            xfac = np.exp(-arg)
-                            if xfac>0.001:
-                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
+                            if xfac[k]>0.001:
+                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac[k]
                                 sx[ix+k,ix+j] = sx[ix+j,ix+k]
                         
                     jsurf = ix
@@ -1465,7 +1484,7 @@ class Variables_0:
         self.NPARAM=mparam
         self.edit_VARIDENT(varident)
         self.edit_VARPARAM(varparam)
-        self.calc_NXVAR(npro)
+        self.calc_NXVAR(npro,nlocations=nlocations)
         self.JPRE, self.JTAN, self.JSURF, self.JALB, self.JXSC, self.JLOGG, self.JFRAC = jpre, jtan, jsurf, jalb, jxsc, jlogg, jfrac
         self.NX = nx
         self.edit_XA(xa)
