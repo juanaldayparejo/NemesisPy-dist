@@ -19,7 +19,7 @@ State Vector Class.
 
 class Surface_0:
 
-    def __init__(self, GASGIANT=False, ISPACE=0, LOWBC=1, GALB=1.0, NEM=2, NLOCATIONS=1):
+    def __init__(self, GASGIANT=False, ISPACE=0, LOWBC=1, GALB=-1.0, NEM=2, NLOCATIONS=1):
 
         """
         Inputs
@@ -337,6 +337,12 @@ class Surface_0:
             dset.attrs['title'] = "Surface Temperature"
             dset.attrs['units'] = 'K'
 
+            #Writing the surface albedo
+            dset = grp.create_dataset('GALB',data=self.GALB)
+            dset.attrs['title'] = "Ground albedo"
+            if self.GALB<0.0:
+                dset.attrs['type'] = 'Surface albedo calculated as (1 - EMISSIVITY)'
+
             #Writing the emissivity
             dset = grp.create_dataset('EMISSIVITY',data=self.EMISSIVITY)
             dset.attrs['title'] = "Surface emissivity"
@@ -419,6 +425,9 @@ class Surface_0:
                 self.LONGITUDE = np.array(f.get('Surface/LONGITUDE'))
 
             self.EMISSIVITY = np.array(f.get('Surface/EMISSIVITY'))
+
+            if self.LOWBC==1:
+                self.GALB = np.array(f.get('Surface/GALB'))
 
             if self.LOWBC==2:
                 self.SGLALB = np.array(f.get('Surface/SGLALB'))
