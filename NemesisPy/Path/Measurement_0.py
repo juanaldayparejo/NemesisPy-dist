@@ -258,6 +258,16 @@ class Measurement_0:
 
         grp = f.create_group("Measurement")
 
+        #Writing the latitude/longitude at the centre of FOV
+        dset = grp.create_dataset('LATITUDE',data=self.LATITUDE)
+        dset.attrs['title'] = "Latitude at centre of FOV"
+        dset.attrs['units'] = 'degrees'
+
+        dset = grp.create_dataset('LONGITUDE',data=self.LONGITUDE)
+        dset.attrs['title'] = "Longitude at centre of FOV"
+        dset.attrs['units'] = 'degrees'
+
+
         #Writing the spectral units
         dset = grp.create_dataset('ISPACE',data=self.ISPACE)
         dset.attrs['title'] = "Spectral units"
@@ -422,6 +432,8 @@ class Measurement_0:
             self.NGEOM = np.int32(f.get('Measurement/NGEOM'))
             self.ISPACE = np.int32(f.get('Measurement/ISPACE'))
             self.IFORM = np.int32(f.get('Measurement/IFORM'))
+            self.LATITUDE = np.float64(f.get('Measurement/LATITUDE'))
+            self.LONGITUDE = np.float64(f.get('Measurement/LONGITUDE'))
             self.NAV = np.array(f.get('Measurement/NAV'))
             self.FLAT = np.array(f.get('Measurement/FLAT'))
             self.FLON = np.array(f.get('Measurement/FLON'))
@@ -2243,7 +2255,8 @@ class Measurement_0:
         s_m.set_array([])
 
         for igeom in range(self.NGEOM):
-            ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom],c=s_m.to_rgba([self.TANHE[igeom,0]]))
+            #ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom],c=s_m.to_rgba([self.TANHE[igeom,0]]))
+            ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
 
         if np.mean(self.VCONV)>30.:
             ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
