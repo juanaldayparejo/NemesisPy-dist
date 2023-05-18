@@ -331,14 +331,14 @@ class Measurement_0:
         dset.attrs['unit'] = "Degrees"
 
         #Checking if there are any limb-viewing geometries
-        if self.EMISS_ANG.min()<0.0:
+        if np.nanmin(self.EMISS_ANG)<0.0:
 
             dset = grp.create_dataset('TANHE',data=self.TANHE)
             dset.attrs['title'] = "Tangent height of each averaging point needed to reconstruct the field-of-view"
             dset.attrs['unit'] = "km"
 
         #Checking if there are any nadir-viewing / upward looking geometries
-        if self.EMISS_ANG.max() >= 0.0:
+        if np.nanmax(self.EMISS_ANG) >= 0.0:
 
             dset = grp.create_dataset('SOL_ANG',data=self.SOL_ANG)
             dset.attrs['title'] = "Solar zenith angle of each averaging point needed to reconstruct the field-of-view"
@@ -441,13 +441,14 @@ class Measurement_0:
             self.EMISS_ANG = np.array(f.get('Measurement/EMISS_ANG'))
 
             #Checking if there are any limb-viewing geometries
-            if self.EMISS_ANG.min()<0.0:
+            if np.nanmin(self.EMISS_ANG)<0.0:
                 self.TANHE = np.array(f.get('Measurement/TANHE'))
 
             #Checking if there are any nadir-viewing / upward looking geometries
-            if self.EMISS_ANG.max() >= 0.0:
+            if np.nanmax(self.EMISS_ANG) >= 0.0:
                 self.SOL_ANG = np.array(f.get('Measurement/SOL_ANG'))
                 self.AZI_ANG = np.array(f.get('Measurement/AZI_ANG'))
+
 
             self.NCONV = np.array(f.get('Measurement/NCONV'))
             self.VCONV = np.array(f.get('Measurement/VCONV'))
