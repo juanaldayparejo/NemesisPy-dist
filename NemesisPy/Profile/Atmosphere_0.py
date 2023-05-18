@@ -65,7 +65,7 @@ class Atmosphere_0:
             the column j corresponds to the gas with RADTRANS ID ID[j]
             and RADTRANS isotope ID ISO[j]
         @attribute MOLWT: float
-            Molecular weight of the atmosphere in kg/mol
+            Molecular weight of the atmosphere in kg mol-1
 
         Methods
         -------
@@ -112,8 +112,8 @@ class Atmosphere_0:
         self.H = None # np.zeros(NP) or np.zeros((NP,NLOCATIONS)) #m
         self.P = None # np.zeros(NP) or np.zeros((NP,NLOCATIONS)) #Pa
         self.T =  None # np.zeros(NP) or np.zeros((NP,NLOCATIONS))
-        self.MOLWT = None #np.zeros(NP) or np.zeros((NP,NLOCATIONS))
-        self.GRAV = None #np.zeros(NP) or np.zeros((NP,NLOCATIONS))
+        self.MOLWT = None #np.zeros(NP) or np.zeros((NP,NLOCATIONS))   /   kg mol-1
+        self.GRAV = None #np.zeros(NP) or np.zeros((NP,NLOCATIONS))    
         self.VMR = None # np.zeros((NP,NVMR)) or np.zeros((NP,NVMR,NLOCATIONS))
         self.DUST = None # np.zeros((NP,NDUST)) or np.zeros((NP,NDUST,NLOCATIONS))
 
@@ -286,7 +286,7 @@ class Atmosphere_0:
             dset.attrs['type'] = "Explicit definition of the molecular weight MOLWT"
             dset = grp.create_dataset('MOLWT',data=self.MOLWT)
             dset.attrs['title'] = "Molecular weight"
-            dset.attrs['units'] = "g mol-1"
+            dset.attrs['units'] = "kg mol-1"
         elif self.AMFORM==1:
             dset.attrs['type'] = "Internal calculation of molecular weight with scaling of VMRs to 1"
         elif self.AMFORM==2:
@@ -755,7 +755,6 @@ class Atmosphere_0:
             if ( (alt0>0.0) & (ialt>0)):
                 ialt = ialt -1
 
-
             xdepth = 100.
             while xdepth>1:
 
@@ -801,56 +800,67 @@ class Atmosphere_0:
                 
         else:
             
+            
+            #It is assumed that the 0.0 altitude level is at the level position in all profiles
+            ialtx = np.argmin(np.abs(self.H),axis=0)
+            ialt = np.unique(ialtx)
+            
+            if len(ialt)!=1:
+                sys.exit('error in adjust_hydrostatH :: when using multiple locations it is assumed that the z = 0.0 km is at the same level index')
+            else:
+                ialt = int(ialt[0])
+
+            altx = self.H[ialt,:]
+            ialtx = np.zeros(self.NLOCATIONS,dtype='int32')
             for iLOC in range(self.NLOCATIONS):
+                if((altx[iLOC]>0.0) & (ialt>0)):
+                    ialtx[iLOC] = ialt -1
+                    
+            ialt = np.unique(ialtx)
+            if len(ialt)!=1:
+                sys.exit('error in adjust_hydrostatH :: when using multiple locations it is assumed that the z = 0.0 km is at the same level index')
+            else:
+                ialt = int(ialt[0])
+
+
+            xdepth = np.ones(self.NLOCATIONS)*100.
+            while xdepth.max()>1.0:
                 
-                #First find the level closest to the 0m altitude
-                alt0,ialt = find_nearest(self.H[:,iLOC],0.0)
-                if ( (alt0>0.0) & (ialt>0)):
-                    ialt = ialt -1
+                h = np.zeros(self.H.shape)
+                p = np.zeros(self.H.shape)
+                h[:,:] = self.H[:,:]
+                p[:,:] = self.P[:,:]
+            
+                #Calculating the atmospheric depth
+                atdepth = self.H[self.NP-1,:] - self.H[0,:]
 
+                #Calculate the gravity at each altitude level
+                self.calc_grav()
 
-                xdepth = 100.
-                while xdepth>1:
+                #Calculate the scale height
+                R = const["R"]
+                scale = R * self.T / (self.MOLWT * self.GRAV)   #scale height (m)
 
-                    h = np.zeros(self.NP)
-                    p = np.zeros(self.NP)
-                    h[:] = self.H[:,iLOC]
-                    p[:] = self.P[:,iLOC]
+                if ((ialt>0) & (ialt<self.NP-1)):
+                    h[ialt,:] = 0.0
 
-                    #Calculating the atmospheric depth
-                    atdepth = h[self.NP-1] - h[0]
+                nupper = self.NP - ialt - 1
+                for i in range(ialt+1,self.NP):
+                    sh = 0.5 * (scale[i-1,:] + scale[i,:])
+                    h[i,:] = h[i-1,:] - sh[:] * np.log(p[i,:]/p[i-1,:])
 
-                    #Calculate the gravity at each altitude level
-                    self.calc_grav()
+                for i in range(ialt-1,-1,-1):
+                    sh = 0.5 * (scale[i+1,:] + scale[i,:])
+                    h[i,:] = h[i+1,:] - sh[:] * np.log(p[i,:]/p[i+1,:])
 
-                    #Calculate the scale height
-                    R = const["R"]
-                    scale = R * self.T[:,iLOC] / (self.MOLWT[:,iLOC] * self.GRAV[:,iLOC])   #scale height (m)
+                atdepth1 = h[self.NP-1,:] - h[0,:]
 
-                    p[:] = self.P[:,iLOC]
-                    if ((ialt>0) & (ialt<self.NP-1)):
-                        h[ialt] = 0.0
+                xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
 
-                    nupper = self.NP - ialt - 1
-                    for i in range(ialt+1,self.NP):
-                        sh = 0.5 * (scale[i-1] + scale[i])
-                        #self.H[i] = self.H[i-1] - sh * np.log(self.P[i]/self.P[i-1])
-                        h[i] = h[i-1] - sh * np.log(p[i]/p[i-1])
+                self.H[:,:] = h[:,:]
 
-                    for i in range(ialt-1,-1,-1):
-                        sh = 0.5 * (scale[i+1] + scale[i])
-                        #self.H[i] = self.H[i+1] - sh * np.log(self.P[i]/self.P[i+1])
-                        h[i] = h[i+1] - sh * np.log(p[i]/p[i+1])
-
-                    #atdepth1 = self.H[self.NP-1] - self.H[0]
-                    atdepth1 = h[self.NP-1] - h[0]
-
-                    xdepth = 100.*abs((atdepth1-atdepth)/atdepth)
-
-                    self.H[:,iLOC] = h[:]
-
-                    #Re-Calculate the gravity at each altitude level
-                    self.calc_grav()
+                #Re-Calculate the gravity at each altitude level
+                self.calc_grav()
 
 
     def add_gas(self,gasID,isoID,vmr):
