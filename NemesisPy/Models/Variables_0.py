@@ -162,7 +162,7 @@ class Variables_0:
                 imod = self.VARIDENT[i,2]
                 ipar = self.VARPARAM[i,0]
                 ipar2 = self.VARPARAM[i,1]
-                ipar3 = self.VARPARAM[i,3]
+                ipar3 = self.VARPARAM[i,2]
 
             if imod == -1:
                 nxvar[i] = NPRO
