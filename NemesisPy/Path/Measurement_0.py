@@ -55,6 +55,9 @@ class Measurement_0:
         Planetocentric latitude at centre of the field of view
     LONGITUDE : float
         Planetocentric longitude at centre of the field of view
+    V_DOPPLER : float
+        Doppler velocity between the observed body and the observer (km/s)
+        It is considered positive if source body is moving towards observer, and negative if it is moving away
     NCONV : 1D array, int (NGEOM)
         Number of convolution spectral points in each spectrum
     NAV : 1D array, int (NGEOM)
@@ -102,7 +105,6 @@ class Measurement_0:
     SPECMOD : 2D array, float (NCONV,NGEOM)
         Modelled spectrum for each geometry
 
-
     Examples
     --------
 
@@ -114,7 +116,7 @@ class Measurement_0:
 
     """
 
-    def __init__(self, runname='', NGEOM=1, FWHM=0.0, ISHAPE=2, IFORM=0, ISPACE=0, LATITUDE=0.0, LONGITUDE=0.0, NCONV=[1], NAV=[1]):
+    def __init__(self, runname='', NGEOM=1, FWHM=0.0, ISHAPE=2, IFORM=0, ISPACE=0, LATITUDE=0.0, LONGITUDE=0.0, V_DOPPLER=0.0, NCONV=[1], NAV=[1]):
 
         #Input parameters
         self.runname = runname
@@ -125,6 +127,7 @@ class Measurement_0:
         self.IFORM = IFORM
         self.LATITUDE = LATITUDE        
         self.LONGITUDE = LONGITUDE
+        self.V_DOPPLER = V_DOPPLER
         self.NAV = NAV       #np.zeros(NGEOM)
         self.NCONV = NCONV   #np.zeros(NGEOM)
 
@@ -180,6 +183,9 @@ class Measurement_0:
         
         assert np.issubdtype(type(self.FWHM), np.float) == True , \
             'FWHM must be float'
+            
+        assert np.issubdtype(type(self.V_DOPPLER), np.float) == True , \
+            'V_DOPPLER must be float'
         
         assert len(self.NCONV) == self.NGEOM , \
             'NCONV must have size (NGEOM)'
@@ -266,7 +272,11 @@ class Measurement_0:
         dset = grp.create_dataset('LONGITUDE',data=self.LONGITUDE)
         dset.attrs['title'] = "Longitude at centre of FOV"
         dset.attrs['units'] = 'degrees'
-
+        
+        #Writing the Doppler velocity
+        dset = grp.create_dataset('V_DOPPLER',data=self.V_DOPPLER)
+        dset.attrs['title'] = "Doppler velocity between the observed body and the observer"
+        dset.attrs['units'] = 'km s-1'
 
         #Writing the spectral units
         dset = grp.create_dataset('ISPACE',data=self.ISPACE)
@@ -434,6 +444,7 @@ class Measurement_0:
             self.IFORM = np.int32(f.get('Measurement/IFORM'))
             self.LATITUDE = np.float64(f.get('Measurement/LATITUDE'))
             self.LONGITUDE = np.float64(f.get('Measurement/LONGITUDE'))
+            self.V_DOPPLER = np.float64(f.get('Measurement/V_DOPPLER'))
             self.NAV = np.array(f.get('Measurement/NAV'))
             self.FLAT = np.array(f.get('Measurement/FLAT'))
             self.FLON = np.array(f.get('Measurement/FLON'))
@@ -1142,10 +1153,6 @@ class Measurement_0:
             wavemin = self.VCONV[0,IGEOM] - dv
             wavemax = self.VCONV[self.NCONV[IGEOM]-1,IGEOM] + dv
 
-            err = 0.001
-            if (wavemin<(1-err)*Spectroscopy.WAVE.min() or wavemax>(1+err)*Spectroscopy.WAVE.max()):
-                sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
-
         elif self.FWHM<=0.0:
 
             wavemin = 1.0e10
@@ -1158,12 +1165,40 @@ class Measurement_0:
                 if vmaxx>wavemax:
                     wavemax= vmaxx
 
-            if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
-                sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
+        #Correcting the wavelengths for Doppler shift
+        print('nemesis :: Correcting for Doppler shift of ',self.V_DOPPLER,'km/s')
+        shiftmin = self.calc_doppler_shift(wavemin)
+        shiftmax = self.calc_doppler_shift(wavemax)
+        
+        wavemin = wavemin + shiftmin
+        wavemax = wavemax + shiftmax
+        
+        #Sorting the wavenumbers if the ILS is flipped
+        if wavemin>=wavemax:
+            sys.exit('error in wavesetc :: the spectral points defining the instrument lineshape must be increasing')
+
+        #Checking that the lbl-tables encompass this wavelength range
+        err = 0.001
+        if (wavemin<(1-err)*Spectroscopy.WAVE.min() or wavemax>(1+err)*Spectroscopy.WAVE.max()):
+            sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
+
 
         #Selecting the necessary wavenumbers
         iwave = np.where( (Spectroscopy.WAVE>=wavemin) & (Spectroscopy.WAVE<=wavemax) )
         iwave = iwave[0]
+        
+        #Adding two more points to avoid problems with edges
+        iwavex = np.zeros(len(iwave)+2,dtype='int32')
+        if iwave[0]>0:
+            iwavex[0] = iwave[0] - 1
+        if iwave[len(iwave)-1]<Spectroscopy.NWAVE-1:
+            iwavex[len(iwave)+1] = iwave[len(iwave)-1] + 1
+        else:
+            iwavex[len(iwave)+1] = Spectroscopy.NWAVE-1
+        iwavex[1:len(iwave)+1] = iwave[:]
+
+        iwavex = np.unique(iwavex)
+        
         self.WAVE = Spectroscopy.WAVE[iwave]
         self.NWAVE = len(self.WAVE)
 
@@ -1262,6 +1297,29 @@ class Measurement_0:
 
         else:
             sys.exit('error :: Measurement FWHM is not defined')
+
+
+    def calc_doppler_shift(self,wave):
+        """
+        Subroutine to calculate the Doppler shift in wavenumber or wavelength units based on
+        the Doppler velocity between the observed body and the observer
+        
+        V_DOPPLER is defined as positive if moving towards the observer and negative if moving away
+        
+        This function returns Delta_Wave, where:
+            Delta_Wave = Wave * v / c
+        """
+        
+        c = 299792458.0   #Speed of light (m/s)
+        
+        if self.ISPACE==0:
+            #Wavenumber (cm-1)
+            wave_shift = self.V_DOPPLER*1.0e3 / c * wave
+        elif self.ISPACE==1:
+            #Wavelength (um)
+            wave_shift = -self.V_DOPPLER*1.0e3 / c * wave
+        
+        return wave_shift
 
     def lblconv_v0(self,ModSpec,IGEOM='All'):
         """
@@ -1468,6 +1526,10 @@ class Measurement_0:
             Convolved spectrum with the instrument lineshape
 
         """
+        
+        #Accounting for the Doppler shift that was previously introduced
+        shift = self.calc_doppler_shift(self.WAVE)
+        wavecorr = self.WAVE - shift
 
         if self.FWHM>0.0:
 
@@ -1477,14 +1539,14 @@ class Measurement_0:
                 if ModSpec.ndim!=2:
                     sys.exit('error in lblconvg :: ModSpec must have 2 dimensions (NWAVE,NGEOM)')
 
-                SPECONV = lblconv_ngeom(self.NWAVE,self.WAVE,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
+                SPECONV = lblconv_ngeom(self.NWAVE,wavecorr,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
             else:
 
                 if ModSpec.ndim!=1:
                     sys.exit('error in lblconvg :: ModSpec must have 1 dimensions (NWAVE)')
                 
                 IG = IGEOM
-                SPECONV = lblconv(self.NWAVE,self.WAVE,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
+                SPECONV = lblconv(self.NWAVE,wavecorr,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
             
         elif self.FWHM<0.0:
 
@@ -1494,7 +1556,7 @@ class Measurement_0:
                     sys.exit('error in lblconvg :: ModSpec must have 2 dimensions (NWAVE,NGEOM)')
 
                 IG = 0
-                SPECONV = lblconv_fil_ngeom(self.NWAVE,self.WAVE,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
+                SPECONV = lblconv_fil_ngeom(self.NWAVE,wavecorr,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
 
             else:
 
@@ -1502,7 +1564,7 @@ class Measurement_0:
                     sys.exit('error in lblconvg :: ModSpec must have 1 dimensions (NWAVE)')
 
                 IG = IGEOM
-                SPECONV = lblconv_fil(self.NWAVE,self.WAVE,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
+                SPECONV = lblconv_fil(self.NWAVE,wavecorr,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
 
         return SPECONV
 
@@ -1737,6 +1799,10 @@ class Measurement_0:
             Convolved gradients with the instrument lineshape
         """
 
+        #Accounting for the Doppler shift that was previously introduced
+        shift = self.calc_doppler_shift(self.WAVE)
+        wavecorr = self.WAVE - shift
+
         if self.FWHM>0.0:
 
             if IGEOM=='All':
@@ -1747,7 +1813,7 @@ class Measurement_0:
                 if ModGrad.ndim!=3:
                     sys.exit('error in lblconvg :: ModGrad must have 3 dimensions (NWAVE,NGEOM,NX)')
 
-                SPECONV,dSPECONV = lblconvg_ngeom(self.NWAVE,self.WAVE,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
+                SPECONV,dSPECONV = lblconvg_ngeom(self.NWAVE,wavecorr,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
             else:
 
                 if ModSpec.ndim!=1:
@@ -1757,7 +1823,7 @@ class Measurement_0:
 
                 
                 IG = IGEOM
-                SPECONV,dSPECONV = lblconvg(self.NWAVE,self.WAVE,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
+                SPECONV,dSPECONV = lblconvg(self.NWAVE,wavecorr,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.ISHAPE,self.FWHM)
             
         elif self.FWHM<0.0:
 
@@ -1769,7 +1835,7 @@ class Measurement_0:
                     sys.exit('error in lblconvg :: ModGrad must have 3 dimensions (NWAVE,NGEOM,NX)')
 
                 IG = 0
-                SPECONV,dSPECONV = lblconvg_fil_ngeom(self.NWAVE,self.WAVE,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
+                SPECONV,dSPECONV = lblconvg_fil_ngeom(self.NWAVE,wavecorr,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
 
             else:
 
@@ -1780,7 +1846,7 @@ class Measurement_0:
 
                 
                 IG = IGEOM
-                SPECONV,dSPECONV = lblconvg_fil(self.NWAVE,self.WAVE,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
+                SPECONV,dSPECONV = lblconvg_fil(self.NWAVE,wavecorr,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
 
         return SPECONV,dSPECONV
 
