@@ -395,6 +395,66 @@ contains
 
     !==================================================================================================
 
+    subroutine addp_layer_nwave(NWAVE,NG,NMU,E,R1,T1,J1,ISCAT1,RSUB,TSUB,JSUB,RANS,TANS,JANS)
+        !$Id: addp.f,v 1.2 2011-06-17 15:57:52 irwin Exp $
+        !*****************************************************************
+        !Subroutine to add the diffuse reflection, transmission and reflection
+        !matrices for two adjacent atmospheric layers at different wavelengths
+
+        !This function is just an "expansion" of addp_layer(), but looping over 
+        !wavelength in Fortran to avoid large for loops in Python
+   
+        !Input variables:
+        !R1(NWAVE,NG,JDIM,JDIM)	DOUBLE	Diffuse reflection operator for 1st layer
+        !T1(NWAVE,NG,JDIM,JDIM)	DOUBLE	Diffuse transmission operator for 1st layer
+        !J1(NWAVE,NG,JDIM,1)	DOUBLE	Diffuse source function for 1st layer
+        !ISCAT1(NAVE,NG)		INTEGER Flag to indicate if 2nd layer is scattering
+        !RSUB(NWAVE,NG,JDIM,JDIM)	DOUBLE	Diffuse reflection operator for 2nd layer
+        !TSUB(NWAVE,NG,JDIM,JDIM)	DOUBLE	Diffuse transmission operator for 2nd layer
+        !JSUB(NWAVE,NG,JDIM,1)	DOUBLE	Diffuse source function for 2nd layer
+        !NMU		INTEGER	Number of elements used
+        !NWAVE      INTEGER Number of wavelengths
+        !NG         INTEGER Number of g-ordinates
+   
+        !Output variables
+        !RANS(NWAVE,NG,JDIM,JDIM)	DOUBLE	Combined diffuse reflection operator
+        !TANS(NWAVE,NG,JDIM,JDIM)	DOUBLE	Combined diffuse transmission operator
+        !JANS(NWAVE,NG,JDIM,1)	DOUBLE	Combined diffuse source function
+   
+        !Pat Irwin		17/9/96
+        !**********************************************************************
+   
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: NWAVE,NG,NMU
+        integer, intent(in) :: ISCAT1(NWAVE,NG)
+        double precision, intent(in) :: E(NMU,NMU)
+        double precision, intent(in) :: R1(NWAVE,NG,NMU,NMU),T1(NWAVE,NG,NMU,NMU),J1(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RSUB(NWAVE,NG,NMU,NMU),TSUB(NWAVE,NG,NMU,NMU),JSUB(NWAVE,NG,NMU,1)
+
+        !Local
+        integer :: IWAVE,IG
+
+        !Outputs
+        double precision, intent(out) :: RANS(NWAVE,NG,NMU,NMU),TANS(NWAVE,NG,NMU,NMU),JANS(NWAVE,NG,NMU,1)
+
+
+        do IWAVE=1,NWAVE
+            do IG=1,NG
+                call addp_layer(NMU,E, &
+                    R1(IWAVE,IG,:,:),T1(IWAVE,IG,:,:),J1(IWAVE,IG,:,:),ISCAT1(IWAVE,IG), &
+                    RSUB(IWAVE,IG,:,:),TSUB(IWAVE,IG,:,:),JSUB(IWAVE,IG,:,:), &
+                    RANS(IWAVE,IG,:,:),TANS(IWAVE,IG,:,:),JANS(IWAVE,IG,:,:))
+            enddo
+        enddo
+
+   
+        RETURN
+    end subroutine
+
+    !==================================================================================================
+
     subroutine iup(NWAVE,NG,NMU,E,U0PL,UTMI,RA,TA,JA,RB,TB,JB,UMI)
         !*****************************************************************
         !Subroutine to calculate the upwards intensity of a cloud
