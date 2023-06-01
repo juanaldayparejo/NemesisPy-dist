@@ -1374,5 +1374,38 @@ class Surface_0:
 
         ax1.grid()
         plt.tight_layout()
-        fig.savefig('example.png')
+        plt.show()
+        
+    def plot_emissivity_map(self,subobs_lat=None,subobs_lon=None,cmap='viridis',iWAVE=0):
+        """
+        Function to plot the surface emissivity on a map 
+        """
+
+        from mpl_toolkits.basemap import Basemap
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        fig,ax1 = plt.subplots(1,1,figsize=(5,5))
+
+        #Plotting the geometry
+        if((subobs_lat is not None) & (subobs_lon is not None)):
+            map = Basemap(projection='ortho', resolution=None,
+                lat_0=subobs_lat, lon_0=subobs_lon)
+        else:
+            map = Basemap(projection='ortho', resolution=None,
+                lat_0=np.mean(self.LATITUDE), lon_0=np.mean(self.LONGITUDE))
+            
+        lats = map.drawparallels(np.linspace(-90, 90, 13))
+        lons = map.drawmeridians(np.linspace(-180, 180, 13))
+
+        im = map.scatter(self.LONGITUDE,self.LATITUDE,latlon=True,c=self.EMISSIVITY[iWAVE,:],cmap=cmap)
+
+        # create an axes on the right side of ax. The width of cax will be 5%
+        # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+        divider = make_axes_locatable(ax1)
+        cax = divider.append_axes("bottom", size="5%", pad=0.15)
+        cbar2 = plt.colorbar(im,cax=cax,orientation='horizontal')
+        cbar2.set_label('Surface Emissivity')
+
+        ax1.grid()
+        plt.tight_layout()
         plt.show()
