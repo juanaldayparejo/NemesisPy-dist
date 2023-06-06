@@ -40,7 +40,8 @@ class Scatter_0:
             (0) Rayleigh scattering optical depth not included
             (1) Rayleigh optical depths for gas giant atmosphere
             (2) Rayleigh optical depth suitable for CO2-dominated atmosphere
-            (>2) Rayleigh optical depth suitable for a N2-O2 atmosphere
+            (3) Rayleigh optical depth suitable for a N2-O2 atmosphere
+            (>3) Rayleigh optical depth suitable for Jovian air (adapted from Larry Sromovsky) 
         @param IMIE int,
             Flag indicating how the aerosol phase function needs to be computed (only relevant for ISCAT>0):
             (0) Phase function is computed from the associated Henyey-Greenstein parameters stored in G1,G2
@@ -110,6 +111,7 @@ class Scatter_0:
         Scatter_0.calc_tau_dust()
         Scatter_0.calc_tau_rayleighj()
         Scatter_0.calc_tau_rayleighv()
+        Scatter_0.calc_tau_rayleighls()
         Scatter_0.read_refind_file()
         Scatter_0.read_refind()
         Scatter_0.miescat()
@@ -1202,6 +1204,133 @@ class Scatter_0:
 
         return tau_ray,dtau_ray
 
+
+    def calc_tau_rayleighls(self,ISPACE,WAVEC,ID,ISO,Layer,MakePlot=False):
+        """
+        Function to calculate the Rayleigh scattering opacity in each atmospheric layer,
+        for Jovian air using the code from Larry Sromovsky. Computes Rayleigh scattering 
+        cross section per molecule considering only H2, He, CH4, and NH3 with only NH3 expressed
+        as a volume mixing ratio
+
+        @param ISPACE: int
+            Flag indicating the spectral units (0) Wavenumber in cm-1 (1) Wavelegnth (um)
+        @param WAVEC: 1D array (float)
+            Wavenumber (cm-1) or wavelength array (um)
+        @param ID: 1D array (float)
+            Radtran ID of each of the gases in the atmosphere
+        @param ISO: 1D array (float)
+            Radtran ID of each of the isotopes in the atmosphere (0 for all isotopes)
+        @param Layer: class
+            Layer :: Python class defining the layering scheme to be applied in the calculations
+
+        Outputs
+        ________
+
+        TAURAY(NWAVE,NLAY) :: Rayleigh scattering opacity in each layer
+        dTAURAY(NWAVE,NLAY) :: Rate of change of Rayleigh scattering opacity in each layer
+
+        """
+        
+        #Calculating the fractions of He and CH4 wrt to H2
+        NVMR = self.PP.shape[1]
+        if len(ID)!=NVMR:
+            sys.exit('error in calc_tau_rayleighls :: Number of gases in ID must be the same as in the Layer class')
+        if len(ISO)!=NVMR:
+            sys.exit('error in calc_tau_rayleighls :: Number of gases in ISO must be the same as in the Layer class')
+            
+        
+        #Finding the location of H2, He, CH4 and NH3 in the atmosphere    
+        ih2 = -1
+        inh3 = -1
+        ihe = -1
+        ich4 = -1
+        
+        fh2 = np.zeros(Layer.NLAY)
+        fhe = np.zeros(Layer.NLAY)
+        fch4 = np.zeros(Layer.NLAY)
+        fnh3 = np.zeros(Layer.NLAY)
+        for j in range(NVMR):
+            
+            if ID[j]==39:  #H2
+                if((ISO[j]==0) or (ISO[j]==1)):
+                    ih2 = j
+                    fh2[:] = Layer.PP[:,ih2]/Layer.PRESS
+            elif ID[j]==40:  #He
+                if((ISO[j]==0) or (ISO[j]==1)):
+                    ihe = j
+                    fhe[:] = Layer.PP[:,ihe]/Layer.PRESS
+            elif ID[j]==6:  #CH4
+                if((ISO[j]==0) or (ISO[j]==1)):
+                    ich4 = j
+                    fch4[:] = Layer.PP[:,ich4]/Layer.PRESS
+            elif ID[j]==11:  #NH3
+                if((ISO[j]==0) or (ISO[j]==1)):
+                    inh3 = j
+                    fnh3[:] = Layer.PP[:,inh3]/Layer.PRESS
+                    
+        
+        fheh2 = np.zeros(Layer.NLAY)
+        fch4h2 = np.zeros(Layer.NLAY)
+        inot = np.where(fh2>0.0)
+        fheh2[inot] = fhe[inot]/fh2[inot]
+        fch4h2[inot] = fch4[inot]/fh2[inot]
+            
+        
+        #Calculating the relative amounts of H2,CH4,He and NH3 (with the assumption that the sum of these gases provide VMR=1)
+        comp = np.zeros((Layer.NLAY,4))
+        comp[:,0] = (1.0 - fnh3)/(1.0+fheh2+fch4h2)   #H2
+        comp[:,1] = fheh2 * comp[:,0]                 #He
+        comp[:,2] = fch4h2 * comp[:,1]                #CH4
+        comp[:,3] = fnh3[:]                           #NH3
+        
+        #loschpm3 is molecules per cubic micron at STP
+        loschpm3=2.687e19*1.0e-12
+        
+        if ISPACE==0:
+            wl = 1./WAVEC * 1.0e-2 * 1.0e6  #Wavelength in microns
+        else:
+            wl = WAVEC #Wavelength in microns
+        
+        
+        #refractive index equation coefficients from Allen, Astrophys. Quant., p 87 (1964)
+        #where n-1=A(1+B/wl^2), where wl is wavelength
+        #and n is the refractive index at STP (0C, 1 Atm=1.01325bar)
+        
+        #used NH3 value as a guess for CH4 which is not listed
+        #depol. factors from Penndorf, J. Opt. Soc. of Amer., 47, 176-182 (1957)
+        #used Parthasarathy (1951) values from Table II.
+        #used CO2 value as a guess for CH4 which is not listed
+        
+        A = np.array([13.58e-5, 3.48e-5, 37.0e-5, 37.0e-5])  #H2,He,CH4,NH3
+        B = np.array([7.52e-3,  2.3e-3, 12.0e-3, 12.0e-3])
+        D = np.array([0.0221,   0.025,    .0922, .0922])
+        
+        
+        #Compute summation over molecule-dependent scattering properties
+        #Cross section formula also given in van de Hulst (1957)
+        #xc1=0.
+        #sumwt=0.
+        xc1 = np.zeros((Layer.NLAY,len(wl)))
+        sumwt = np.zeros(Layer.NLAY)
+        for j in range(4):
+            nr = 1.0 + A[j]*(1.0+B[j]/wl**2.)  #(NWAVE)
+            for ilay in range(Layer.NLAY):
+                xc1[ilay,:] = xc1[ilay,:] + (nr**2.0 - 1.0)**2.0*comp[ilay,j]*(6.0+3.0*D[j])/(6.0-7.0*D[j])
+            sumwt[:] = sumwt[:] + comp[:,j]
+
+        fact=8.0*(np.pi**3.0)/(3.0*(wl**4.0)*(loschpm3**2.0))   #(NWAVE)
+
+        #average cross section in m^2 per molecule 
+        k_rayleighls=np.transpose(fact*1e-8*xc1)/sumwt * 1.0e-4 #(NWAVE,NLAY)
+        
+        #Calculating the Rayleigh opacities in each layer
+        tau_ray = np.zeros((len(WAVEC),Layer.NLAY))
+        dtau_ray = np.zeros((len(WAVEC),Layer.NLAY))
+
+        tau_ray[:,:] = k_rayleighls[:,:] * Layer.TOTAM  #(NWAVE,NLAY) 
+        dtau_ray[:,:] = k_rayleighls[:,:]               #dTAURAY/dTOTAM (m2)
+                    
+        return tau_ray, dtau_ray
 
 
     def read_refind(self,aeroID):
