@@ -19,7 +19,7 @@ State Vector Class.
 
 class Spectroscopy_0:
 
-    def __init__(self, RUNNAME='', ILBL=2, NGAS=2):
+    def __init__(self, RUNNAME='', ILBL=2, NGAS=2, ONLINE=False):
 
         """
         Inputs
@@ -29,6 +29,9 @@ class Spectroscopy_0:
         @param ILBL: int,
             Flag indicating if the calculations are performed using pre-tabulated
             correlated-K tables (0) or line-by-line tables (2)
+        @param ONLINE: bool,
+            Flag indicating whether the look-up tables must be read and stored on memory (False), 
+            or they are read online when calling calc_klbl or calc_k (True)
         @param NGAS: int,
             Number of active gases to include in the atmosphere
         @param ID: 1D array,
@@ -68,6 +71,7 @@ class Spectroscopy_0:
         Spectroscopy_0.read_lls
         Spectroscopy_0.read_kls
         Spectroscopy_0.read_tables
+        Spectroscopy_0.write_table_hdf5
         Spectroscopy_0.calc_klbl
         Spectroscopy_0.calc_k
         Spectroscopy_0.calc_klblg
@@ -78,6 +82,7 @@ class Spectroscopy_0:
         self.RUNNAME = RUNNAME
         self.ILBL = ILBL
         self.NGAS = NGAS
+        self.ONLINE = ONLINE
 
         #Attributes
         self.ISPACE = None
@@ -285,82 +290,165 @@ class Spectroscopy_0:
 
                 if self.ILBL==0:
 
-                    #Now reading the head of the binary files included in the .lls file
-                    nwavekta = np.zeros(self.NGAS,dtype='int')
-                    npresskta = np.zeros(self.NGAS,dtype='int')
-                    ntempkta = np.zeros(self.NGAS,dtype='int')
-                    ngkta = np.zeros(self.NGAS,dtype='int')
-                    gasIDkta = np.zeros(self.NGAS,dtype='int')
-                    isoIDkta = np.zeros(self.NGAS,dtype='int')
+                    #Getting the extension of the look-up tables to see whether they are in HDF5 or binary formats
+                    ext = np.zeros(self.NGAS,dtype='int32')
                     for i in range(self.NGAS):
-                        nwave,wavekta,fwhmk,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels = read_ktahead(self.LOCATION[i])
-                        nwavekta[i] = nwave
-                        npresskta[i] = npress
-                        ntempkta[i] = ntemp
-                        ngkta[i] = ng
-                        gasIDkta[i] = gasID
-                        isoIDkta[i] = isoID
+                        tablex = self.LOCATION[i]
+                        extx = tablex[len(tablex)-3:len(tablex)]
+                        if extx=='kta':
+                            ext[i] = 0
+                        elif extx=='.h5':
+                            ext[i] = 1
+                        else:
+                            sys.exit('error in read_hdf5 :: The extention of the look-up tables must be .kta or .h5')
+                    
+                    if len(np.unique(ext)) != 1:
+                        sys.exit('error :: all look-up tables must be defined in the same format (with same extension)')
+                        
+                    extx = np.unique(ext)[0]
+                    
+                    if extx==0:
 
-                    if len(np.unique(nwavekta)) != 1:
-                        sys.exit('error :: Number of wavenumbers in all .kta files must be the same')
-                    if len(np.unique(npresskta)) != 1:
-                        sys.exit('error :: Number of pressure levels in all .kta files must be the same')
-                    if len(np.unique(ntempkta)) != 1:
-                        sys.exit('error :: Number of temperature levels in all .kta files must be the same')
-                    if len(np.unique(ngkta)) != 1:
-                        sys.exit('error :: Number of g-ordinates in all .kta files must be the same')
+                        #Now reading the head of the binary files included in the .lls file
+                        nwavekta = np.zeros(self.NGAS,dtype='int')
+                        npresskta = np.zeros(self.NGAS,dtype='int')
+                        ntempkta = np.zeros(self.NGAS,dtype='int')
+                        ngkta = np.zeros(self.NGAS,dtype='int')
+                        gasIDkta = np.zeros(self.NGAS,dtype='int')
+                        isoIDkta = np.zeros(self.NGAS,dtype='int')
+                        for i in range(self.NGAS):
+                            nwave,wavekta,fwhmk,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels = read_ktahead(self.LOCATION[i])
+                            nwavekta[i] = nwave
+                            npresskta[i] = npress
+                            ntempkta[i] = ntemp
+                            ngkta[i] = ng
+                            gasIDkta[i] = gasID
+                            isoIDkta[i] = isoID
 
-                    self.ID = gasIDkta
-                    self.ISO = isoIDkta
-                    self.NP = npress
-                    self.NT = ntemp
-                    self.PRESS = presslevels
-                    self.TEMP = templevels
-                    self.NWAVE = nwave
-                    self.NG = ng
-                    self.DELG = del_g
-                    self.G_ORD = g_ord
-                    self.FWHM = fwhmk
-                    self.WAVE = wavekta
+                        if len(np.unique(nwavekta)) != 1:
+                            sys.exit('error :: Number of wavenumbers in all .kta files must be the same')
+                        if len(np.unique(npresskta)) != 1:
+                            sys.exit('error :: Number of pressure levels in all .kta files must be the same')
+                        if len(np.unique(ntempkta)) != 1:
+                            sys.exit('error :: Number of temperature levels in all .kta files must be the same')
+                        if len(np.unique(ngkta)) != 1:
+                            sys.exit('error :: Number of g-ordinates in all .kta files must be the same')
+
+                        self.ID = gasIDkta
+                        self.ISO = isoIDkta
+                        self.NP = npress
+                        self.NT = ntemp
+                        self.PRESS = presslevels
+                        self.TEMP = templevels
+                        self.NWAVE = nwave
+                        self.NG = ng
+                        self.DELG = del_g
+                        self.G_ORD = g_ord
+                        self.FWHM = fwhmk
+                        self.WAVE = wavekta
+                        
+                    else:
+                        
+                        sys.exit('error :: HDF5 correlated-k look-up tables have not yet been implemented')
 
                 elif self.ILBL==2:
 
-                    #Now reading the head of the binary files included in the .lls file
-                    nwavelta = np.zeros(self.NGAS,dtype='int')
-                    npresslta = np.zeros(self.NGAS,dtype='int')
-                    ntemplta = np.zeros(self.NGAS,dtype='int')
-                    gasIDlta = np.zeros(self.NGAS,dtype='int')
-                    isoIDlta = np.zeros(self.NGAS,dtype='int')
+                    #Getting the extension of the look-up tables to see whether they are in HDF5 or binary formats
+                    ext = np.zeros(self.NGAS,dtype='int32')
                     for i in range(self.NGAS):
-                        nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels = read_ltahead(self.LOCATION[i])
-                        nwavelta[i] = nwave
-                        npresslta[i] = npress
-                        ntemplta[i] = ntemp
-                        gasIDlta[i] = gasID
-                        isoIDlta[i] = isoID
+                        tablex = self.LOCATION[i]
+                        extx = tablex[len(tablex)-3:len(tablex)]
+                        if extx=='lta':
+                            ext[i] = 0
+                        elif extx=='.h5':
+                            ext[i] = 1
+                        else:
+                            sys.exit('error in read_hdf5 :: The extention of the look-up tables must be .lta or .h5')
+                    
+                    if len(np.unique(ext)) != 1:
+                        sys.exit('error :: all look-up tables must be defined in the same format (with same extension)')
+                        
+                    extx = np.unique(ext)[0]
 
-                    if len(np.unique(nwavelta)) != 1:
-                        sys.exit('error :: Number of wavenumbers in all .lta files must be the same')
-                    if len(np.unique(npresslta)) != 1:
-                        sys.exit('error :: Number of pressure levels in all .lta files must be the same')
-                    if len(np.unique(ntemplta)) != 1:
-                        sys.exit('error :: Number of temperature levels in all .lta files must be the same')
+                    if extx==0:
+                        
+                        self.ONLINE = False  #With .lta tables we read them and store them on memory
+                        
+                        #Now reading the head of the binary files included in the .lls file
+                        nwavelta = np.zeros(self.NGAS,dtype='int')
+                        npresslta = np.zeros(self.NGAS,dtype='int')
+                        ntemplta = np.zeros(self.NGAS,dtype='int')
+                        gasIDlta = np.zeros(self.NGAS,dtype='int')
+                        isoIDlta = np.zeros(self.NGAS,dtype='int')
+                        for i in range(self.NGAS):
+                            nwave,vmin,delv,npress,ntemp,gasID,isoID,presslevels,templevels = read_ltahead(self.LOCATION[i])
+                            nwavelta[i] = nwave
+                            npresslta[i] = npress
+                            ntemplta[i] = ntemp
+                            gasIDlta[i] = gasID
+                            isoIDlta[i] = isoID
 
-                    self.ID = gasIDlta
-                    self.ISO = isoIDlta
-                    self.NP = npress
-                    self.NG = 1
-                    self.G_ORD = np.array([0.])
-                    self.DELG = np.array([1.0])
-                    self.NT = ntemp
-                    self.PRESS = presslevels
-                    self.TEMP = templevels
-                    self.NWAVE = nwave
+                        if len(np.unique(nwavelta)) != 1:
+                            sys.exit('error :: Number of wavenumbers in all .lta files must be the same')
+                        if len(np.unique(npresslta)) != 1:
+                            sys.exit('error :: Number of pressure levels in all .lta files must be the same')
+                        if len(np.unique(ntemplta)) != 1:
+                            sys.exit('error :: Number of temperature levels in all .lta files must be the same')
 
-                    vmax = vmin + delv * (nwave-1)
-                    wavelta = np.linspace(vmin,vmax,nwave)
-                    #wavelta = np.round(wavelta,5)
-                    self.WAVE = wavelta
+                        self.ID = gasIDlta
+                        self.ISO = isoIDlta
+                        self.NP = npress
+                        self.NG = 1
+                        self.G_ORD = np.array([0.])
+                        self.DELG = np.array([1.0])
+                        self.NT = ntemp
+                        self.PRESS = presslevels
+                        self.TEMP = templevels
+                        self.NWAVE = nwave
+
+                        vmax = vmin + delv * (nwave-1)
+                        wavelta = np.linspace(vmin,vmax,nwave)
+                        #wavelta = np.round(wavelta,5)
+                        self.WAVE = wavelta
+                        
+                    elif extx==1:
+                        
+                        self.ONLINE = True   #With .h5 tables we read them online when making the calculations
+                        
+                        #Now reading the head of the HDF5 files
+                        nwavelta = np.zeros(self.NGAS,dtype='int')
+                        npresslta = np.zeros(self.NGAS,dtype='int')
+                        ntemplta = np.zeros(self.NGAS,dtype='int')
+                        gasIDlta = np.zeros(self.NGAS,dtype='int')
+                        isoIDlta = np.zeros(self.NGAS,dtype='int')
+                        for i in range(self.NGAS):
+                            ilbl,wave,npress,ntemp,gasID,isoID,presslevels,templevels = read_header_lta_hdf5(self.LOCATION[i])
+                            if ilbl!=2:
+                                sys.exit('error :: ILBL in look-up tables must be the same as in Spectroscopy class')
+                            nwavelta[i] = len(wave)
+                            npresslta[i] = npress
+                            ntemplta[i] = ntemp
+                            gasIDlta[i] = gasID
+                            isoIDlta[i] = isoID
+                            
+                        if len(np.unique(nwavelta)) != 1:
+                            sys.exit('error :: Number of wavenumbers in all look-up tables must be the same')
+                        if len(np.unique(npresslta)) != 1:
+                            sys.exit('error :: Number of pressure levels in all look-up tables must be the same')
+                        if len(np.unique(ntemplta)) != 1:
+                            sys.exit('error :: Number of temperature levels in all look-up tables must be the same')
+                        
+                        self.ID = gasIDlta
+                        self.ISO = isoIDlta
+                        self.NP = npress
+                        self.NG = 1
+                        self.G_ORD = np.array([0.])
+                        self.DELG = np.array([1.0])
+                        self.NT = ntemp
+                        self.PRESS = presslevels
+                        self.TEMP = templevels
+                        self.NWAVE = len(wave)
+                        self.WAVE = wave
 
         f.close()
 
@@ -486,6 +574,9 @@ class Spectroscopy_0:
     def read_tables(self, wavemin=0., wavemax=1.0e10):
         """
         Reads the .kta or .lta tables and stores the results into this class
+        
+        In the case that the look-up tables are stored in HDF5 format to be read online, 
+        we just constrain the size of the wavelength array
 
         Optional parameters
         -----------------------
@@ -513,29 +604,102 @@ class Spectroscopy_0:
         self.NWAVE = len(wave1)
         self.WAVE = wave1
 
-        if self.ILBL==0: #K-tables
+        if self.ONLINE==False:
+            #Tables must be read and stored on memory
 
-            from NemesisPy import read_ktable
+            if self.ILBL==0: #K-tables
 
-            kstore = np.zeros([self.NWAVE,self.NG,self.NP,self.NT,self.NGAS])
-            for igas in range(self.NGAS):
-                gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(self.LOCATION[igas],self.WAVE.min(),self.WAVE.max())
-                kstore[:,:,:,:,igas] = k_g[:,:,:,:]
-            self.edit_K(kstore)
+                from NemesisPy import read_ktable
+
+                kstore = np.zeros([self.NWAVE,self.NG,self.NP,self.NT,self.NGAS])
+                for igas in range(self.NGAS):
+                    gasID,isoID,nwave,wave,fwhm,ng,g_ord,del_g,npress,presslevels,ntemp,templevels,k_g = read_ktable(self.LOCATION[igas],self.WAVE.min(),self.WAVE.max())
+                    kstore[:,:,:,:,igas] = k_g[:,:,:,:]
+                self.edit_K(kstore)
 
 
-        elif self.ILBL==2: #LBL-tables
+            elif self.ILBL==2: #LBL-tables
 
-            from NemesisPy import read_lbltable
+                from NemesisPy import read_lbltable
 
-            kstore = np.zeros([self.NWAVE,self.NP,self.NT,self.NGAS])
-            for igas in range(self.NGAS):
-                npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k = read_lbltable(self.LOCATION[igas],self.WAVE.min(),self.WAVE.max())
-                kstore[:,:,:,igas] = k[:,:,:]
-            self.edit_K(kstore)
+                kstore = np.zeros([self.NWAVE,self.NP,self.NT,self.NGAS])
+                for igas in range(self.NGAS):
+                    npress,ntemp,gasID,isoID,presslevels,templevels,nwave,wave,k = read_lbltable(self.LOCATION[igas],self.WAVE.min(),self.WAVE.max())
+                    kstore[:,:,:,igas] = k[:,:,:]
+                self.edit_K(kstore)
+
+            else:
+                sys.exit('error in Spectroscopy :: ILBL must be either 0 (K-tables) or 2 (LBL-tables)')
+
+
+    def write_table_hdf5(self,ID,ISO,filename):
+        """
+        Write information on the look-up tables loaded in the Spectroscopy class into an HDF5 file
+        
+        Inputs
+        ------
+        
+        ID :: Radtran ID of the table to write
+        ISO :: Radtran isotope ID of the table to write
+        filename :: Name of the look-up table file (without .h5)
+        """
+        
+        import h5py
+        
+        #Identifying the location of the gas in the Spectroscopy class
+        igas = np.where( (self.ID==ID) & (self.ISO==ISO) )[0]
+        if len(igas)==0:
+            sys.exit('error in write_table_hdf5 :: The specified gas is not defined in the Spectroscopy class')
+        
+        
+        if self.ILBL==2:
+            
+            if os.path.exists(filename+'.h5')==True:
+                os.remove(filename+'.h5')
+            
+            f = h5py.File(filename+'.h5','w')
+            
+            #Writing the header information
+            dset = f.create_dataset('ILBL',data=self.ILBL)
+            dset.attrs['title'] = "Spectroscopy calculation type"
+            if self.ILBL==0:
+                dset.attrs['type'] = 'Correlated-k pre-tabulated look-up tables'
+            elif self.ILBL==2:
+                dset.attrs['type'] = 'Line-by-line pre-tabulated look-up tables'
+            else:
+                sys.exit('error :: ILBL must be 0 or 2')
+                
+            dset = f.create_dataset('ID',data=ID)
+            dset.attrs['title'] = "ID of the gaseous species"
+
+            dset = f.create_dataset('ISO',data=ISO)
+            dset.attrs['title'] = "Isotope ID of the gaseous species"
+            
+            dset = f.create_dataset('WAVE',data=self.WAVE)
+            dset.attrs['title'] = "Spectral points at which the cross sections are defined"
+            
+            dset = f.create_dataset('NP',data=self.NP)
+            dset.attrs['title'] = "Number of pressure levels at which the look-up table is tabulated"
+            
+            dset = f.create_dataset('NT',data=self.NT)
+            dset.attrs['title'] = "Number of temperature levels at which the look-up table is tabulated"
+            
+            dset = f.create_dataset('PRESS',data=self.PRESS)
+            dset.attrs['title'] = "Pressure levels at which the look-up table is tabulated / atm"
+            
+            dset = f.create_dataset('TEMP',data=self.TEMP)
+            dset.attrs['title'] = "Temperature levels at which the look-up table is tabulated / K"
+            
+            #Writing the coefficients
+            dset = f.create_dataset('K',data=self.K[:,:,:,igas])
+            dset.attrs['title'] = "Tabulated cross sections / cm2 multiplied by a factor of 1.0 x 10^20"
+            
+            f.close()
 
         else:
-            sys.exit('error in Spectroscopy :: ILBL must be either 0 (K-tables) or 2 (LBL-tables)')
+            
+            sys.exit('error in write_table_hdf5 :: selected ILBL has not been implemented yet (only ILBL=2 is currently working)')
+        
 
     def calc_klblg(self,npoints,press,temp,WAVECALC=[12345678.],MakePlot=False):
         """
@@ -569,6 +733,7 @@ class Spectroscopy_0:
 
         from NemesisPy import find_nearest
         from scipy import interpolate
+
 
         #Interpolating to the correct pressure and temperature
         ########################################################
@@ -626,35 +791,41 @@ class Spectroscopy_0:
             phi = np.log(self.PRESS[iphi])
             tlo = self.TEMP[itl]
             thi = self.TEMP[ithi]
-            klo1 = np.zeros([self.NWAVE,self.NGAS])
-            klo2 = np.zeros([self.NWAVE,self.NGAS])
-            khi1 = np.zeros([self.NWAVE,self.NGAS])
-            khi2 = np.zeros([self.NWAVE,self.NGAS])
-            klo1[:] = self.K[:,ipl,itl,:]
-            klo2[:] = self.K[:,ipl,ithi,:]
-            khi1[:] = self.K[:,iphi,itl,:]
-            khi2[:] = self.K[:,iphi,ithi,:]
-
-            """
-            #Interpolating to get the absorption coefficient at desired p-T
-            v = (lpress-plo)/(phi-plo)
-            u = (temp1-tlo)/(thi-tlo)
-            dudt = 1./(thi-tlo)
-
-            for igas in range(self.NGAS):
-                igood = np.where((klo1[:,igas]>0.0) & (klo2[:,igas]>0.0) & (khi1[:,igas]>0.0) & (khi2[:,igas]>0.0))
-                igood = igood[0]
-                kgood[igood,ipoint,igas] = (1.0-v)*(1.0-u)*np.log(klo1[igood,igas]) + v*(1.0-u)*np.log(khi1[igood,igas]) + v*u*np.log(khi2[igood,igas]) + (1.0-v)*u*np.log(klo2[igood,igas])
-                kgood[igood,ipoint,igas] = np.exp(kgood[igood,ipoint,igas])
-                dxdt = (-np.log(klo1[igood,igas])*(1.0-v) - np.log(khi1[igood,igas])*v + np.log(khi2[igood,igas])*v + np.log(klo2[igood,igas])*(1.0-v))*dudt
-                dkgooddT[igood,ipoint,igas] = kgood[igood,ipoint,igas] * dxdt
-
-                ibad = np.where((klo1[:,igas]<=0.0) or (klo2[:,igas]<=0.0) or (khi1[:,igas]<=0.0) or (khi2[:,igas]<=0.0))
-                ibad = ibad[0]
-                kgood[ibad,ipoint,igas] = (1.0-v)*(1.0-u)*klo1[ibad,igas] + v*(1.0-u)*khi1[ibad,igas] + v*u*khi2[ibad,igas] + (1.0-v)*u*klo2[ibad,igas]
-                dxdt = (-klo1[ibad,igas]*(1.0-v) - khi1[ibad,igas]* v + khi2[ibad,igas]*v + klo2[ibad,igas]*(1.0-v))*dudt
-                dkgooddT[ibad,ipoint,igas] = dxdt
-            """
+            
+            klo1 = np.zeros((self.NWAVE,self.NGAS))
+            klo2 = np.zeros((self.NWAVE,self.NGAS))
+            khi1 = np.zeros((self.NWAVE,self.NGAS))
+            khi2 = np.zeros((self.NWAVE,self.NGAS))
+            
+            if self.K is not None:
+                #In this case the look-up tables are stored in memory
+            
+                klo1[:,:] = self.K[:,ipl,itl,:]
+                klo2[:,:] = self.K[:,ipl,ithi,:]
+                khi1[:,:] = self.K[:,iphi,itl,:]
+                khi2[:,:] = self.K[:,iphi,ithi,:]
+                
+            else:
+                
+                #In this case the look-up tables are not stored in memory and need to be read online    
+                #It is assumed that in this case they are HDF5 tables            
+                import h5py
+                
+                for igas in range(self.NGAS):
+                    
+                    f = h5py.File(self.LOCATION[igas],'r')
+                    kfile = f['K']
+                    wave = f['WAVE']
+                    
+                    #Calculating the wavelengths to read
+                    iin = np.where( (wave>=self.WAVE.min()) & (wave<=self.WAVE.max()) )[0]
+                    
+                    klo1[:,igas] = kfile[iin,ipl,itl,0]
+                    klo2[:,igas] = kfile[iin,ipl,ithi,0]
+                    khi1[:,igas] = kfile[iin,iphi,itl,0]
+                    khi2[:,igas] = kfile[iin,iphi,ithi,0]
+                    
+                    f.close()
 
             #Interpolating to get the k-coefficients at desired p-T
             v = (lpress-plo)/(phi-plo)
@@ -673,6 +844,7 @@ class Spectroscopy_0:
             #dxdt = -klo1[ibad[0],ibad[1]]*(1.0-v) - khi1[ibad[0],ibad[1]]*v + khi2[ibad[0],ibad[1]]*v + klo2[ibad[0],ibad[1]] * (1.0-v)
             dxdt = (-klo1[ibad[0],ibad[1]]*(1.0-v) - khi1[ibad[0],ibad[1]]* v + khi2[ibad[0],ibad[1]]*v + klo2[ibad[0],ibad[1]]*(1.0-v))*dudt
             dkgooddT[ibad[0],ipoint,ibad[1]] = dxdt
+            
 
         return kgood,dkgooddT
 
@@ -767,10 +939,34 @@ class Spectroscopy_0:
             klo2 = np.zeros((self.NWAVE,self.NGAS))
             khi1 = np.zeros((self.NWAVE,self.NGAS))
             khi2 = np.zeros((self.NWAVE,self.NGAS))
-            klo1[:] = self.K[:,ipl,itl,:]
-            klo2[:] = self.K[:,ipl,ithi,:]
-            khi1[:] = self.K[:,iphi,itl,:]
-            khi2[:] = self.K[:,iphi,ithi,:]
+            
+            if self.K is not None:
+                #In this case the look-up tables are stored in memory
+            
+                klo1[:,:] = self.K[:,ipl,itl,:]
+                klo2[:,:] = self.K[:,ipl,ithi,:]
+                khi1[:,:] = self.K[:,iphi,itl,:]
+                khi2[:,:] = self.K[:,iphi,ithi,:]
+                
+            else:
+                
+                #In this case the look-up tables are not stored in memory and need to be read online                
+                import h5py
+                
+                for igas in range(self.NGAS):
+                    
+                    f = h5py.File(self.LOCATION[igas],'r')
+                    kfile = f['K']
+                    wave = f['WAVE']
+                    
+                    #Calculating the wavelengths to read
+                    iin = np.where( (wave>=self.WAVE.min()) & (wave<=self.WAVE.max()) )[0]
+                    
+                    klo1[:,igas] = kfile[iin,ipl,itl,0]
+                    klo2[:,igas] = kfile[iin,ipl,ithi,0]
+                    khi1[:,igas] = kfile[iin,iphi,itl,0]
+                    khi2[:,igas] = kfile[iin,iphi,ithi,0]
+                    f.close()
 
             #Interpolating to get the k-coefficients at desired p-T
             v = (lpress-plo)/(phi-plo)
@@ -1202,6 +1398,62 @@ def read_ktahead(filename):
         wavetot[:] = np.fromfile(f,dtype='float32',count=nwave)
 
     return nwave,wavetot,fwhm,npress,ntemp,ng,gasID,isoID,g_ord,del_g,presslevels,templevels
+
+
+def read_header_lta_hdf5(filename):
+    """
+        FUNCTION NAME : read_header_lta_hdf5()
+
+        DESCRIPTION : Read the header of the look-up line-by-line tables stored in HDF5 files
+
+        INPUTS :
+
+            filename :: Name of the look-up table file
+
+        OPTIONAL INPUTS: none
+
+        OUTPUTS :
+
+            ilbl :: Look-up table type (0 - correlated-k ; 2 - line-by-line)
+            wave :: Wavelength (um) / Wavenumber (cm-1) array
+            npress :: Number of pressure levels
+            ntemp :: Number of temperature levels
+            gasID :: RADTRAN gas ID
+            isoID :: RADTRAN isotopologue ID
+            pressleves(np) :: Pressure levels (atm)
+            templeves(np) :: Temperature levels (K)
+            
+        CALLING SEQUENCE:
+
+            ilbl,wave,npress,ntemp,gasID,isoID,presslevels,templevels = read_header_lta_hdf5(filename)
+
+        MODIFICATION HISTORY : Juan Alday (29/04/2023)
+    """
+    
+    import h5py
+    
+    #Opening file
+    strlen = len(filename)
+    if filename[strlen-2:strlen] == 'h5':
+        f = h5py.File(filename,'r')
+    else:
+        f = h5py.File(filename+'.h5','r')
+
+    ilbl = np.int32(f.get('ILBL'))
+    if ilbl==2:
+        wave = np.array(f.get('WAVE'))
+        npress = np.int32(f.get('NP'))
+        ntemp = np.int32(f.get('NT'))
+        gasID = np.int32(f.get('ID'))
+        isoID = np.int32(f.get('ISO'))
+        presslevels = np.array(f.get('PRESS'))
+        templevels = np.array(f.get('TEMP'))
+    else:
+        sys.exit('error in read_header_lta_hdf5 :: the defined ilbl in the look-up table must be 2')
+    
+    f.close()
+
+    return ilbl,wave,npress,ntemp,gasID,isoID,presslevels,templevels
 
 
 ###############################################################################################
