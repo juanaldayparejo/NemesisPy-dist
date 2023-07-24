@@ -544,6 +544,180 @@ def model9(atm,ipar,href,fsh,tau,MakePlot=False):
 
 ###############################################################################################
 
+def model32(atm,ipar,href,fsh,tau,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model9()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 32 in NEMESIS.
+            In this model, the profile (cloud profile) is represented by a value
+            at a certain pressure level, plus a fractional scale height. 
+        
+        INPUTS :
+        
+            atm :: Python class defining the atmosphere
+
+            href :: Base height of cloud profile (km)
+
+            fsh :: Fractional scale height (km)
+
+            tau :: Total integrated column density of the cloud (m-2)
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            atm :: Updated atmospheric class
+            xmap(1,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
+                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,xmap = model9(atm,ipar,href,fsh,tau)
+        
+        MODIFICATION HISTORY : Juan Alday (29/03/2021)
+        
+    """
+
+    from scipy.integrate import simpson
+
+    #Checking that profile is for aerosols
+    if(ipar<=atm.NVMR):
+        sys.exit('error in model 9 :: This model is defined for aerosol profiles only')
+
+    if(ipar>atm.NVMR+atm.NDUST):
+        sys.exit('error in model 9 :: This model is defined for aerosol profiles only')
+    
+
+    #Calculating the actual atmospheric scale height in each level
+    R = const["R"]
+    scale = R * atm.T / (atm.MOLWT * atm.GRAV)   #scale height (m)
+
+    #This gradient is calcualted numerically (in this function) as it is too hard otherwise
+    xprof = np.zeros(atm.NP)
+    npar = atm.NVMR+2+atm.NDUST
+    xmap = np.zeros([3,npar,atm.NP])
+    for itest in range(4):
+
+        xdeep = tau
+        xfsh = fsh
+        hknee = href
+
+        if itest==0:
+            dummy = 1
+        elif itest==1: #For calculating the gradient wrt tau
+            dx = 0.05 * np.log(tau)  #In the state vector this variable is passed in log-scale
+            if dx==0.0:
+                dx = 0.1
+            xdeep = np.exp( np.log(tau) + dx )
+        elif itest==2: #For calculating the gradient wrt fsh
+            dx = 0.05 * np.log(fsh)  #In the state vector this variable is passed in log-scale
+            if dx==0.0:
+                dx = 0.1
+            xfsh = np.exp( np.log(fsh) + dx )
+        elif itest==3: #For calculating the gradient wrt href
+            dx = 0.05 * href
+            if dx==0.0:
+                dx = 0.1
+            hknee = href + dx
+
+        #Initialising some arrays
+        ND = np.zeros(atm.NP)   #Dust density (m-3)
+
+        #Calculating the density in each level
+        jfsh = -1
+        if atm.H[0]/1.0e3>=hknee:
+            jfsh = 1
+            ND[0] = 1.
+
+        for jx in range(atm.NP-1):
+            j = jx + 1
+            delh = atm.H[j] - atm.H[j-1]
+            xfac = scale[j] * xfsh
+
+            if atm.H[j]/1.0e3>=hknee:
+                
+                if jfsh<0:
+                    ND[j]=1.0
+                    jfsh = 1
+                else:
+                    ND[j]=ND[j-1]*np.exp(-delh/xfac)
+
+
+        for j in range(atm.NP):
+            if(atm.H[j]/1.0e3<hknee):
+                if(atm.H[j+1]/1.0e3>=hknee):
+                    ND[j] = ND[j] * (1.0 - (hknee*1.0e3-atm.H[j])/(atm.H[j+1]-atm.H[j]))
+                else:
+                    ND[j] = 0.0
+
+        #Calculating column density (m-2) by integrating the number density (m-3) over column (m)
+        #Note that when doing the layering, the total column density in the atmosphere might not be
+        #exactly the same as in xdeep due to misalignments at the boundaries of the cloud
+        totcol = simpson(ND,x=atm.H)
+        ND = ND / totcol * xdeep
+
+        if itest==0:
+            xprof[:] = ND[:]
+        else:
+            xmap[itest-1,ipar,:] = (ND[:]-xprof[:])/dx
+
+    icont = ipar - (atm.NVMR+1)
+    atm.DUST[0:atm.NP,icont] = xprof
+
+    return atm,xmap
+
+
+###############################################################################################
+
+def model47(atm,ipar,xprof,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model47()
+        
+        DESCRIPTION :
+        
+            Profile is represented by a Gaussian with a specified optical thickness centred
+            at a variable pressure level plus a variable FWHM (log press) in height.
+        
+        INPUTS :
+        
+            atm :: Python class defining the atmosphere
+
+            ipar :: Atmospheric parameter to be changed
+                    (0 to NVMR-1) :: Gas VMR
+                    (NVMR) :: Temperature
+                    (NVMR+1 to NVMR+NDUST-1) :: Aerosol density
+                    (NVMR+NDUST) :: Para-H2
+                    (NVMR+NDUST+1) :: Fractional cloud coverage
+
+            xdeep :: 
+        
+        OPTIONAL INPUTS:
+
+            MakePlot :: If True, a summary plot is generated
+        
+        OUTPUTS :
+        
+            atm :: Updated atmospheric class
+            xmap(npro,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
+                                             elements in state vector
+        
+        CALLING SEQUENCE:
+        
+            atm,xmap = model50(atm,ipar,xprof)
+        
+        MODIFICATION HISTORY : Juan Alday (08/06/2022)
+        
+    """
+
+
+###############################################################################################
+
 def model49(atm,ipar,xprof,MakePlot=False):
     
     """
@@ -1322,6 +1496,44 @@ def model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,
 
 ###############################################################################################
 
+def model447(Measurement,v_doppler):
+    
+    """
+        FUNCTION NAME : model447()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 447 in NEMESIS.
+            In this model, we fit the Doppler shift of the observation. Currently this Doppler shift
+            is common to all geometries, but in the future it will be updated so that each measurement
+            can have a different Doppler velocity (in order to retrieve wind speeds).
+        
+        INPUTS :
+        
+            Measurement :: Python class defining the measurement
+            v_doppler :: Doppler velocity (km/s)
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            Measurement :: Updated measurement class with the correct Doppler velocity
+        
+        CALLING SEQUENCE:
+        
+            Measurement = model447(Measurement,v_doppler)
+        
+        MODIFICATION HISTORY : Juan Alday (25/07/2023)
+        
+    """
+    
+    Measurement.V_DOPPLER = v_doppler
+    
+    return Measurement
+
+
+###############################################################################################
+
 def model667(Spectrum,xfactor,MakePlot=False):
     
     """
@@ -1458,6 +1670,7 @@ def model1002(atm,ipar,scf,MakePlot=False):
 
     npar = atm.NVMR+2+atm.NDUST
     xmap = np.zeros((atm.NLOCATIONS,npar,atm.NP,atm.NLOCATIONS))
+    xmap1 = np.zeros((atm.NLOCATIONS,npar,atm.NP,atm.NLOCATIONS))
 
     if len(scf)!=atm.NLOCATIONS:
         sys.exit('error in model 1002 :: The number of scaling factors must be the same as the number of locations in Atmosphere')
@@ -1491,8 +1704,11 @@ def model1002(atm,ipar,scf,MakePlot=False):
             x1[:] = np.transpose(np.transpose(atm.FRAC[:,:]) * scf)
             atm.FRAC[:,:] = x1
 
-    for j in range(atm.NLOCATIONS):
-        xmap[j,ipar,:,j] = xref[:,j]
+
+    #This calculation takes a long time for big arrays
+    #for j in range(atm.NLOCATIONS):
+    #    xmap[j,ipar,:,j] = xref[:,j]
+    
         
     if MakePlot==True:
         

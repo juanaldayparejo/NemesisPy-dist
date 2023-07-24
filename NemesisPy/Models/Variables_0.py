@@ -224,6 +224,10 @@ class Variables_0:
                 nxvar[i] = 3
             elif imod == 28:
                 nxvar[i] = 1
+            elif imod == 32:
+                nxvar[i] = 3
+            elif imod == 47:
+                nxvar[i] = 3
             elif imod == 49:
                 nxvar[i] = NPRO
             elif imod == 50:
@@ -246,6 +250,8 @@ class Variables_0:
                 nxvar[i] = 1 + 1 + int(ipar)
             elif imod == 446:
                 nxvar[i] = 2*int(ipar)
+            elif imod == 447:
+                nxvar[i] = 1
             elif imod == 666:
                 nxvar[i] = 1
             elif imod == 667:
@@ -730,6 +736,124 @@ class Variables_0:
 
                     ix = ix + 1
 
+                elif varident[i,2] == 32:
+#               ******** cloud profile is represented by a value at a 
+#               ******** variable pressure level and fractional scale height.
+#               ******** Below the knee pressure the profile is set to drop exponentially.
+
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    pknee = tmp[0]
+                    eknee = tmp[1]
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    xdeep = tmp[0]
+                    edeep = tmp[1]
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    xfsh = tmp[0]
+                    efsh = tmp[1]
+
+                    #optical depth
+                    if varident[i,0]==0:
+                        #temperature - leave alone
+                        x0[ix] = xdeep
+                        err = edeep
+                    else:
+                        if xdeep>0.0:
+                            x0[ix] = np.log(xdeep)
+                            lx[ix] = 1
+                            err = edeep/xdeep
+                            #inum[ix] = 1
+                        else:
+                            sys.exit('error in read_apr() :: Parameter xdeep (total atmospheric aerosol column) must be positive')
+                            
+                    sx[ix,ix] = err**2.
+                    
+                    ix = ix + 1
+                    
+                    #cloud fractional scale height
+                    if xfsh>0.0:
+                        x0[ix] = np.log(xfsh)
+                        lx[ix] = 1
+                        #inum[ix] = 1
+                    else:
+                        sys.exit('error in read_apr() :: Parameter xfsh (cloud fractional scale height) must be positive')
+                    
+                    err = efsh/xfsh
+                    sx[ix,ix] = err**2.
+                    
+                    ix = ix + 1
+                    
+                    #cloud pressure level
+                    if pknee>0.0:
+                        x0[ix] = np.log(pknee)
+                        lx[ix] = 1
+                        #inum[ix] = 1
+                    else:
+                        sys.exit('error in read_apr() :: Parameter pknee (cloud pressure level) must be positive')
+                    
+                    err = eknee/pknee
+                    sx[ix,ix] = err**2.
+                    
+                    ix = ix + 1
+
+
+                elif varident[i,2] == 47:
+#               ******** cloud profile is represented by a peak optical depth at a 
+#               ******** variable pressure level and a Gaussian profile with FWHM (in log pressure)
+
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    xdeep = tmp[0]
+                    edeep = tmp[1]
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    pknee = tmp[0]
+                    eknee = tmp[1]
+                    tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
+                    xwid = tmp[0]
+                    ewid = tmp[1]
+                    
+                    #total optical depth
+                    if varident[i,0]==0:
+                        #temperature - leave alone
+                        x0[ix] = xdeep
+                        err = edeep
+                    else:
+                        if xdeep>0.0:
+                            x0[ix] = np.log(xdeep)
+                            lx[ix] = 1
+                            err = edeep/xdeep
+                            #inum[ix] = 1
+                        else:
+                            sys.exit('error in read_apr() :: Parameter xdeep (total atmospheric aerosol column) must be positive')
+
+                    sx[ix,ix] = err**2.
+                    
+                    ix = ix + 1
+                    
+                    #pressure level of the cloud
+                    if pknee>0.0:
+                        x0[ix] = np.log(pknee)
+                        lx[ix] = 1
+                        #inum[ix] = 1
+                    else:
+                        sys.exit('error in read_apr() :: Parameter pknee (cloud pressure level) must be positive')
+                    
+                    err = eknee/pknee
+                    sx[ix,ix] = err**2.
+                    
+                    ix = ix + 1
+                    
+                    #fwhm of the gaussian function describing the cloud profile
+                    if xwid>0.0:
+                        x0[ix] = np.log(xwid)
+                        lx[ix] = 1
+                        #inum[ix] = 1
+                    else:
+                        sys.exit('error in read_apr() :: Parameter xwid (width of the cloud gaussian profile) must be positive')
+                    
+                    err = ewid/xwid
+                    sx[ix,ix] = err**2.
+                    
+                    ix = ix + 1
+
                 elif varident[i,2] == 49:
 #               ********* continuous profile in linear scale ************************
                     s = f.readline().split()
@@ -1086,23 +1210,6 @@ class Variables_0:
                         inum[ix+2] = 0                  
                         ix = ix + 3
 
-                elif varident[i,2] == 447:
-#               ******** model for retrieving an aerosol opacity profile + Angstrom coefficient profile
-
-                    #Read the number of altitude levels (and therefore number of aerosol populations)
-                    #Wavelength at which the opacity must be normalised
-                    s = f.readline().split()
-                    nlevel = int(s[0])
-                    WaveNorm = float(s[2])
-
-                    varparam[i,0] = nlevel
-                    varparam[i,2] = WaveNorm
-
-                    if nlevel!=npro:
-                        sys.exit('error in model 446 : The number of aerosol levels in the input file must be the same as in the .ref file')
-
-                    
-
 
                 elif varident[i,2] == 446:
 #               ******** model for retrieving an aerosol density profile + aerosol particle size (log-normal distribution)
@@ -1197,6 +1304,24 @@ class Variables_0:
                                 sx[ix+k,ix+j] = sx[ix+j,ix+k]
 
                     ix = ix + nlevel
+                    
+                    
+                elif varident[i,2] == 447:
+#               ******** model for retrieving the Doppler shift
+
+                    #Read the Doppler velocity and its uncertainty
+                    s = f.readline().split()
+                    v_doppler = float(s[0])     #km/s
+                    v_doppler_err = float(s[1]) #km/s
+                    
+                    #Filling the state vector and a priori covariance matrix with the doppler velocity
+                    lx[ix] = 0
+                    x0[ix] = v_doppler
+                    sx[ix,ix] = (v_doppler_err)**2.
+                    inum[ix] = 1
+                    
+                    ix = ix + 1
+                    
 
                 elif varident[i,2] == 666:
 #               ******** pressure at given altitude
@@ -1361,28 +1486,12 @@ class Variables_0:
                         
                         #Including surface temperature in the state vector
                         x0[ix+iloc] = sfactor[iloc]
-                        sx[ix+iloc,ix+iloc] = sfactor[iloc]**2.0
+                        sx[ix+iloc,ix+iloc] = efactor[iloc]**2.0
                         lx[ix+iloc] = 0     #linear scale
                         inum[ix+iloc] = 0   #analytical calculation of jacobian
                         
                         
                     #Defining the correlation between surface pixels 
-                    #for j in range(nlocs):
-                    #    print(j)
-                        
-                    #    for k in range(nlocs):
-                    #        s1 = np.sin(lats[j]/180.*np.pi)
-                    #        s2 = np.sin(lats[k]/180.*np.pi)
-                    #        c1 = np.cos(lats[j]/180.*np.pi)
-                    #        c2 = np.cos(lats[k]/180.*np.pi)
-                    #        c3 = np.cos( (lons[j]-lons[k])/180.*np.pi )
-                    #        psi = np.arccos( s1*s2 + c1*c2*c3 ) / np.pi * 180.   #angular distance (degrees)
-                    #        arg = abs(psi/clen)
-                    #        xfac = np.exp(-arg)
-                    #        if xfac>0.001:
-                    #            sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
-                    #            sx[ix+k,ix+j] = sx[ix+j,ix+k]
-                    
                     for j in range(nlocs):
                         s1 = np.sin(lats[j]/180.*np.pi)
                         s2 = np.sin(lats/180.*np.pi)
