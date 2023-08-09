@@ -68,20 +68,20 @@ class Measurement_0:
         Measured spectrum for each geometry
     ERRMEAS : 2D array, float (NCONV,NGEOM)
         Noise in the measured spectrum for each geometry
-    FLAT : 2D array, float (NAV,NGEOM)
+    FLAT : 2D array, float (NGEOM,AV)
         Latitude of each averaging point needed to reconstruct the FOV (when NAV > 1)
-    FLON : 2D array, float (NAV,NGEOM)
+    FLON : 2D array, float (NGEOM,NAV)
         Longitude of each averaging point needed to reconstruct the FOV (when NAV > 1)
-    SOL_ANG : 2D array, float (NAV,NGEOM)
+    SOL_ANG : 2D array, float (NGEOM,NAV)
         Solar indicent angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
-    EMISS_ANG : 2D array, float (NAV,NGEOM)
+    EMISS_ANG : 2D array, float (NGEOM,NAV)
         Emission angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
-    AZI_ANG : 2D array, float (NAV,NGEOM)
+    AZI_ANG : 2D array, float (NGEOM,NAV)
         Azimuth angle of each averaging point needed to reconstruct the FOV (when NAV > 1)
-    TANHE : 2D array, float (NAV,NGEOM)
+    TANHE : 2D array, float (NGEOM,NAV)
         Tangent height of each averaging point needed to reconstruct the FOV (when NAV > 1)
         (For limb or solar occultation observations)
-    WGEOM : 2D array, float (NAV,NGEOM)
+    WGEOM : 2D array, float (NGEOM,NAV)
         Weights of each point for the averaging of the FOV (when NAV > 1)
     NWAVE : int
         Number of calculation wavelengths required to model the convolution wavelengths
@@ -181,10 +181,10 @@ class Measurement_0:
         assert self.ISPACE <= 1 , \
             'ISPACE must be >=0 and <=1'
         
-        assert np.issubdtype(type(self.FWHM), np.float) == True , \
+        assert np.issubdtype(type(self.FWHM), float) == True , \
             'FWHM must be float'
             
-        assert np.issubdtype(type(self.V_DOPPLER), np.float) == True , \
+        assert np.issubdtype(type(self.V_DOPPLER), float) == True , \
             'V_DOPPLER must be float'
         
         assert len(self.NCONV) == self.NGEOM , \
@@ -444,12 +444,15 @@ class Measurement_0:
             self.IFORM = np.int32(f.get('Measurement/IFORM'))
             self.LATITUDE = np.float64(f.get('Measurement/LATITUDE'))
             self.LONGITUDE = np.float64(f.get('Measurement/LONGITUDE'))
-            self.V_DOPPLER = np.float64(f.get('Measurement/V_DOPPLER'))
             self.NAV = np.array(f.get('Measurement/NAV'))
             self.FLAT = np.array(f.get('Measurement/FLAT'))
             self.FLON = np.array(f.get('Measurement/FLON'))
             self.WGEOM = np.array(f.get('Measurement/WGEOM'))
             self.EMISS_ANG = np.array(f.get('Measurement/EMISS_ANG'))
+            
+            #Reading Doppler shift if exists
+            if 'Measurement/V_DOPPLER' in f:
+                self.V_DOPPLER = np.float64(f.get('Measurement/V_DOPPLER'))
 
             #Checking if there are any limb-viewing geometries
             if np.nanmin(self.EMISS_ANG)<0.0:
@@ -478,7 +481,7 @@ class Measurement_0:
 
         self.assess()
 
-        self.calc_MeasurementVector()
+        #self.calc_MeasurementVector()
             
 
     def edit_VCONV(self, VCONV_array):
@@ -755,6 +758,175 @@ class Measurement_0:
             self.AZI_ANG = np.delete(self.AZI_ANG,IGEOM,axis=0)
         if isinstance(self.WGEOM,np.ndarray)==True:
             self.WGEOM = np.delete(self.WGEOM,IGEOM,axis=0)
+            
+        self.assess()
+        
+    def select_geometry(self,IGEOM):
+        """
+        Select only one spectrum (i.e., one geometry) from the Measurement class
+        and delete the rest of them
+
+        Parameters
+        ----------
+        IGEOM : int
+            Integer indicating the geometry to be selected (from 0 to NGEOM-1)
+
+        Examples
+        --------
+
+        We first read the .spx file and then we select the first geometry.
+        Note that the first geometry has an index equal to zero.
+
+        >>> from NemesisPy import *
+        >>> Measurement = Measurement_0(runname='example')
+        >>> Measurement.read_spx()
+        >>> Measurement.select_geometry(0)
+
+        """
+
+        if IGEOM>self.NGEOM-1:
+            sys.exit('error in select_geometry :: IGEOM must be between 0 and NGEOM')
+
+        self.NGEOM = 1
+        NCONV = np.zeros(self.NGEOM,dtype='int32')
+        NCONV[0] = self.NCONV[IGEOM]
+        self.NCONV = NCONV
+        
+        VCONV = np.zeros((NCONV.max(),1))
+        MEAS = np.zeros((NCONV.max(),1))
+        ERRMEAS = np.zeros((NCONV.max(),1))
+        VCONV[:,0] = self.VCONV[0:NCONV[0],IGEOM]
+        MEAS[:,0] = self.MEAS[0:NCONV[0],IGEOM]
+        ERRMEAS[:,0] = self.ERRMEAS[0:NCONV[0],IGEOM]
+        
+        self.edit_VCONV(VCONV)
+        self.edit_MEAS(MEAS)
+        self.edit_ERRMEAS(ERRMEAS)
+        
+        NAV = np.zeros(self.NGEOM,dtype='int32')
+        NAV[0] = self.NAV[IGEOM]
+        self.NAV = NAV
+        
+        FLAT = np.zeros((self.NGEOM,self.NAV.max()))
+        FLON = np.zeros((self.NGEOM,self.NAV.max()))
+        WGEOM = np.zeros((self.NGEOM,self.NAV.max()))
+        FLAT[0,:] = self.FLAT[IGEOM,0:NAV[0]]
+        FLON[0,:] = self.FLON[IGEOM,0:NAV[0]]
+        WGEOM[0,:] = self.WGEOM[IGEOM,0:NAV[0]]
+        self.edit_FLAT(FLAT)
+        self.edit_FLON(FLON)
+        self.edit_WGEOM(WGEOM)
+        
+        if isinstance(self.TANHE,np.ndarray)==True:
+            TANHE = np.zeros((self.NGEOM,self.NAV.max()))
+            TANHE[0,:] = self.TANHE[IGEOM,0:NAV[0]]
+            self.edit_TANHE(TANHE)
+            
+        if isinstance(self.EMISS_ANG,np.ndarray)==True:
+            EMISS_ANG = np.zeros((self.NGEOM,self.NAV.max()))
+            EMISS_ANG[0,:] = self.EMISS_ANG[IGEOM,0:NAV[0]]
+            self.edit_EMISS_ANG(EMISS_ANG)
+            
+        if isinstance(self.SOL_ANG,np.ndarray)==True:
+            SOL_ANG = np.zeros((self.NGEOM,self.NAV.max()))
+            SOL_ANG[0,:] = self.SOL_ANG[IGEOM,0:NAV[0]]
+            self.edit_SOL_ANG(SOL_ANG)
+            
+        if isinstance(self.AZI_ANG,np.ndarray)==True:
+            AZI_ANG = np.zeros((self.NGEOM,self.NAV.max()))
+            AZI_ANG[0,:] = self.AZI_ANG[IGEOM,0:NAV[0]]
+            self.edit_AZI_ANG(AZI_ANG)
+            
+        self.assess()
+        
+        
+    def select_geometries(self,IGEOM):
+        """
+        Select only some spectra (i.e., some geometries) from the Measurement class
+        and delete the rest of them
+
+        Parameters
+        ----------
+        IGEOM : 1D array
+            Array of integers indicating the geometry to be selected (from 0 to NGEOM-1)
+
+        Examples
+        --------
+
+        We first read the .spx file and then we select the first geometry.
+        Note that the first geometry has an index equal to zero.
+
+        >>> from NemesisPy import *
+        >>> Measurement = Measurement_0(runname='example')
+        >>> Measurement.read_spx()
+        >>> Measurement.select_geometry([0,1,2])
+
+        """
+
+        NGEOMsel = len(IGEOM)
+        if np.max(IGEOM)>self.NGEOM-1:
+            sys.exit('error in select_geometries :: IGEOM must be between 0 and NGEOM')
+        if np.min(IGEOM)<0:
+            sys.exit('error in select_geometries :: IGEOM must be between 0 and NGEOM')
+
+        self.NGEOM = NGEOMsel
+        NCONV = np.zeros(self.NGEOM,dtype='int32')
+        NCONV[:] = self.NCONV[IGEOM]
+        self.NCONV = NCONV
+        
+        VCONV = np.zeros((NCONV.max(),self.NGEOM))
+        MEAS = np.zeros((NCONV.max(),self.NGEOM))
+        ERRMEAS = np.zeros((NCONV.max(),self.NGEOM))
+        for i in range(self.NGEOM):
+            VCONV[0:NCONV[i],i] = self.VCONV[0:NCONV[i],IGEOM[i]]
+            MEAS[0:NCONV[i],i] = self.MEAS[0:NCONV[i],IGEOM[i]]
+            ERRMEAS[0:NCONV[i],i] = self.ERRMEAS[0:NCONV[i],IGEOM[i]]
+        
+        self.edit_VCONV(VCONV)
+        self.edit_MEAS(MEAS)
+        self.edit_ERRMEAS(ERRMEAS)
+        
+        NAV = np.zeros(self.NGEOM,dtype='int32')
+        NAV[:] = self.NAV[IGEOM]
+        self.NAV = NAV
+        
+        FLAT = np.zeros((self.NGEOM,self.NAV.max()))
+        FLON = np.zeros((self.NGEOM,self.NAV.max()))
+        WGEOM = np.zeros((self.NGEOM,self.NAV.max()))
+        for i in range(self.NGEOM):
+            FLAT[i,0:NAV[i]] = self.FLAT[IGEOM[i],0:NAV[i]]
+            FLON[i,0:NAV[i]] = self.FLON[IGEOM[i],0:NAV[i]]
+            WGEOM[i,0:NAV[i]] = self.WGEOM[IGEOM[i],0:NAV[i]]
+        self.edit_FLAT(FLAT)
+        self.edit_FLON(FLON)
+        self.edit_WGEOM(WGEOM)
+        
+        if isinstance(self.TANHE,np.ndarray)==True:
+            TANHE = np.zeros((self.NGEOM,self.NAV.max()))
+            for i in range(self.NGEOM):
+                TANHE[i,0:NAV[i]] = self.TANHE[IGEOM[i],0:NAV[i]]
+            self.edit_TANHE(TANHE)
+            
+        if isinstance(self.EMISS_ANG,np.ndarray)==True:
+            EMISS_ANG = np.zeros((self.NGEOM,self.NAV.max()))
+            for i in range(self.NGEOM):
+                EMISS_ANG[i,0:NAV[i]] = self.EMISS_ANG[IGEOM[i],0:NAV[i]]
+            self.edit_EMISS_ANG(EMISS_ANG)
+            
+        if isinstance(self.SOL_ANG,np.ndarray)==True:
+            SOL_ANG = np.zeros((self.NGEOM,self.NAV.max()))
+            for i in range(self.NGEOM):
+                SOL_ANG[i,0:NAV[i]] = self.SOL_ANG[IGEOM[i],0:NAV[i]]
+            self.edit_SOL_ANG(SOL_ANG)
+            
+        if isinstance(self.AZI_ANG,np.ndarray)==True:
+            AZI_ANG = np.zeros((self.NGEOM,self.NAV.max()))
+            for i in range(self.NGEOM):
+                AZI_ANG[i,0:NAV[i]] = self.AZI_ANG[IGEOM[i],0:NAV[i]]
+            self.edit_AZI_ANG(AZI_ANG)
+            
+        self.assess()
+        
 
     def read_spx_SO(self):
         """
@@ -1166,12 +1338,9 @@ class Measurement_0:
                     wavemax= vmaxx
 
         #Correcting the wavelengths for Doppler shift
-        print('nemesis :: Correcting for Doppler shift of ',self.V_DOPPLER,'km/s')
-        shiftmin = self.calc_doppler_shift(wavemin)
-        shiftmax = self.calc_doppler_shift(wavemax)
-        
-        wavemin = wavemin + shiftmin
-        wavemax = wavemax + shiftmax
+        print('nemesis :: Correcting for Doppler shift of ',self.V_DOPPLER,'km/s')        
+        wavemin = self.invert_doppler_shift(wavemin)
+        wavemax = self.invert_doppler_shift(wavemax)
         
         #Sorting the wavenumbers if the ILS is flipped
         if wavemin>=wavemax:
@@ -1180,6 +1349,8 @@ class Measurement_0:
         #Checking that the lbl-tables encompass this wavelength range
         err = 0.001
         if (wavemin<(1-err)*Spectroscopy.WAVE.min() or wavemax>(1+err)*Spectroscopy.WAVE.max()):
+            print('Required wavelength range :: ',wavemin,wavemax)
+            print('Wavelength range in lbl-tables :: ',Spectroscopy.WAVE.min(),Spectroscopy.WAVE.max())
             sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
 
 
@@ -1302,7 +1473,9 @@ class Measurement_0:
     def calc_doppler_shift(self,wave):
         """
         Subroutine to calculate the Doppler shift in wavenumber or wavelength units based on
-        the Doppler velocity between the observed body and the observer
+        the Doppler velocity between the observed body and the observer. The formula is:
+            
+            shift = lambda - lambda_0 = lambda_0 * v / c
         
         V_DOPPLER is defined as positive if moving towards the observer and negative if moving away
         
@@ -1320,6 +1493,57 @@ class Measurement_0:
             wave_shift = -self.V_DOPPLER*1.0e3 / c * wave
         
         return wave_shift
+    
+    def invert_doppler_shift(self,wave):
+        """
+        Subroutine to calculate the Doppler shift in wavenumber or wavelength units based on
+        the Doppler velocity between the observed body and the observer.
+        
+        Knowing the observed wavelength lambda, we want to calculate the non-shifted wavelength lambda_0.
+        
+         lambda - lambda_0 = lambda_0 * v /c -----> lambda_0 = lambda / (1 + v/c)
+        
+        V_DOPPLER is defined as positive if moving towards the observer and negative if moving away
+        
+        This function returns WAVE_0 (in walengths or wavenumbers, depending on ISPACE)
+        """
+        
+        c = 299792458.0   #Speed of light (m/s)
+        
+        if self.ISPACE==0:
+            #Wavenumber (cm-1)
+            wave_0 = wave / (1.0-self.V_DOPPLER*1.0e3 / c)
+        elif self.ISPACE==1:
+            #Wavelength (um)
+            wave_0 = wave / (1.0+self.V_DOPPLER*1.0e3 / c)
+        
+        return wave_0
+    
+    def correct_doppler_shift(self,wave_0):
+        """
+        Subroutine to calculate the Doppler shift in wavenumber or wavelength units based on
+        the Doppler velocity between the observed body and the observer.
+        
+        Knowing the non-shifted wavelength lambda_0, we want to calculate the shifted wavelength lambda.
+        
+         lambda - lambda_0 = lambda_0 * v /c -----> lambda = lambda_0 * (1 + v/c)
+        
+        V_DOPPLER is defined as positive if moving towards the observer and negative if moving away
+        
+        This function returns WAVE_0 (in walengths or wavenumbers, depending on ISPACE)
+        """
+        
+        c = 299792458.0   #Speed of light (m/s)
+        
+        if self.ISPACE==0:
+            #Wavenumber (cm-1)
+            wave = wave_0 * (1.0-self.V_DOPPLER*1.0e3 / c)
+        elif self.ISPACE==1:
+            #Wavelength (um)
+            wave = wave_0 * (1.0+self.V_DOPPLER*1.0e3 / c)
+        
+        return wave
+    
 
     def lblconv_v0(self,ModSpec,IGEOM='All'):
         """
@@ -1528,8 +1752,9 @@ class Measurement_0:
         """
         
         #Accounting for the Doppler shift that was previously introduced
-        shift = self.calc_doppler_shift(self.WAVE)
-        wavecorr = self.WAVE - shift
+        #shift = self.calc_doppler_shift(self.WAVE)
+        #wavecorr = self.WAVE - shift
+        wavecorr = self.correct_doppler_shift(self.WAVE)
 
         if self.FWHM>0.0:
 
@@ -1800,8 +2025,9 @@ class Measurement_0:
         """
 
         #Accounting for the Doppler shift that was previously introduced
-        shift = self.calc_doppler_shift(self.WAVE)
-        wavecorr = self.WAVE - shift
+        #shift = self.calc_doppler_shift(self.WAVE)
+        #wavecorr = self.WAVE - shift
+        wavecorr = self.correct_doppler_shift(self.WAVE)
 
         if self.FWHM>0.0:
 
