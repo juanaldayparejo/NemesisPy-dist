@@ -129,7 +129,7 @@ class OptimalEstimation_0:
             'NCORES must be >= 1'
 
         #Checking some common parameters to all cases
-        assert np.issubdtype(type(self.PHILIMIT), np.float) == True , \
+        assert np.issubdtype(type(self.PHILIMIT), np.float64) == True , \
             'IRET must be int'
         assert self.PHILIMIT > 0 , \
             'PHILIMIT must be >0'
@@ -404,6 +404,7 @@ class OptimalEstimation_0:
             'SA should be NX by NX.'
         self.SA = SA_array
 
+    '''
     def calc_gain_matrix(self):
         """
         Calculate gain matrix and averaging kernels. The gain matrix is calculated with
@@ -457,7 +458,84 @@ class OptimalEstimation_0:
             self.DD = np.matmul(c,m) 
 
         self.AA = np.matmul(self.DD,self.KK)
+    '''
+    
+    def calc_gain_matrix(self):
+        """
+        Calculate gain matrix and averaging kernels. The gain matrix is calculated with
+            dd = sx*kk_T*(kk*sx*kk_T + se)^-1    (if nx>=ny)
+            dd = ((sx^-1 + kk_T*se^-1*kk)^-1)*kk_T*se^-1  (if ny>nx)
+        """
 
+        # Calculating the transpose of kk
+        kt = self.KK.T
+
+        # Calculating the gain matrix dd
+        if self.NX == self.NY:
+            # Calculate kk*sa*kt
+            a = self.KK @ (self.SA @ kt) + self.SE
+
+            # Inverting a
+            c = np.linalg.inv(a)
+
+            # Multiplying (sa*kt) by c
+            self.DD = (self.SA @ kt) @ c
+
+        else:
+            # Calculating the inverse of Sa and Se
+            sai = np.linalg.inv(self.SA)
+            sei_inv = np.diag(1.0 / np.diag(self.SE))
+
+            # Calculate kt*sei_inv*kk
+            a = kt @ sei_inv @ self.KK + sai
+
+            # Invert a
+            c = np.linalg.inv(a)
+
+            # Multiplying c by (kt*sei_inv)
+            self.DD = c @ (kt @ sei_inv)
+
+        self.AA = self.DD @ self.KK
+
+    def calc_phiret(self):
+        """
+        Calculate the retrieval cost function to be minimized in the optimal estimation
+        framework, which combines departure from a priori and closeness to spectrum.
+        """
+
+        # Calculating yn-y
+        b = self.YN[:self.NY] - self.Y[:self.NY]
+        bt = b.T
+
+        # Calculating inverse of sa and se
+        sai = np.linalg.inv(self.SA)
+        sei_inv = np.diag(1.0 / np.diag(self.SE))
+
+        # Multiplying se_inv*b
+        a = sei_inv @ b
+
+        # Multiplying bt*a so that (yn-y)^T * se_inv * (yn-y)
+        c = bt @ a
+
+        phi1 = c
+        self.CHISQ = phi1 / self.NY
+
+        # Calculating xn-xa
+        d = self.XN[:self.NX] - self.XA[:self.NX]
+        dt = d.T
+
+        # Multiply sa_inv*d
+        e = sai @ d
+
+        # Multiply dt*e so that (xn-xa)^T * sa_inv * (xn-xa)
+        f = dt @ e
+
+        phi2 = f
+
+        print('calc_phiret: phi1, phi2 = ' + str(phi1) + ', ' + str(phi2) + ')')
+        self.PHI = phi1 + phi2
+
+    '''
     def calc_phiret(self):
         """
         Calculate the retrieval cost function to be minimised in the optimal estimation 
@@ -500,6 +578,7 @@ class OptimalEstimation_0:
    
         print('calc_phiret: phi1,phi2 = '+str(phi1)+','+str(phi2)+')')
         self.PHI = phi1+phi2
+    '''
 
 
     def assess(self):
