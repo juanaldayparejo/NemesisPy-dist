@@ -90,6 +90,8 @@ class Atmosphere_0:
         Atmosphere_0.add_gas
         Atmosphere_0.remove_gas
         Atmosphere_0.update_gas
+        
+        Atmosphere_0.select_location
 
         Atmosphere_0.calc_coldens
 
@@ -974,6 +976,38 @@ class Atmosphere_0:
                 vmr1[:,:,:] = self.VMR
                 vmr1[:,igas[0],:] = vmr[:,:]
                 self.edit_VMR(vmr1)
+
+
+
+
+    def select_location(self,iLOCATION):
+        """
+        Subroutine to select only one geometry from the Atmosphere class (and remove all the others)
+        """
+        
+        if iLOCATION>self.NLOCATIONS-1:
+            sys.exit('error in select_location :: iLOCATION must be between 0 and NLOCATIONS-1',[0,self.NLOCATIONS-1])
+
+        self.NLOCATIONS = 1
+        self.edit_P(self.P[:,iLOCATION])
+        self.edit_T(self.T[:,iLOCATION])
+        self.edit_H(self.H[:,iLOCATION])
+        self.edit_VMR(self.VMR[:,:,iLOCATION])
+        
+        self.LATITUDE = self.LATITUDE[iLOCATION]
+        self.LONGITUDE = self.LONGITUDE[iLOCATION]
+        
+        if self.NDUST>0:
+            self.edit_DUST(self.DUST[:,:,iLOCATION])
+        
+        if self.AMFORM!=0:
+            self.calc_molwt()
+            
+        self.calc_grav()
+        
+        self.assess()
+        
+        
 
     def read_ref(self):
         """
