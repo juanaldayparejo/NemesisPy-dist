@@ -137,6 +137,8 @@ class Surface_0:
         Surface_0.edit_G1()
         Surface_0.edit_G2()
         Surface_0.edit_F()
+        
+        Surface_0.select_location()
 
 
 
@@ -629,6 +631,51 @@ class Surface_0:
         g = np.arccos(cg)/np.pi*180.   #Scattering phase angle (degrees) (NTHETA)
 
         return g
+
+
+    def select_location(self,iLOCATION):
+        """
+        Subroutine to select only one geometry from the Atmosphere class (and remove all the others)
+
+        Inputs
+        ------
+        @param iLOCATION: int
+            Index of the location to be selected
+
+        Outputs
+        -------
+        Updated Surface class
+        """
+        
+        if iLOCATION>self.NLOCATIONS-1:
+            sys.exit('error in select_location :: iLOCATION must be between 0 and NLOCATIONS-1',[0,self.NLOCATIONS-1])
+
+        self.NLOCATIONS = 1
+        
+        self.LATITUDE = self.LATITUDE[iLOCATION]
+        self.LONGITUDE = self.LONGITUDE[iLOCATION]
+        self.TSURF = self.TSURF[iLOCATION]
+        
+        self.edit_EMISSIVITY(self.EMISSIVITY[:,iLOCATION])
+        
+        if self.LOWBC==2: #Hapke case
+            
+            self.edit_SGLALB(self.SGLALB[:,iLOCATION])
+            self.edit_BS0(self.BS0[:,iLOCATION])
+            self.edit_hs(self.hs[:,iLOCATION])
+            self.edit_BC0(self.BC0[:,iLOCATION])
+            self.edit_hc(self.hc[:,iLOCATION])
+            self.edit_K(self.K[:,iLOCATION])
+            self.edit_ROUGHNESS(self.ROUGHNESS[:,iLOCATION])
+            self.edit_G1(self.G1[:,iLOCATION])
+            self.edit_G2(self.G2[:,iLOCATION])
+            self.edit_F(self.F[:,iLOCATION])
+            
+        #Checking that everything went well
+        self.assess()
+            
+        
+
 
     ##################################################################################################################
     ##################################################################################################################
