@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os,sys
 import miepython
+import ray
 
 #!/usr/local/bin/python3
 # -*- coding: utf-8 -*-
@@ -1426,7 +1427,7 @@ class Scatter_0:
 
         return ispace,nwave,wave,refind_real,refind_im
 
-    def miescat(self,IDUST,psdist,pardist,MakePlot=False,rdist=None,Ndist=None,WaveNorm=None):
+    def miescat(self,IDUST,psdist,pardist,MakePlot=False,rdist=None,Ndist=None,WaveNorm=None,rmin=1.0e-10,rmax=1.0e4,NCores=1):
 
         """
         Function to calculate the extinction coefficient, single scattering albedo and phase functions
@@ -1457,6 +1458,8 @@ class Scatter_0:
         rdist :: Array of particle sizes (to be used if pardist==-1)
         Ndist :: Density of particles of each particle size (to be used if pardist==-1)
         WaveNorm :: Wavelength/Wavenumber at which the cross sections will be normalised
+        rmin,rmax :: Minimum and maximum particle sizes to consider in the particle size distribution
+        NCores :: Maximum number of parallel processes to run for the integration of the particle size
 
         Outputs
         ________
@@ -1471,6 +1474,7 @@ class Scatter_0:
         from scipy import interpolate
         from NemesisPy import lognormal_dist,find_nearest
         from copy import copy
+        import ray
 
         iNorm = 0
         if WaveNorm!=None:
@@ -1492,16 +1496,55 @@ class Scatter_0:
             rd[0] = pardist[0]
             Nd[0] = 1.0
         elif psdist==1: #Log-normal distribution
-            mu = pardist[0]
-            sigma = pardist[1]
+            r_g = pardist[0]
+            sigma_g = pardist[1]
+            mu = np.log(r_g)
+            
+            #Linear approach for calculating the points (not optimised)
+            #tol = 1.0e-8
+            #r0 = lognorm.ppf(tol, sigma, 0.0, mu)
+            #r1 = lognorm.ppf(1.0-tol, sigma, 0.0, mu)
+            #rmax = np.exp( np.log(mu) - sigma**2.)
+            #delr = (rmax-r0)/50.
+            #nr = int((r1-r0)/delr) + 1
+            #rd = np.linspace(r0,r1,nr) #Array of particle sizes
+            #Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
+            
+            #Increasing step method for calculating the points (optimised)
             tol = 1.0e-8
-            r0 = lognorm.ppf(tol, sigma, 0.0, mu)
-            r1 = lognorm.ppf(1.0-tol, sigma, 0.0, mu)
-            rmax = np.exp( np.log(mu) - sigma**2.)
+            r0 = lognorm.ppf(tol, sigma_g, 0.0, r_g)
+            r1 = lognorm.ppf(1.0-tol, sigma_g, 0.0, r_g)
+            
+            if r0<rmin:
+                r0 = rmin
+            if r1>rmax:
+                r1 = rmax
+                
+            rmax = np.exp( mu - sigma_g**2.)
+            
             delr = (rmax-r0)/50.
-            nr = int((r1-r0)/delr) + 1
-            rd = np.linspace(r0,r1,nr) #Array of particle sizes
-            Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
+            
+            if rmax<rmin:
+                sys.exit('error :: The size at which the maximum of the distribution is found (rmax) is lower than the lower limit (rmin)')
+            
+            print('miescat :: Boundaries of the particle size distribution are ',r0,'and',r1)
+            print('miescat :: The maximum of the particle size distribution is at ',rmax)
+            
+            base = 1.05
+            ix = 0
+            rd = [r0]
+            while rd[-1]<r1:
+                delrn = delr * base ** ix
+                rdn = rd[-1] + delrn
+                rd.append(rdn)
+                ix = ix + 1
+            
+            rd = np.array(rd)
+            Nd = lognormal_dist(rd,r_g,sigma_g) #Density of each particle size for the integration
+            nr = len(rd)
+            
+            print('miescat :: Number of single particle sizes to calculate for the integration of the distribution is ',nr)
+            
         elif psdist==2: #Standard gamma distribution
             A = pardist[0]
             B = pardist[1]
@@ -1524,6 +1567,9 @@ class Scatter_0:
             nr = int((r[ir2]-r[ir1])/delr) + 1
             rd = np.linspace(r[ir1],r[ir2],nr)
             Nd = rd**((1-3*B)/B) * np.exp(-rd/(A*B)) / nmax
+            
+            print('miescat :: Boundaries of the particle size distribution are ',r[ir1],'and',r[ir2])
+            print('miescat :: The maximum of the particle size distribution is at ',rmax)
 
         elif psdist==-1:
             if rdist[0]==None:
@@ -1576,45 +1622,55 @@ class Scatter_0:
         kext = np.zeros([self.NWAVE,nr])
         ksca = np.zeros([self.NWAVE,nr])
         phase = np.zeros([self.NWAVE,self.NTHETA,nr])
-        for ir in range(nr):
+        if NCores==1:
 
-            r0 = rd[ir]
-            x = np.zeros(self.NWAVE)
-            x[:] = 2.*np.pi*r0/(wavel)
-            qext, qsca, qback, g = miepython.mie(refind,x)
+            for ir in range(nr):
 
-            ksca[:,ir] = qsca * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
-            kext[:,ir] = qext * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+                r0 = rd[ir]
+                x = np.zeros(self.NWAVE)
+                x[:] = 2.*np.pi*r0/(wavel)
+                qext, qsca, qback, g = miepython.mie(refind,x)
 
-            mu = np.cos(self.THETA/180.*np.pi)
-            #In miepython the phase function is normalised to the single scattering albedo
-            #For the integration over particle size distributions, we need to follow the 
-            #formula 2.47 in Hansen and Travis (1974), which does not use a normalised 
-            #version of the phase function. Therefore, we need to correct it.
-            for iwave in range(self.NWAVE):
-                unpolar = miepython.i_unpolarized(refind[iwave],x[iwave],mu)
-                phase[iwave,:,ir] = unpolar
-                phase[iwave,:,ir] = unpolar / (qsca[iwave]/qext[iwave]) / (wavel[iwave]*1.0e-4)**2. * np.pi * ksca[iwave,ir] 
+                ksca[:,ir] = qsca * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+                kext[:,ir] = qext * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+
+                mu = np.cos(self.THETA/180.*np.pi)
+                #In miepython the phase function is normalised to the single scattering albedo
+                #For the integration over particle size distributions, we need to follow the 
+                #formula 2.47 in Hansen and Travis (1974), which does not use a normalised 
+                #version of the phase function. Therefore, we need to correct it.
+                for iwave in range(self.NWAVE):
+                    unpolar = miepython.i_unpolarized(refind[iwave],x[iwave],mu)
+                    phase[iwave,:,ir] = unpolar / (qsca[iwave]/qext[iwave]) / (wavel[iwave]*1.0e-4)**2. * np.pi * ksca[iwave,ir]  
+
+        else:
+        
+            ray.init(num_cpus=NCores)
+            results = []
+            for ir in range(nr):
+                results.append(miescat_parallel.remote(ir,rd,wavel,refind,self.THETA))
+
+            #Block until the results have finished and get the results.
+            resultstot1 = ray.get(results)
+            
+            for ir in range(nr):
+                kext[:,ir] = resultstot1[ir][0]
+                ksca[:,ir] = resultstot1[ir][1]
+                phase[:,:,ir] = resultstot1[ir][2]
+            ray.shutdown()
+        
 
         #Now integrating over particle size to find the mean scattering and absorption properties
         ###########################################################################################
 
         if nr>1:
-            kext1 = np.zeros([self.NWAVE,nr])
-            ksca1 = np.zeros([self.NWAVE,nr])
-            phase1 = np.zeros([self.NWAVE,self.NTHETA,nr])
+
+            #Weighting the arrays with the density
             kext1 = kext*Nd
             ksca1 = ksca*Nd
             phase1 = phase*Nd
-            #for ir in range(nr):
-            #    kext1[:,ir] = kext[:,ir] * Nd[ir]
-            #    ksca1[:,ir] = ksca[:,ir] * Nd[ir]
-            #    phase1[:,:,ir] = phase[:,:,ir] * Nd[ir]
 
             #Integrating the arrays
-            #kextout = simpson(kext1,x=rd,axis=1)
-            #kscaout = simpson(ksca1,x=rd,axis=1)
-            #phaseout = simpson(phase1,x=rd,axis=2)
             kextout = simps(kext1,x=rd,axis=1)
             kscaout = simps(ksca1,x=rd,axis=1) 
             phaseout = simps(phase1,x=rd,axis=2)
@@ -1742,7 +1798,6 @@ class Scatter_0:
 
             plt.subplots_adjust(left=0.05, bottom=0.08, right=0.9, top=0.95, wspace=0.35, hspace=0.35)
 
-
     def miescat_k(self,IDUST,psdist,pardist,MakePlot=False,rdist=None,Ndist=None,WaveNorm=None):
 
         """
@@ -1805,15 +1860,16 @@ class Scatter_0:
             rd[0] = pardist[0]
             Nd[0] = 1.0
         elif psdist==1: #Log-normal distribution
-            mu = pardist[0]
-            sigma = pardist[1]
-            r0 = lognorm.ppf(0.0001, sigma, 0.0, mu)
-            r1 = lognorm.ppf(0.9999, sigma, 0.0, mu)
-            rmax = np.exp( np.log(mu) - sigma**2.)
+            r_g = pardist[0]
+            sigma_g = pardist[1]
+            mu = np.log(r_g)
+            r0 = lognorm.ppf(0.0001, sigma_g, 0.0, mu)
+            r1 = lognorm.ppf(0.9999, sigma_g, 0.0, mu)
+            rmax = np.exp( mu - sigma_g**2.)
             delr = (rmax-r0)/10.
             nr = int((r1-r0)/delr) + 1
             rd = np.linspace(r0,r1,nr) #Array of particle sizes
-            Nd = lognormal_dist(rd,mu,sigma) #Density of each particle size for the integration
+            Nd = lognormal_dist(rd,r_g,sigma_g) #Density of each particle size for the integration
         elif psdist==2: #Standard gamma distribution
             sys.exit('error in miescat :: Standard gamma distribution has not yet been implemented')
         elif psdist==-1:
@@ -1924,3 +1980,89 @@ class Scatter_0:
         self.KABS[:,IDUST] = xabs
         self.KSCA[:,IDUST] = xsca
         self.SGLALB[:,IDUST] = xsca/xext
+
+
+def optimise_rd_lognormal(r_g,sigma_g,rmin=1.0e-6,rmax=1.0e4,tol=1.0e-6,base=1.05):
+    '''
+    Function to calculate an optimised particle size array to sample a log-normal distribution
+    '''
+    
+    from scipy.stats import lognorm
+    from NemesisPy import lognormal_dist
+    
+    mu = np.log(r_g)
+    
+    #Increasing step method for calculating the points (optimised)
+    r0 = lognorm.ppf(tol, sigma_g, 0.0, r_g)
+    r1 = lognorm.ppf(1.0-tol, sigma_g, 0.0, r_g)
+    
+    if r0<rmin:
+        r0 = rmin
+    if r1>rmax:
+        r1 = rmax
+        
+    rmax = np.exp( mu - sigma_g**2.)
+    
+    delr = (rmax-r0)/50.
+    
+    if rmax<rmin:
+        sys.exit('error :: The size at which the maximum of the distribution is found (rmax) is lower than the lower limit (rmin)')
+    
+
+    ix = 0
+    rd = [r0]
+    while rd[-1]<r1:
+        delrn = delr * base ** ix
+        rdn = rd[-1] + delrn
+        rd.append(rdn)
+        ix = ix + 1
+    
+    rd = np.array(rd)
+    Nd = lognormal_dist(rd,r_g,sigma_g)
+    
+    return rd,Nd
+
+@ray.remote
+def miescat_parallel(ir,rd,wavel,refind,theta):
+    '''
+    Function to calculate the optical properties using Mie Theory for a single particle size 
+    (several walengths and scattering angles)
+    
+    Inputs
+    ------
+    
+    ir :: Index of the particle size to use (from rd)
+    rd(nr) :: Particle size array (um)
+    wavel(nwave) :: Wavelength array (um)
+    refind(nwave) :: Complex refractive index at each wavelength
+    theta(ntheta) :: Scattering angles (degrees)
+    
+    Outputs
+    --------
+    
+    kext(nwave) :: Extinction cross section (cm2)
+    ksca(nwave) :: Scattering cross section (cm2)
+    phase(nwave,ntheta) :: Phase function (normalised as in formula 2.47 of Hansen and Travis (1974)) 
+    
+    '''
+    
+    #print(ir)
+    r0 = rd[ir]
+    nwave = len(wavel)
+    x = 2.*np.pi*r0/(wavel)
+    qext, qsca, qback, g = miepython.mie(refind,x)
+
+    ksca = qsca * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+    kext = qext * np.pi * (r0/1.0e4)**2.   #Cross section in cm2
+
+    mu = np.cos(theta/180.*np.pi)
+    #In miepython the phase function is normalised to the single scattering albedo
+    #For the integration over particle size distributions, we need to follow the 
+    #formula 2.47 in Hansen and Travis (1974), which does not use a normalised 
+    #version of the phase function. Therefore, we need to correct it.
+    phase = np.zeros((nwave,len(theta)))
+    for iwave in range(nwave):
+        unpolar = miepython.i_unpolarized(refind[iwave],x[iwave],mu)
+        phase[iwave,:] = unpolar / (qsca[iwave]/qext[iwave]) / (wavel[iwave]*1.0e-4)**2. * np.pi * ksca[iwave] 
+        
+    return kext,ksca,phase

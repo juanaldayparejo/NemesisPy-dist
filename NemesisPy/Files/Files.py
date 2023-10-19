@@ -2055,6 +2055,7 @@ def read_input_files_hdf5(runname):
 
     Measurement = Measurement_0()
     Measurement.read_hdf5(runname)
+    Measurement.calc_MeasurementVector()
 
     #Calculating the 'calculation wavelengths'
     if Spectroscopy.ILBL==0:
@@ -2149,7 +2150,7 @@ def read_retparam_hdf5(runname):
         else:
 
             sys.exit('error :: Retrieval/Output/Parameters is not defined in HDF5 file')
-
+    
 
     return NVAR,NXVAR,VARIDENT,VARPARAM,APRPARAM,APRERRPARAM,RETPARAM,RETERRPARAM
 
@@ -2240,7 +2241,6 @@ def read_output_files_hdf5(runname):
 
     Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval = read_input_files_hdf5(runname)
 
-
     #Updating the classes based on the retrieved parameterisations
     #################################################################
 
@@ -2257,6 +2257,7 @@ def read_output_files_hdf5(runname):
     Stellar2 = ForwardModel.StellarX
     CIA2 = ForwardModel.CIAX
     Layer2 = ForwardModel.LayerX
+    
 
     #Calculating the modelled spectrum
     ##################################################################
