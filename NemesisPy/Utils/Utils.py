@@ -278,7 +278,7 @@ def ngauss(npx,x,ng,iamp,imean,ifwhm,MakePlot=False):
 
 ###############################################################################################
 
-def lognormal_dist(x,mu,sigma,MakePlot=False):
+def lognormal_dist(x,r_g,sigma_g,MakePlot=False):
 
 
     """
@@ -291,8 +291,8 @@ def lognormal_dist(x,mu,sigma,MakePlot=False):
         INPUTS :
       
             x :: Points at which the function must be evaluated
-            mu :: Mean of the distribution
-            sigma :: Variance of the distribution
+            r_g :: Median of the distribution
+            sigma_g :: Standard deviation of the distribution
 
         OPTIONAL INPUTS: none
         
@@ -302,13 +302,13 @@ def lognormal_dist(x,mu,sigma,MakePlot=False):
 
         CALLING SEQUENCE:
         
-            fun = lognormal(x,mu,sigma)
+            fun = lognormal(x,r_g,sigma_g)
  
         MODIFICATION HISTORY : Juan Alday (29/04/2021)
 
     """
 
-    fun = 1.0 / (x * sigma * np.sqrt(2.*np.pi)) * np.exp( - (np.log(x)-np.log(mu))**2. / (2.*sigma**2.) )
+    fun = 1.0 / (x * sigma_g * np.sqrt(2.*np.pi)) * np.exp( - (np.log(x)-np.log(r_g))**2. / (2.*sigma_g**2.) )
     
     return fun
 
