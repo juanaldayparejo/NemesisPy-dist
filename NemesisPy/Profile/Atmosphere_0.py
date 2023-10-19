@@ -91,6 +91,8 @@ class Atmosphere_0:
         Atmosphere_0.remove_gas
         Atmosphere_0.update_gas
 
+        Atmosphere_0.calc_coldens
+
         Atmosphere_0.plot_Atm
         Atmosphere_0.plot_Dust
         """
@@ -155,11 +157,11 @@ class Atmosphere_0:
         
         if self.NLOCATIONS==1:
 
-            assert np.issubdtype(type(self.LATITUDE), np.float) == True , \
+            assert np.issubdtype(type(self.LATITUDE), float) == True , \
                 'LATITUDE must be float'
             assert abs(self.LATITUDE) < 90.0 , \
                 'LATITUDE must be within -90 to 90 degrees'
-            assert np.issubdtype(type(self.LONGITUDE), np.float) == True , \
+            assert np.issubdtype(type(self.LONGITUDE), float) == True , \
                 'LONGITUDE must be float'
             
             assert len(self.H) == self.NP , \
@@ -555,6 +557,15 @@ class Atmosphere_0:
         rho = self.P * self.MOLWT / R / self.T
 
         return rho
+    
+    def calc_numdens(self):
+        """
+        Subroutine to calculate the atmospheric number density (m-3) at each level
+        """
+        k_B = const["k_B"]
+        numdens = self.P / k_B / self.T
+
+        return numdens
 
 
     def calc_radius(self):
@@ -999,7 +1010,7 @@ class Atmosphere_0:
         height = np.zeros(npro)
         press = np.zeros(npro)
         temp = np.zeros(npro)
-        vmr = np.zeros([npro,ngas])
+        vmr = np.zeros((npro,ngas))
         s = f.readline().split()
         for i in range(npro):
             tmp = np.fromfile(f,sep=' ',count=ngas+3,dtype='float')
@@ -1132,6 +1143,45 @@ class Atmosphere_0:
         f.close()
 
 
+    def calc_coldens(self):
+        """
+        Routine to integrate the density of each gas at all altitudes
+        
+        Ouputs
+        -------
+        
+        coldens(NVMR,NLOCATIONS) :: Column density of each gas (m-2)
+        
+        """
+        
+        from scipy.integrate import simps
+        
+        #Calculate the number density at each layer (m-3)
+        numdens = self.calc_numdens()
+        
+        print(numdens.shape)
+        
+        #Calculating the partial number density of each gas (m-3)
+        if self.NLOCATIONS>1:
+            par_numdens = self.VMR * numdens[:, np.newaxis, :]
+
+            #Integrate the number density as a function of altitude (m-2)
+            par_coldens = np.zeros((self.NVMR,self.NLOCATIONS))
+            for iLOCATION in range(self.NLOCATIONS):
+                par_coldens[:,iLOCATION] = simps(par_numdens[:,:,iLOCATION],self.H[:,iLOCATION],axis=0)
+                
+        else:
+            par_numdens = self.VMR * numdens[:, np.newaxis]
+            
+            #Integrate the number density as a function of altitude (m-2)
+            par_coldens = simps(par_numdens[:,:],self.H[:],axis=0)
+            
+        
+        return par_coldens
+        
+
+
+
     def plot_Atm(self,SavePlot=None,ILOCATION=0):
 
         """
@@ -1204,3 +1254,43 @@ class Atmosphere_0:
         else:
 
             print('warning :: there are no aerosol populations defined in Atmosphere')
+            
+            
+    def plot_map(self,varplot,labelplot='Variable (unit)',subobs_lat=None,subobs_lon=None,cmap='viridis',vmin=None,vmax=None):
+        """
+        Function to plot a given variable over on a map
+        
+        Inputs
+        -------
+        
+        varplot(NLOCATIONS) :: Variable to be plotted at each of the planet's locations
+        """
+
+        from mpl_toolkits.basemap import Basemap
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        fig,ax1 = plt.subplots(1,1,figsize=(5,5))
+
+        #Plotting the geometry
+        if((subobs_lat is not None) & (subobs_lon is not None)):
+            map = Basemap(projection='ortho', resolution=None,
+                lat_0=subobs_lat, lon_0=subobs_lon)
+        else:
+            map = Basemap(projection='ortho', resolution=None,
+                lat_0=np.mean(self.LATITUDE), lon_0=np.mean(self.LONGITUDE))
+            
+        lats = map.drawparallels(np.linspace(-90, 90, 13))
+        lons = map.drawmeridians(np.linspace(-180, 180, 13))
+
+        im = map.scatter(self.LONGITUDE,self.LATITUDE,latlon=True,c=varplot,cmap=cmap,vmin=vmin,vmax=vmax)
+
+        # create an axes on the right side of ax. The width of cax will be 5%
+        # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+        divider = make_axes_locatable(ax1)
+        cax = divider.append_axes("bottom", size="5%", pad=0.15)
+        cbar2 = plt.colorbar(im,cax=cax,orientation='horizontal')
+        cbar2.set_label(labelplot)
+
+        ax1.grid()
+        plt.tight_layout()
+        plt.show()
