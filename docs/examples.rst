@@ -11,6 +11,7 @@ This section includes Jupyter notebooks with examples showing how NemesisPy can 
    examples/MieScattering/MieScattering.ipynb
    examples/Stellar/StellarExample.ipynb
    examples/Surface/surface.ipynb
+   examples/CIA_HITRAN_file/CIA_HITRAN_file.ipynb
 
 Forward models
 ------------------
