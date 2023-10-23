@@ -19,7 +19,7 @@ Collision-Induced Absorption Class.
 
 class CIA_0:
 
-    def __init__(self, runname='', INORMAL=0, NPAIR=9, NT=25, NWAVE=1501):
+    def __init__(self, runname='', INORMAL=0, NPAIR=9, NT=25, NWAVE=1501, IPAIRG1=[39,39,39,39,39,22,22,6,39], IPAIRG2=[39,40,39,40,22,6,22,6,6], INORMALT=[0,0,1,1,0,0,0,0,0]):
 
         """
         Inputs
@@ -30,11 +30,18 @@ class CIA_0:
             Flag indicating whether the ortho/para-H2 ratio is in equilibrium (0 for 1:1) or normal (1 for 3:1)
         @param NPAIR: int,
             Number of gaseous pairs listed 
-            (Default = 9 : H2-H2 (eqm), H2-He (eqm), H2-H2 (normal), H2-He (normal), H2-N2, H2-CH4, N2-N2, CH4-CH4, H2-CH4)
+            (Default = 9 in .cia from Fortran NEMESIS : H2-H2 (eqm), H2-He (eqm), H2-H2 (normal), H2-He (normal), H2-N2, N2-CH4, N2-N2, CH4-CH4, H2-CH4)
         @param NT: int,
             Number of temperature levels over which the CIA data is defined 
         @param NWAVE: int,
             Number of spectral points over which the CIA data is defined
+        @param IPAIRG1: 1D array (NPAIR),
+            First gas of each of the listed pairs (e.g., H2-He ; IPAIRG1 = H2 = 39)
+        @param IPAIRG2: 1D array (NPAIR),
+            Second gas of each of the listed pairs (e.g., H2-He ; IPAIRG2 = He = 40)
+        @param INORMALT: 1D array (NPAIR),
+            Flag indicating the equilibrium/normal hydrogen listed in the CIA table (only valid for H2-He and H2-H2, for rest of gases it is not used but needs to be defined)
+            
 
         Attributes
         ----------
@@ -43,13 +50,19 @@ class CIA_0:
         @attribute TEMP: 1D array
             Temperature levels at which the CIA data is defined (K)
         @attribute K_CIA: 3D array
-            CIA cross sections for each pair at each wavenumber and temperature level
+            CIA cross sections for each pair at each wavenumber and temperature level (cm5 molecule-1 ; NOTE: THIS IS DIFFERENT FROM FORTRAN NEMESIS WHERE THEY ARE LISTED IN CM-1 AMAGAT-2)
         @attribute CIADATA: str
             String indicating where the CIA data files are stored
 
         Methods
         ----------
-        CIA_0.read_cia(runname)
+        CIA_0.assess()
+        CIA_0.read_cia()
+        CIA_0.plot_cia()
+        CIA_0.calc_tau_cia()
+        CIA_0.locate_INORMAL_pairs()
+        CIA_0.write_ciatable_hdf5()
+        CIA_0.read_ciatable_hdf5()
         """
 
         from NemesisPy import Nemesis_Path
@@ -58,6 +71,9 @@ class CIA_0:
         self.runname = runname
         self.INORMAL = INORMAL
         self.NPAIR = NPAIR
+        self.IPAIRG1 = IPAIRG1
+        self.IPAIRG2 = IPAIRG2
+        self.INORMALT = INORMALT
         self.NT = NT
         self.NWAVE = NWAVE
 
@@ -67,6 +83,56 @@ class CIA_0:
         self.K_CIA = None #np.zeros(NPAIR,NT,NWAVE)
 
         self.CIADATA = Nemesis_Path()+'NemesisPy/Data/cia/'
+
+    def assess(self):
+        """
+        Assess whether the different variables have the correct dimensions and types
+        """
+
+        #Checking some common parameters to all cases
+        assert np.issubdtype(type(self.NPAIR), np.integer) == True , \
+            'NPAIR must be int'
+        assert self.NPAIR > 0 , \
+            'NPAIR must be >0'
+            
+
+        assert np.issubdtype(type(self.NT), np.integer) == True , \
+            'NT must be int'
+        assert self.NT > 0 , \
+            'NT must be >0'
+            
+        assert np.issubdtype(type(self.NWAVE), np.integer) == True , \
+            'NWAVE must be int'
+        assert self.NWAVE > 0 , \
+            'NWAVE must be >0'
+            
+        assert np.issubdtype(type(self.INORMAL), np.integer) == True , \
+            'INORMAL must be int'
+        assert ((self.INORMAL == 0) or (self.INORMAL == 1) ), \
+            'INORMAL must be either 0 or 1'
+            
+            
+        assert len(self.IPAIRG1) == self.NPAIR , \
+            'IPAIRG1 must have size (NPAIR)'
+            
+        assert len(self.IPAIRG2) == self.NPAIR , \
+            'IPAIRG2 must have size (NPAIR)'
+            
+        assert len(self.INORMALT) == self.NPAIR , \
+            'INORMALT must have size (NPAIR)'
+            
+        if self.WAVEN is not None:
+            assert len(self.WAVEN) == self.NWAVE , \
+                'WAVEN must have size (NWAVE)'
+            
+        if self.TEMP is not None:
+            assert len(self.TEMP) == self.NT , \
+                'TEMP must have size (NT)'
+                
+        if self.K_CIA is not None:
+            assert self.K_CIA.shape == (self.NPAIR,self.NT,self.NWAVE) , \
+                'K_CIA must have size (NPAIR,NT,NWAVE)'
+
 
     def read_cia(self):
         """
@@ -94,6 +160,11 @@ class CIA_0:
         if npara==0:
             NPAIR = 9
 
+
+        IPAIRG1=[39,39,39,39,39,22,22,6,39]
+        IPAIRG2=[39,40,39,40,22,6,22,6,6]
+        INORMALT=[0,0,1,1,0,0,0,0,0]
+
         f = FortranFile(self.CIADATA+cianame, 'r' )
         TEMPS = f.read_reals( dtype='float64' )
         KCIA_list = f.read_reals( dtype='float32' )
@@ -107,12 +178,19 @@ class CIA_0:
         for iwn in range(NWAVE):
             for itemp in range(NT):
                 for ipair in range(NPAIR):
-                    K_CIA[ipair,itemp,iwn] = KCIA_list[index]
+                    K_CIA[ipair,itemp,iwn] = KCIA_list[index]  #cm-1 amagat-2
                     index += 1
+
+        #Changing the units of the CIA table (NEMESIS format) from cm-1 amagat-2 to cm5 molecule-1
+        AMAGAT = 2.68675E19 #molecule cm-3 (definition of amagat unit)
+        K_CIA = K_CIA / (AMAGAT**2.) #cm5 molecule-1
 
         self.NWAVE = NWAVE
         self.NT = NT
         self.NPAIR = NPAIR
+        self.IPAIRG1 = IPAIRG1
+        self.IPAIRG2 = IPAIRG2
+        self.INORMALT = INORMALT
         self.WAVEN = NU_GRID
         self.TEMP = TEMPS
         self.K_CIA = K_CIA
@@ -122,24 +200,75 @@ class CIA_0:
         Subroutine to make a summary plot of the contents of the .cia file
         """
 
-        from NemesisPy import find_nearest
+        from NemesisPy import find_nearest, gas_info
 
-        fig,ax1 = plt.subplots(1,1,figsize=(12,5))
+        fig,ax1 = plt.subplots(1,1,figsize=(10,4))
 
-        labels = ['H$_2$-H$_2$ w equilibrium ortho/para-H$_2$','He-H$_2$ w equilibrium ortho/para-H$_2$','H$_2$-H$_2$ w normal ortho/para-H$_2$','He-H$_2$ w normal ortho/para-H$_2$','H$_2$-N$_2$','N$_2$-CH$_4$','N$_2$-N$_2$','CH$_4$-CH$_4$','H$_2$-CH$_4$']
+        #labels = ['H$_2$-H$_2$ w equilibrium ortho/para-H$_2$','He-H$_2$ w equilibrium ortho/para-H$_2$','H$_2$-H$_2$ w normal ortho/para-H$_2$','He-H$_2$ w normal ortho/para-H$_2$','H$_2$-N$_2$','N$_2$-CH$_4$','N$_2$-N$_2$','CH$_4$-CH$_4$','H$_2$-CH$_4$']
         for i in range(self.NPAIR):
 
+            gasname1 = gas_info[str(self.IPAIRG1[i])]['name']
+            gasname2 = gas_info[str(self.IPAIRG2[i])]['name']
+
+            label = gasname1+'-'+gasname2
+            if self.INORMALT[i]==1:
+                label = label + " ('normal')"
+
             TEMP0,iTEMP = find_nearest(self.TEMP,296.)
-            ax1.plot(self.WAVEN,self.K_CIA[i,iTEMP,:],label=labels[i])
+            ax1.plot(self.WAVEN,self.K_CIA[i,iTEMP,:],label=label)
 
         ax1.legend()
+        ax1.set_facecolor('lightgray')
         ax1.set_xlabel('Wavenumber (cm$^{-1}$')
-        ax1.set_ylabel('CIA cross section (a.u.)')
+        ax1.set_ylabel('CIA cross section (cm$^{5}$ molec$^{-2}$)')
         ax1.grid()
         plt.tight_layout()
         plt.show()
+        
+        
+    def locate_INORMAL_pairs(self):
+        """
+        Subroutine to locate which pairs in the class are dependent on the para/ortho-H2 ratio (i.e., INORMAL = 0 or 1)
+        
+        Outputs
+        -------
+        INORMALD(NPAIR) :: Flag indicating whether the pair depends on the ortho/para-H2 ratio (True if it depends)
+        """
+        
+        #We locate the pairs affected by INORMAL by seeing whether some of the IDs for the pairs are repeated
+        #If they are repeated, we make sure that they must be defined one with INORMAL = 0 and one with INORMAL = 1
+        
+        arr = np.vstack([self.IPAIRG1,self.IPAIRG2])
+        _, ind = np.unique(arr, axis=1, return_index=True)
+        out = np.zeros(shape=arr.shape[1], dtype=bool)
+        out[ind] = True
+        
+        #if out=False then it means that pair is repeated
+        iFalse = np.where(out==False)[0]
+        
+        outx = [False]*self.NPAIR
+        for i in range(len(iFalse)):
+            
+            for j in range(self.NPAIR):
+                
+                if((self.IPAIRG1[j]==self.IPAIRG1[iFalse[i]]) & (self.IPAIRG2[j]==self.IPAIRG2[iFalse[i]]) ):
+                    outx[j] = True
+            
+        
+        #Making sure there are no repeated cases (i.e., the repeated cases have a different INORMAL flag)    
+        arr = np.vstack([self.IPAIRG1,self.IPAIRG2,self.INORMALT])
+        _, ind = np.unique(arr, axis=1, return_index=True)
+        out2 = np.zeros(shape=arr.shape[1], dtype=bool)
+        out2[ind] = True
+            
+        iFalse = np.where(out2==False)[0]
+        if len(iFalse)>0:
+            sys.exit('error in locate_INORMAL_pairs :: It appears that there are repeated pairs with the same INORMAL flag')            
+            
+        return outx
+        
 
-    def calc_tau_cia(self,ISPACE,WAVEC,Atmosphere,Layer,MakePlot=False):
+    def calc_tau_cia_old(self,ISPACE,WAVEC,Atmosphere,Layer,MakePlot=False):
         """
         Calculate the CIA opacity in each atmospheric layer
         @param ISPACE: int
@@ -203,10 +332,10 @@ class CIA_0:
 #       calculating the opacity
         XLEN = Layer.DELH * 1.0e2  #cm
         TOTAM = Layer.TOTAM * 1.0e-4 #cm-2
-        AMAGAT = 2.68675E19 #mol cm-3
+        AMAGAT = 2.68675E19 #molecule cm-3 (definition of amagat unit)
 
-        amag1 = (Layer.TOTAM*1.0e-4/XLEN)/AMAGAT  #Number density in AMAGAT units
-        tau = XLEN*amag1**2
+        amag1 = (Layer.TOTAM*1.0e-4/XLEN)/AMAGAT  #Number density of each layer in AMAGAT units
+        tau = XLEN*amag1**2  #quantity in cm amagat^2, that multiplied by the CIA tables in cm-1 amagat-2 gives optical depth
 
         #Defining the calculation wavenumbers
         if ISPACE==0:
@@ -221,8 +350,8 @@ class CIA_0:
 
 #       calculating the CIA opacity at the correct temperature and wavenumber
         NWAVEC = len(WAVEC)   #Number of calculation wavelengths
-        tau_cia_layer = np.zeros([NWAVEC,Layer.NLAY])
-        dtau_cia_layer = np.zeros([NWAVEC,Layer.NLAY,7])
+        tau_cia_layer = np.zeros((NWAVEC,Layer.NLAY))
+        dtau_cia_layer = np.zeros((NWAVEC,Layer.NLAY,7))
         for ilay in range(Layer.NLAY):
 
             #Interpolating to the correct temperature
@@ -345,6 +474,86 @@ class CIA_0:
             plt.show()
 
         return tau_cia_layer,dtau_cia_layer,IABSORB
+
+
+    def write_ciatable_hdf5(self,filename):
+        """
+        Write the CIA look-up table in an HDF5 file
+        """
+        
+        import h5py
+
+        #Assessing that all the parameters have the correct type and dimension
+        self.assess()
+        
+        
+        if filename[len(filename)-3:len(filename)]=='.h5':
+            f = h5py.File(filename,'w')
+        else:
+            f = h5py.File(filename+'.h5','w')
+        
+        
+        #Writing the main dimensions
+        dset = f.create_dataset('NPAIR',data=self.NPAIR)
+        dset.attrs['title'] = "Number of CIA pairs included in the look-up table"
+
+        dset = f.create_dataset('NWAVE',data=self.NWAVE)
+        dset.attrs['title'] = "Number of wavenumber points in the look-up table"
+
+        dset = f.create_dataset('NT',data=self.NT)
+        dset.attrs['title'] = "Number of temperatures at which the CIA cross sections are tabulated"
+        
+        dset = f.create_dataset('IPAIRG1',data=self.IPAIRG1)
+        dset.attrs['title'] = "ID of the first gas of each CIA pair (e.g., N2-CO2; IPAIRG1 = N2 = 22)"
+        
+        dset = f.create_dataset('IPAIRG2',data=self.IPAIRG2)
+        dset.attrs['title'] = "ID of the second gas of each CIA pair (e.g., N2-CO2; IPAIRG2 = CO2 = 2)"
+        
+        dset = f.create_dataset('INORMALT',data=self.INORMALT)
+        dset.attrs['title'] = "Flag indicating whether the cross sections correspond to equilibrium or normal hydrogen"
+        
+        dset = f.create_dataset('WAVEN',data=self.WAVEN)
+        dset.attrs['title'] = "Wavenumber"
+        dset.attrs['units'] = "cm-1"
+        
+        dset = f.create_dataset('TEMP',data=self.TEMP)
+        dset.attrs['title'] = "Temperature"
+        dset.attrs['units'] = "K"
+        
+        dset = f.create_dataset('K_CIA',data=self.K_CIA)
+        dset.attrs['title'] = "CIA cross sections"
+        dset.attrs['units'] = "cm5 molecule-2"
+        
+        f.close()
+        
+    def read_ciatable_hdf5(self,filename):
+        """
+        Read the CIA look-up table from an HDF5 file
+        """
+        
+        import h5py
+
+        if filename[len(filename)-3:len(filename)]=='.h5':
+            f = h5py.File(filename,'r')
+        else:
+            f = h5py.File(filename+'.h5','r')
+            
+        self.NPAIR = np.int32(f.get('NPAIR'))
+        self.NT = np.int32(f.get('NT'))
+        self.NWAVE = np.int32(f.get('NWAVE'))
+            
+        self.IPAIRG1 = np.array(f.get('IPAIRG1'))
+        self.IPAIRG2 = np.array(f.get('IPAIRG2'))
+        self.INORMALT = np.array(f.get('INORMALT'))
+        
+        self.WAVEN = np.array(f.get('WAVEN'))
+        self.TEMP = np.array(f.get('TEMP'))
+        self.K_CIA = np.array(f.get('K_CIA'))
+        
+        self.assess
+            
+        f.close()
+
 
 
 ###############################################################################################
@@ -567,3 +776,111 @@ def n2h2cia(WAVEN):
     N2H2CIA = N2H2CIA * 1.0e-5
 
     return N2H2CIA
+
+###############################################################################################
+
+def read_cia_hitran_file(filename):
+    """
+    Subroutine to read the CIA cross sections from a file written in the HITRAN CIA format
+ 
+    Inputs
+    --------
+    @param filename: str
+        Name of the file
+        
+    Outputs
+    ---------
+    @param gasID1: int
+        First gas of the pair (e.g., CO2-O2) ; gasID1 = CO2 = 2
+    @param gasID2: int
+        Second gas of the pair (e.g., CO2-O2) ; gasID2 = O2 = 7
+    @param ncases: int
+        Number of cases (temperature or spectral ranges) tabulated in the file
+    @param temp(ncases): 1D array
+        Temperature for each of the cases
+    @param nwave(ncases): 1D array
+        Number of wavenumbers for each of the cases
+    @param wave(nwave,ncases) :: 2D array
+        Wavenumber array for each of the cases (cm-1)
+    @param k(nwave,ncases): 2D array
+        CIA cross section (cm5 molecule-2)
+    """
+    
+    from NemesisPy import file_lines
+    
+    file1 = open(filename,'r')
+    
+    
+    temp = []
+    nwave = []
+    wave = []
+    k = []
+    
+    ix = 0
+    while True:
+        
+                
+        if ix==0:
+            #Header line for each case
+            line = file1.readline()
+            # if line is empty
+            # end of file is reached
+            if not line:
+                break
+    
+            il = 0
+            paircase = line[il:il+20]
+            il = il + 20
+            
+            wavemin = float(line[il:il+10])
+            il = il + 10
+            wavemax = float(line[il:il+10])
+            il = il + 10
+            nwavex = int(line[il:il+7])
+            il = il + 7
+            tempx = float(line[il:il+7])
+            il = il + 7
+            ciamax = float(line[il:il+10])
+            il = il + 10
+            dwave = float(line[il:il+6])
+            il = il + 6
+            comments = line[il:il+27]
+            il = il + 27
+            reference = line[il:il+3]
+            il = il + 3
+            
+            ix = 1
+            
+        else:
+        
+            temp.append(tempx)
+            nwave.append(nwavex)
+        
+            #Data with cross sections
+            for iwave in range(nwavex):
+                line = file1.readline()
+                vals = line.split()
+                wave.append(float(vals[0]))
+                k.append(float(vals[1]))
+                
+            ix = 0
+                
+                
+    file1.close()
+
+    #Re-shaping arrays
+    temp = np.array(temp)
+    nwave = np.array(nwave,dtype='int32')
+    ncases = len(temp)
+    waven = np.zeros((nwave.max(),ncases))
+    kn = np.zeros((nwave.max(),ncases))
+    
+    ix = 0
+    for i in range(ncases):
+        
+        waven[0:nwave[i],i] = wave[ix:ix+nwave[i]]
+        kn[0:nwave[i],i] = k[ix:ix+nwave[i]]
+        ix = ix + nwave[i]
+        
+    return ncases,temp,nwave,waven,kn
+    
