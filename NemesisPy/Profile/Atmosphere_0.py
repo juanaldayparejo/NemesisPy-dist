@@ -1004,6 +1004,7 @@ class Atmosphere_0:
             self.calc_molwt()
             
         self.calc_grav()
+        self.calc_radius()
         
         self.assess()
         
