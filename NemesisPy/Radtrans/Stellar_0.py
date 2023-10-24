@@ -83,11 +83,11 @@ class Stellar_0:
                 'ISPACE must be >=0 and <=1'
 
             #Checking some common parameters to all cases
-            assert np.issubdtype(type(self.DIST), np.float) == True , \
+            assert np.issubdtype(type(self.DIST), np.float64) == True , \
                 'DIST must be float'
 
             #Checking some common parameters to all cases
-            assert np.issubdtype(type(self.RADIUS), np.float) == True , \
+            assert np.issubdtype(type(self.RADIUS), np.float64) == True , \
                 'RADIUS must be float'
 
             #Checking some common parameters to all cases
