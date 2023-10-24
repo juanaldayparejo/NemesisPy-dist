@@ -2004,6 +2004,7 @@ def read_input_files_hdf5(runname):
     """
 
     from NemesisPy.OptimalEstimation import OptimalEstimation_0
+    import h5py
 
     #Initialise Atmosphere class and read file
     ##############################################################
@@ -2038,11 +2039,24 @@ def read_input_files_hdf5(runname):
     #Initialise CIA class and read files (.cia)  - NOT FROM HDF5 YET
     ##############################################################
 
-    if os.path.exists(runname+'.cia')==True:
-        CIA = CIA_0(runname=runname)
-        CIA.read_cia()
+    f = h5py.File(runname+'.h5','r')
+    #Checking if CIA exists
+    e = "/CIA" in f
+    f.close()
+    
+    if e==True:
+        CIA = CIA_0()
+        CIA.read_hdf5(runname)
     else:
         CIA = None
+
+    #Old version of CIA
+    #if os.path.exists(runname+'.cia')==True:
+    #    CIA = CIA_0(runname=runname)
+    #    CIA.read_cia()
+    #    #CIA.read_hdf5(runname)
+    #else:
+    #    CIA = None
 
     #Initialise Spectroscopy class and read file
     ###############################################################

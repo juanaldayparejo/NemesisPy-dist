@@ -19,7 +19,7 @@ Collision-Induced Absorption Class.
 
 class CIA_0:
 
-    def __init__(self, runname='', INORMAL=0, NPAIR=9, NT=25, NWAVE=1501, IPAIRG1=[39,39,39,39,39,22,22,6,39], IPAIRG2=[39,40,39,40,22,6,22,6,6], INORMALT=[0,0,1,1,0,0,0,0,0]):
+    def __init__(self, runname='', INORMAL=0, NPAIR=9, NT=25, CIADATA=None, CIATABLE='CO2-CO2_HITRAN.h5', NWAVE=1501, IPAIRG1=[39,39,39,39,39,22,22,6,39], IPAIRG2=[39,40,39,40,22,6,22,6,6], INORMALT=[0,0,1,1,0,0,0,0,0]):
 
         """
         Inputs
@@ -41,7 +41,10 @@ class CIA_0:
             Second gas of each of the listed pairs (e.g., H2-He ; IPAIRG2 = He = 40)
         @param INORMALT: 1D array (NPAIR),
             Flag indicating the equilibrium/normal hydrogen listed in the CIA table (only valid for H2-He and H2-H2, for rest of gases it is not used but needs to be defined)
-            
+        @param CIADATA: str
+            String indicating where the CIA data files are stored (NOTE: Default location is the Data/cia/ directory)
+        @param CIATABLE: str
+            String indicating the name of the file storing the CIA table
 
         Attributes
         ----------
@@ -51,12 +54,13 @@ class CIA_0:
             Temperature levels at which the CIA data is defined (K)
         @attribute K_CIA: 3D array
             CIA cross sections for each pair at each wavenumber and temperature level (cm5 molecule-2 ; NOTE: THIS IS DIFFERENT FROM FORTRAN NEMESIS WHERE THEY ARE LISTED IN CM-1 AMAGAT-2)
-        @attribute CIADATA: str
-            String indicating where the CIA data files are stored
+
 
         Methods
         ----------
         CIA_0.assess()
+        CIA_0.write_hdf5()
+        CIA_0.read_hdf5()
         CIA_0.read_cia()
         CIA_0.plot_cia()
         CIA_0.calc_tau_cia()
@@ -76,13 +80,20 @@ class CIA_0:
         self.INORMALT = INORMALT
         self.NT = NT
         self.NWAVE = NWAVE
+        
+        if CIADATA is None:
+            self.CIADATA = Nemesis_Path()+'NemesisPy/Data/cia/'
+        else:
+            self.CIADATA = CIADATA
+            
+        self.CIATABLE = CIATABLE
 
         # Input the following profiles using the edit_ methods.
         self.WAVEN = None # np.zeros(NWAVE)
         self.TEMP = None # np.zeros(NT)
         self.K_CIA = None #np.zeros(NPAIR,NT,NWAVE)
 
-        self.CIADATA = Nemesis_Path()+'NemesisPy/Data/cia/'
+        
 
     def assess(self):
         """
@@ -133,6 +144,70 @@ class CIA_0:
             assert self.K_CIA.shape == (self.NPAIR,self.NT,self.NWAVE) , \
                 'K_CIA must have size (NPAIR,NT,NWAVE)'
 
+
+    def read_hdf5(self,runname):
+        """
+        Read the information about the CIA class from the inpit HDF5 file
+        @param runname: str
+            Name of the NEMESIS run
+        """
+        
+        import h5py
+
+        f = h5py.File(runname+'.h5','r')
+
+        #Checking if Spectroscopy exists
+        e = "/CIA" in f
+        if e==False:
+            sys.exit('error :: CIA is not defined in HDF5 file')
+        else:
+            self.CIADATA = f['CIA/CIADATA'][0].decode('ascii')
+            self.CIATABLE = f['CIA/CIATABLE'][0].decode('ascii')
+            self.INORMAL = np.int32(f.get('CIA/INORMAL'))
+    
+        f.close()
+        
+        #Reading the CIA table from the name specified
+        self.read_ciatable_hdf5(self.CIADATA+self.CIATABLE)
+    
+        
+    def write_hdf5(self,runname):
+        """
+        Write the information about the CIA class from the inpit HDF5 file
+        Since the CIA information is actually stored in look-up tables
+        @param runname: str
+            Name of the NEMESIS run
+        @param ciatable: str
+            Name of the CIA table (expected to be stored in the Data/cia/ directory)
+        """
+        
+        import h5py
+
+        f = h5py.File(runname+'.h5','a')
+        #Checking if Spectroscopy already exists
+        if ('/CIA' in f)==True:
+            del f['CIA']   #Deleting the Spectroscopy information that was previously written in the file
+
+        grp = f.create_group("CIA")
+
+        #Writing the necessary flags
+        dset = grp.create_dataset('INORMAL',data=self.INORMAL)
+        dset.attrs['title'] = "Flag indicating whether the ortho/para-H2 ratio is in equilibrium (0 for 1:1) or normal (1 for 3:1)"
+        
+        #Writing the name of the CIA table
+        dt = h5py.special_dtype(vlen=str)
+        CIADATA = ['']*1
+        CIADATA[0] = self.CIADATA
+        dset = grp.create_dataset('CIADATA',data=CIADATA,dtype=dt)
+        dset.attrs['title'] = "Path to directory where CIA table is stored"
+        
+        CIATABLE = ['']*1
+        CIATABLE[0] = self.CIATABLE
+        dset = grp.create_dataset('CIATABLE',data=CIATABLE,dtype=dt)
+        dset.attrs['title'] = "Name of the CIA table file"
+        
+        f.close()
+        
 
     def read_cia(self):
         """
