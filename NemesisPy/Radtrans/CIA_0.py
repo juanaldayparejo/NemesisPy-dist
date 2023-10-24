@@ -50,7 +50,7 @@ class CIA_0:
         @attribute TEMP: 1D array
             Temperature levels at which the CIA data is defined (K)
         @attribute K_CIA: 3D array
-            CIA cross sections for each pair at each wavenumber and temperature level (cm5 molecule-1 ; NOTE: THIS IS DIFFERENT FROM FORTRAN NEMESIS WHERE THEY ARE LISTED IN CM-1 AMAGAT-2)
+            CIA cross sections for each pair at each wavenumber and temperature level (cm5 molecule-2 ; NOTE: THIS IS DIFFERENT FROM FORTRAN NEMESIS WHERE THEY ARE LISTED IN CM-1 AMAGAT-2)
         @attribute CIADATA: str
             String indicating where the CIA data files are stored
 
@@ -181,9 +181,9 @@ class CIA_0:
                     K_CIA[ipair,itemp,iwn] = KCIA_list[index]  #cm-1 amagat-2
                     index += 1
 
-        #Changing the units of the CIA table (NEMESIS format) from cm-1 amagat-2 to cm5 molecule-1
+        #Changing the units of the CIA table (NEMESIS format) from cm-1 amagat-2 to cm5 molecule-2
         AMAGAT = 2.68675E19 #molecule cm-3 (definition of amagat unit)
-        K_CIA = K_CIA / (AMAGAT**2.) #cm5 molecule-1
+        K_CIA = K_CIA / (AMAGAT**2.) #cm5 molecule-2
 
         self.NWAVE = NWAVE
         self.NT = NT
@@ -610,6 +610,10 @@ def co2cia(WAVEN):
     iin = iin[0]
     if len(iin)>0:
         CO2CIA[iin] = 0.5*(0.29+0.67)*1e-9
+        
+    #Changing the units from cm-1 amagat-2 (NEMESIS format) to cm5 molecule-2
+    AMAGAT = 2.68675E19 #molecule cm-3 (definition of amagat unit)
+    CO2CIA = CO2CIA / (AMAGAT**2.) #cm5 molecule-2
 
     return CO2CIA
 
@@ -671,6 +675,10 @@ def n2n2cia(WAVEN):
 
     #Convert to cm-1 (amagat)-2
     N2N2CIA = N2N2CIA * 1.0e-5
+    
+    #Changing the units from cm-1 amagat-2 (NEMESIS format) to cm5 molecule-2
+    AMAGAT = 2.68675E19 #molecule cm-3 (definition of amagat unit)
+    N2N2CIA = N2N2CIA / (AMAGAT**2.) #cm5 molecule-2
 
     return N2N2CIA
 
@@ -774,6 +782,10 @@ def n2h2cia(WAVEN):
 
     #Convert to cm-1 (amagat)-2
     N2H2CIA = N2H2CIA * 1.0e-5
+    
+    #Changing the units from cm-1 amagat-2 (NEMESIS format) to cm5 molecule-2
+    AMAGAT = 2.68675E19 #molecule cm-3 (definition of amagat unit)
+    N2H2CIA = N2H2CIA / (AMAGAT**2.) #cm5 molecule-2
 
     return N2H2CIA
 
