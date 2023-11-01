@@ -331,10 +331,10 @@ class Scatter_0:
         dset = grp.create_dataset('NMU',data=self.NMU)
         dset.attrs['title'] = "Number of polar angles for multiple scattering calculation"
 
-        dset = grp.create_dataset('NF',data=self.NMU)
+        dset = grp.create_dataset('NF',data=self.NF)
         dset.attrs['title'] = "Number of Fourier components for azimuth decomposition"
 
-        dset = grp.create_dataset('NPHI',data=self.NMU)
+        dset = grp.create_dataset('NPHI',data=self.NPHI)
         dset.attrs['title'] = "Number of azimuth angles for multiple scattering calculation"
 
         dset = grp.create_dataset('NDUST',data=self.NDUST)
