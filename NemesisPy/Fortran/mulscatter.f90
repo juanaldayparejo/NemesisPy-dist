@@ -1,9 +1,26 @@
 module mulscatter
 
-    real, parameter :: pi = 3.1415926536
     integer, parameter :: IPOW0 = 16
 
 contains
+
+    !==================================================================================================
+    !==================================================================================================
+    !==================================================================================================
+
+    ! In this module, we include routines to calculate the multiple scattering properties 
+    ! of atmospheric layers. The functions included in this module are:
+    !
+    !   - calc_RTF_matrix() :: Calculate the reflection, transmission and source matrices of a layer
+    !   - add_layer(),addp_layer(),addp_layer_nwave() :: Routines to add the RTF matrices of two layers
+    !   - iup(),idown(),itop(),ibottom() :: Routines to calculate the intensity in a given direction
+    !   - MEQU(),MADD(),MMUL(),MATINV8(),LUDCMP8(),LUBKSB8() :: Matrix operation routines
+
+    !==================================================================================================
+    !==================================================================================================
+    !==================================================================================================
+
+
 
     !==================================================================================================
     subroutine calc_RTF_matrix(nwave,ng,nlay,nf,nmu,mu,wtmu,TAUTOT,OMEGAS,TAURAY,BNU,PPLPL,PPLMI,&
@@ -28,7 +45,7 @@ contains
         !Local
         double precision :: ACOM(nmu,nmu),BCOM(nmu,nmu),CCOM(nmu,nmu)
         double precision :: MM(nmu,nmu),MMINV(nmu,nmu),CC(nmu,nmu),CCINV(nmu,nmu)
-        double precision :: XFAC,TAUT,BC,OMEGA,TAUSCATOT,TAUSCAT,TAUR,TAUL,TEX,TAU0
+        double precision :: XFAC,TAUT,BC,OMEGA,TAUSCATOT,TAUSCAT,TAUR,TAUL,TEX,TAU0,PI
         double precision :: DEL01,CON,E(nmu,nmu)
         double precision :: GPLMI(nmu,nmu), GPLPL(nmu,nmu)
         double precision :: R1(nmu,nmu),T1(nmu,nmu),J1(nmu,1)
@@ -43,6 +60,7 @@ contains
         integer, intent(out) :: iscl(nwave,ng,nlay)                      !Flag indicating if it is a scattering layer
 
 
+        PI = 4.0D0*DATAN(1.0D0)
 
         !Calculating constant matrices
         !---------------------------------
@@ -455,6 +473,309 @@ contains
 
     !==================================================================================================
 
+    !==================================================================================================
+    subroutine define_scattering_angles(nmu,nphi,mu,apl,ami)
+
+        !Subroutine to define the scattering angles in the + and - directions (i.e. downwards and upwards)
+        !at which the calculations must be performed
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: nmu,nphi      !Number of zenith ordinates, Number of azimuth ordinates  
+        double precision, intent(in) :: mu(nmu) !Zenith ordinates
+
+
+        !Local
+        integer :: i,j,k,ntheta,ix
+        double precision :: phi,dphi,sthi,sthj,pi
+        double precision :: cpl,cmi
+
+        !Outputs
+        double precision, intent(out) :: apl(nmu*nmu*(nphi+1)),ami(nmu*nmu*(nphi+1))   !Scattering angle in the plus and minus directions
+
+        pi = 4.0D0*DATAN(1.0D0)
+        dphi = 2.0*PI/nphi
+        ntheta = nmu*nmu*(nphi+1)
+
+        !allocate(apl(ntheta),ami(ntheta))
+        !allocate(cpl(ntheta),cmi(ntheta)) 
+
+        !Calculating the scattering angle in the plus and minus directions
+        ix = 1
+        do j=1,nmu
+            do i=1,nmu
+                sthi = dsqrt(1.d0-mu(i)*mu(i))   !sin(theta(i))
+                sthj = dsqrt(1.d0-mu(j)*mu(j))   !sin(theta(i))
+
+                do k=1,nphi+1
+                    phi = (k-1)*dphi
+
+                    !Calculating cos(alpha)
+                    cpl = sthi*sthj*dcos(phi) + mu(i)*mu(j)
+                    cmi = sthi*sthj*dcos(phi) - mu(i)*mu(j)
+
+                    if(cpl.gt.1.d0) cpl=1.d0
+                    if(cpl.lt.-1.d0) cpl=-1.d0
+                    if(cmi.gt.1.d0) cmi=1.d0
+                    if(cmi.lt.-1.d0) cmi=-1.d0
+
+                    !Calculating the scattering angle (degrees)
+                    apl(ix) = acos(cpl) / pi * 180.d0
+                    ami(ix) = acos(cmi) / pi * 180.d0
+
+                    ix = ix + 1
+                enddo
+            enddo
+        enddo
+
+        RETURN
+    end subroutine
+
+
+    !==================================================================================================
+    subroutine integrate_phase_function(nwave,nmu,nphi,nf,ppl,pmi,pplpl,pplmi)
+
+        !Subroutine to integrate the phase function in the along the azimuth direction.
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: nwave,nmu,nphi,nf      !Number of wavelengths, zenith ordinates, azimuth ordinates, Fourier components  
+        !double precision, intent(in) :: wtmu(nmu) !Zenith ordinates and the weight of each zenith ordinate
+        double precision, intent(in) :: ppl(nwave,nmu*nmu*(nphi+1)) !Phase function evaluated at the scattering angles in the plus direction (upwards)
+        double precision, intent(in) :: pmi(nwave,nmu*nmu*(nphi+1)) !Phase function evaluated at the scattering angles in the minus direction (downwards)
+
+        !Local
+        integer :: i,j,k,kl,ntheta,ix
+        double precision :: phi,dphi,wphi,pi
+        double precision :: plx(nwave),pmx(nwave)
+
+        !Outputs
+        double precision, intent(out) :: pplpl(nwave,nf+1,nmu,nmu),pplmi(nwave,nf+1,nmu,nmu)   !Integrated phase function coefficients in + and - direction
+
+        pi = 4.0D0*DATAN(1.0D0)
+        dphi = 2.0*PI/nphi
+        ntheta = nmu*nmu*(nphi+1)
+
+        ix = 1
+        do j=1,nmu
+            do i=1,nmu
+                do k=1,nphi+1
+                    phi = (k-1)*dphi
+                    do kl=1,nf+1
+
+                        plx(:) = ppl(:,ix) * dcos((kl-1)*phi)
+                        pmx(:) = pmi(:,ix) * dcos((kl-1)*phi)
+
+                        wphi = 1.d0*dphi
+                        if(k.eq.1) wphi = 0.5d0*dphi
+                        if(k.eq.nphi+1) wphi = 0.5d0*dphi
+
+                        if(kl.eq.1)then 
+                            wphi = wphi / (2.d0*PI)
+                        else
+                            wphi = wphi / PI
+                        endif
+
+                        pplpl(:,kl,i,j) = pplpl(:,kl,i,j) + wphi*plx(:)
+                        pplmi(:,kl,i,j) = pplmi(:,kl,i,j) + wphi*pmx(:)
+
+                    enddo
+
+                    ix = ix + 1
+
+                enddo
+            enddo
+        enddo
+
+        RETURN
+    end subroutine
+
+
+    !==================================================================================================
+    subroutine normalise_phase_function(nwave,nmu,nf,wtmu,pplpl,pplmi,pplplx,pplmix)
+
+        !Subroutine to normalise the phase function using the method described in Hansen (1971,J.ATM.SCI., V28, 1400)
+
+        !PPL,PMI ARE THE FORWARD AND BACKWARD PARTS OF THE AZIMUTHALLY-INTEGRATED
+        !PHASE FUNCTION.  THE NORMALIZATION OF THE TRUE PHASE FCN. IS:
+        !integral over sphere [ P(mu,mu',phi) * dO] = 1
+        !WHERE dO IS THE ELEMENT OF SOLID ANGLE AND phi IS THE AZIMUTHAL ANGLE.
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: nwave,nmu,nf                !Number of wavelengths, zenith ordinates, Fourier components  
+        double precision, intent(in) :: wtmu(nmu)          !Weights of each zenith ordinate
+        double precision, intent(in) :: pplpl(nwave,nf+1,nmu,nmu) !Integrated phase function coefficients in + and - direction
+        double precision, intent(in) :: pplmi(nwave,nf+1,nmu,nmu) !Integrated phase function coefficients in + and - direction
+
+        !Local
+        integer :: i,j,k,ic,iwave,niter
+        double precision :: pi,testj,test,xi,xj
+        double precision :: rsum(nwave,nmu),fc(nmu,nmu),tsum(nmu)
+        logical :: normalise
+
+        !Outputs
+        double precision, intent(out) :: pplplx(nwave,nf+1,nmu,nmu) !Normalised phase functions
+        double precision, intent(out) :: pplmix(nwave,nf+1,nmu,nmu) !Normalised phase functions
+
+
+
+        ic = 0
+
+        !Initialising several parameters
+        pi = 4.0D0*DATAN(1.0D0)
+
+        do j=1,nmu
+            do i=1,nmu
+                rsum(:,j) = rsum(:,j) + pplmi(:,ic,i,j) * wtmu(i) * 2.d0 * pi
+            enddo
+        enddo
+
+        !Looping over wavelength
+        do iwave=1,nwave
+
+            normalise = .true.
+            fc(:,:) = 1.D0
+            niter = 1
+
+            niter = 0
+            do while (test.gt.1.0d-14) !when false we leave the while loop
+
+                if(niter.gt.10000)then
+                    print*,'error in calc_phase_matrix :: Normalisation of phase matrix did not converge'
+                    stop
+                endif
+
+                test = 0.d0
+                do j=1,nmu
+                    tsum(j) = 0.d0
+                    do i=1,nmu
+                        tsum(j) = tsum(j) + pplpl(iwave,ic,i,j)*wtmu(i) * 2.0d0 * pi
+                    enddo
+                    testj = abs( rsum(iwave,j)+tsum(j)-1.d0 )
+                    if(testj.gt.test) test = testj
+                enddo
+
+                do j=1,nmu
+                    xj = (1.d0-rsum(iwave,j))/tsum(j)
+                    do i=1,nmu
+                        xi = (1.d0-rsum(iwave,i))/tsum(i)
+                        fc(i,j) = 0.5d0 * (fc(i,j)*xj+fc(j,i)*xi)
+                        fc(j,i) = fc(i,j)
+                    enddo
+                enddo
+
+                niter = niter + 1
+
+            enddo
+
+            do k=1,nf+1
+                do j=1,nmu
+                    do i=1,nmu
+                        pplmix(iwave,k,i,j) = pplmi(iwave,k,i,j)
+                        pplplx(iwave,k,i,j) = pplpl(iwave,k,i,j) * fc(i,j)
+                    enddo
+                enddo
+            enddo
+
+        enddo
+
+        RETURN
+
+    end subroutine
+
+
+    !==================================================================================================
+    subroutine calc_scatt_matrix_layer(nwave,ng,nmu,nf,nlayer,naero,nscat,pplpl,pplmi,tauray,tauclscat,tautot,pplpls,pplmis,omega)
+
+        !Subroutine to calculate the effective scattering matrix (phase matrix and single scattering albedo) 
+        !of an atmospheric layer composed of different aerosol and gaseous species (including Rayleigh scattering)
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: nwave,ng,nmu,nf                    !Number of wavelengths, g-ordinates, zenith ordinates, Fourier components
+        integer, intent(in) :: nlayer,naero,nscat                 !Number of atmospheric layers, aerosols, and scattering species (naero+1 if rayleigh)  
+        double precision, intent(in) :: pplpl(nwave,nscat,nf+1,nmu,nmu) !Integrated phase function coefficients in + and - direction
+        double precision, intent(in) :: pplmi(nwave,nscat,nf+1,nmu,nmu) !Integrated phase function coefficients in + and - direction
+        double precision, intent(in) :: tauray(nwave,nlayer)      !Rayleigh scattering optical depth in each layer
+        double precision, intent(in) :: tauclscat(nwave,nlayer,naero) !Scattering optical depth by each of the aerosol species
+        double precision, intent(in) :: tautot(nwave,ng,nlayer)   !Total optical depth in each atmospheric layer (absorption + scattering)
+
+        !Local
+        integer :: iscat,iwave,ilay,iaero,ig
+        double precision :: frac(nscat),tauscat
+        logical :: rayleigh
+
+        !Outputs
+        double precision, intent(out) :: pplpls(nwave,nlayer,nf+1,nmu,nmu) !Effective phase functions in each layer
+        double precision, intent(out) :: pplmis(nwave,nlayer,nf+1,nmu,nmu) !Effective phase functions in each layer
+        double precision, intent(out) :: omega(nwave,ng,nlayer)            !Single scattering albedo of the layer
+
+
+        !Checking if rayleigh scattering must be included
+        if(nscat.eq.naero)then
+            rayleigh = .false.
+        elseif(nscat.eq.naero+1)then
+            rayleigh = .true.
+        else
+            print*,'error in calc_scatt_matric_layer :: nscat must be greater or equal than naero'
+            stop
+        endif
+
+        !Initialising outputs
+        omega(:,:,:) = 0.d0
+        pplmis(:,:,:,:,:) = 0.d0
+        pplpls(:,:,:,:,:) = 0.d0
+
+        !Looping over wavelength
+        do iwave=1,nwave
+
+            !Looping through each atmospheric layer
+            do ilay=1,nlayer
+
+                !Calculating the total scattering optical depth
+                tauscat = 0.d0
+                do iaero=1,naero
+                    tauscat = tauscat + tauclscat(iwave,ilay,iaero)
+                enddo
+                if(rayleigh) tauscat = tauscat + tauray(iwave,ilay)
+
+                !If there is scattering, we continue
+                if(tauscat.gt.0.d0)then
+
+                    !Calculating the fraction of scattering from each source
+                    do iaero=1,naero
+                        frac(iaero) = tauclscat(iwave,ilay,iaero) / tauscat
+                    enddo
+                    if(rayleigh) frac(naero+1) = tauray(iwave,ilay) / tauscat
+
+                    !Calculating the weighted averaged phase matrix in each layer and direction
+                    do iscat=1,nscat
+                        pplpls(iwave,ilay,:,:,:) = pplpls(iwave,ilay,:,:,:) + pplpl(iwave,iscat,:,:,:) * frac(iscat)
+                        pplmis(iwave,ilay,:,:,:) = pplmis(iwave,ilay,:,:,:) + pplmi(iwave,iscat,:,:,:) * frac(iscat)
+                    enddo
+
+                    !Calculating the single scattering albedo of the layer
+                    do ig=1,ng
+                        omega(iwave,ig,ilay) = tauscat / tautot(iwave,ig,ilay)
+                    enddo
+                    
+                endif
+
+            enddo
+            
+        enddo
+
+        RETURN
+
+    end subroutine
+
+
+    !==================================================================================================
     subroutine iup(NWAVE,NG,NMU,E,U0PL,UTMI,RA,TA,JA,RB,TB,JB,UMI)
         !*****************************************************************
         !Subroutine to calculate the upwards intensity of a cloud
