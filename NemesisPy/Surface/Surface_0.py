@@ -409,6 +409,7 @@ class Surface_0:
         if e==False:
             self.GASGIANT = True
             self.LOWBC = 0
+            self.TSURF = -100.
         else:
             
             self.ISPACE = np.int32(f.get('Surface/ISPACE'))
