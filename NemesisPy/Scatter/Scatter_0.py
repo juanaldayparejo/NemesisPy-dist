@@ -638,6 +638,11 @@ class Scatter_0:
         t2 = (1.-self.G2**2.)/(1. - 2.*self.G2*np.cos(Thetax/180.*np.pi) + self.G2**2.)**1.5
         
         phase = self.F * t1 + (1.0 - self.F) * t2
+        
+        #The formula as is for now is normalised such that the integral over 4pi steradians is 4pi
+        #In NEMESIS we need the phase function to be normalised to 1.
+        phase = phase / (4.0*np.pi)
+        
         phase = np.transpose(phase,axes=[1,0,2])
 
         return phase
@@ -750,6 +755,10 @@ class Scatter_0:
         """
 
         phase = 0.75 * ( 1.0 + np.cos(Theta/180.*np.pi) * np.cos(Theta/180.*np.pi) )
+        
+        #The formula as is for now is normalised such that the integral over 4pi steradians is 4pi
+        #In NEMESIS we need the phase function to be normalised to 1.
+        phase = phase / (4.0*np.pi)
 
         return phase
 
@@ -950,23 +959,30 @@ class Scatter_0:
         """
 
         from scipy.special import legendre
+        from NemesisPy.nemesisf import mulscatter
 
         if np.isscalar(Theta)==True:
             ntheta = 1
-            Thetax = [Theta]
+            Thetax = np.array([Theta])
         else:
             Thetax = Theta
 
         ntheta = len(Thetax)
         phase = np.zeros([self.NWAVE,ntheta,self.NDUST])
 
+        #Fortran version
         for IDUST in range(self.NDUST):
-            for IL in range(self.NLPOL):
-                leg = legendre(IL)
-                P_n = leg(np.cos(Thetax/180.*np.pi))
-                for IWAVE in range(self.NWAVE):
-                    phase[IWAVE,:,IDUST] = phase[IWAVE,:,IDUST] + P_n[:] * self.WLPOL[IWAVE,IL,IDUST]
-        
+            phase[:,:,IDUST] = mulscatter.calc_lpphase(nwave=self.NWAVE,nlpol=self.NLPOL,ntheta=ntheta,
+                                                        wlpol=self.WLPOL[:,:,IDUST],theta=Thetax)
+            
+        #Python version
+        #for IDUST in range(self.NDUST):
+        #    for IL in range(self.NLPOL):
+        #        leg = legendre(IL)
+        #        P_n = leg(np.cos(Thetax/180.*np.pi))
+        #        for IWAVE in range(self.NWAVE):
+        #            phase[IWAVE,:,IDUST] = phase[IWAVE,:,IDUST] + P_n[:] * self.WLPOL[IWAVE,IL,IDUST]
+                    
         return phase
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
