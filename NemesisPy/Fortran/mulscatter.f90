@@ -1,6 +1,8 @@
 module mulscatter
 
+    !use omp_lib
     integer, parameter :: IPOW0 = 16
+    
 
 contains
 
@@ -13,6 +15,9 @@ contains
     !
     !   - calc_RTF_matrix() :: Calculate the reflection, transmission and source matrices of a layer
     !   - add_layer(),addp_layer(),addp_layer_nwave() :: Routines to add the RTF matrices of two layers
+    !   - define_scattering_angles(),integrate_phase_function(),
+    !        normalise_phase_function(),calc_scatt_matrix_layer() :: Routines to deal with the phase function
+    !   - legendre
     !   - iup(),idown(),itop(),ibottom() :: Routines to calculate the intensity in a given direction
     !   - MEQU(),MADD(),MMUL(),MATINV8(),LUDCMP8(),LUBKSB8() :: Matrix operation routines
 
@@ -68,15 +73,15 @@ contains
         DO J = 1,NMU
             DO I = 1,NMU
                 E(I,J) = 0.0D0
-                IF(I.EQ.J) E(I,J) = 1.0D0
+                IF(I==J) E(I,J) = 1.0D0
                 MM(I,J) = 0.0D0
-                IF(I.EQ.J) MM(I,J) = MU(I)
+                IF(I==J) MM(I,J) = MU(I)
                 MMINV(I,J) = 0.0D0
-                IF(I.EQ.J) MMINV(I,J) = 1.0D0/MU(I)
+                IF(I==J) MMINV(I,J) = 1.0D0/MU(I)
                 CC(I,J) = 0.0D0
-                IF(I.EQ.J) CC(I,J) = WTMU(I)
+                IF(I==J) CC(I,J) = WTMU(I)
                 CCINV(I,J) = 0.0D0
-                IF(I.EQ.J) CCINV(I,J) = 1.0D0/WTMU(I)
+                IF(I==J) CCINV(I,J) = 1.0D0/WTMU(I)
             ENDDO
         ENDDO
 
@@ -110,16 +115,16 @@ contains
                         !pause
 
                         !Add in an error trap to counter single-double subtraction overflows 
-                        IF(TAUSCAT.LT.0.)TAUSCAT=0.
-                        IF(TAUT.LT.0.)TAUT=0.
-                        IF(OMEGA.GT.1.0)THEN
+                        IF(TAUSCAT<0.d0)TAUSCAT=0.d0
+                        IF(TAUT<0.d0)TAUT=0.d0
+                        IF(OMEGA>1.0d0)THEN
                             OMEGA = 1.D0
-                        ELSE IF(OMEGA.LT.0.0)THEN
+                        ELSE IF(OMEGA<0.d0)THEN
                             OMEGA = 0.D0
                         ENDIF
 
                         !Calculating the matrices
-                        IF(TAUT.EQ.0)THEN
+                        IF(TAUT==0)THEN
 
                             do imu=1,nmu
                                 do jmu=1,nmu
@@ -131,7 +136,7 @@ contains
                             end do
                             iscl(iwave,ig,ilay) = 0
 
-                        ELSE IF(OMEGA.EQ.0)THEN
+                        ELSE IF(OMEGA==0)THEN
 
                             do imu=1,nmu
                                 do jmu=1,nmu
@@ -139,7 +144,7 @@ contains
                                     TL(iwave,ig,ilay,ic+1,imu,jmu)=0.0
                                 end do
                                 TEX = -MMINV(imu,imu)*TAUT
-                                if(TEX.GT.-200.0D0)THEN
+                                if(TEX>-200.0D0)THEN
                                     TL(iwave,ig,ilay,ic+1,imu,imu)=DEXP(TEX)
                                 ELSE
                                     TL(iwave,ig,ilay,ic+1,imu,imu)=0.D0
@@ -161,7 +166,7 @@ contains
                             CON=OMEGA*PI
                             
                             DEL01 = 0.0D0
-                            IF(IC.EQ.0)DEL01 = 1.0D0
+                            IF(IC==0)DEL01 = 1.0D0
                             
                             CON=CON*(1.0D0 + DEL01)
                     
@@ -182,7 +187,7 @@ contains
                             !Define the layer in terms of its thickness
                             NN=INT(DLOG(TAUT)/DLOG(2.0D0))+IPOW0
 
-                            IF(NN.GE.1)THEN
+                            IF(NN>=1)THEN
                              XFAC=1.0/(2.0D0**NN)
                             ELSE
                              XFAC=1.0
@@ -200,14 +205,14 @@ contains
                             DO J=1,NMU
                                 J1(J,1)=0.0
                             ENDDO
-                            IF(IC.EQ.0)THEN
+                            IF(IC==0)THEN
                                 DO J=1,NMU
                                     J1(J,1)=(1.0D0-OMEGA)*BC*TAU0*MMINV(J,J)
                                 ENDDO
                             ENDIF
 
                             !If single scattering we fix the values
-                            IF(NN.LT.1)THEN
+                            IF(NN<1)THEN
                                 
                                 CALL MEQU(NMU,TINIT,TL(iwave,ig,ilay,ic+1,:,:))
                                 CALL MEQU(NMU,RINIT,RL(iwave,ig,ilay,ic+1,:,:))
@@ -232,7 +237,7 @@ contains
                                         RL(iwave,ig,ilay,ic+1,:,:),TL(iwave,ig,ilay,ic+1,:,:),JL(iwave,ig,ilay,ic+1,:,:))
                                     TAUL=TAU0*(2.0D0**N)
                                 
-                                    IF(TAUL.EQ.TAUT) GOTO 100
+                                    IF(TAUL==TAUT) GOTO 100
                                     CALL MEQU(NMU,RL(iwave,ig,ilay,ic+1,:,:),R1)
                                     CALL MEQU(NMU,TL(iwave,ig,ilay,ic+1,:,:),T1)
 
@@ -373,7 +378,7 @@ contains
             !TANS is T20 for combineds layers
             !JANS is JM20 for combined layers (i.e. in -ve direction)
    
-        IF(ISCAT1.EQ.1)THEN
+        IF(ISCAT1==1)THEN
             !2nd layer is scattering. Solve Eq. 7b,8b,9b of Plass et al. (1973)
 
             call MMUL(-1.0D0,NMU,NMU,NMU,RSUB,R1,BCOM) !BCOM=-RSUB*R1
@@ -458,6 +463,8 @@ contains
         double precision, intent(out) :: RANS(NWAVE,NG,NMU,NMU),TANS(NWAVE,NG,NMU,NMU),JANS(NWAVE,NG,NMU,1)
 
 
+        !$omp parallel do private(IWAVE,IG) &
+        !$omp shared(R1,T1,J1,ISCAT1,RSUB,TSUB,JSUB,RANS,TANS,JANS)
         do IWAVE=1,NWAVE
             do IG=1,NG
                 call addp_layer(NMU,E, &
@@ -466,6 +473,7 @@ contains
                     RANS(IWAVE,IG,:,:),TANS(IWAVE,IG,:,:),JANS(IWAVE,IG,:,:))
             enddo
         enddo
+        !$omp end parallel do
 
    
         RETURN
@@ -515,10 +523,10 @@ contains
                     cpl = sthi*sthj*dcos(phi) + mu(i)*mu(j)
                     cmi = sthi*sthj*dcos(phi) - mu(i)*mu(j)
 
-                    if(cpl.gt.1.d0) cpl=1.d0
-                    if(cpl.lt.-1.d0) cpl=-1.d0
-                    if(cmi.gt.1.d0) cmi=1.d0
-                    if(cmi.lt.-1.d0) cmi=-1.d0
+                    if(cpl>1.d0) cpl=1.d0
+                    if(cpl<-1.d0) cpl=-1.d0
+                    if(cmi>1.d0) cmi=1.d0
+                    if(cmi<-1.d0) cmi=-1.d0
 
                     !Calculating the scattering angle (degrees)
                     apl(ix) = acos(cpl) / pi * 180.d0
@@ -547,9 +555,9 @@ contains
         double precision, intent(in) :: pmi(nwave,nmu*nmu*(nphi+1)) !Phase function evaluated at the scattering angles in the minus direction (downwards)
 
         !Local
-        integer :: i,j,k,kl,ntheta,ix
+        integer :: i,j,k,kl,ntheta,ix,iwave
         double precision :: phi,dphi,wphi,pi
-        double precision :: plx(nwave),pmx(nwave)
+        double precision :: plx,pmx
 
         !Outputs
         double precision, intent(out) :: pplpl(nwave,nf+1,nmu,nmu),pplmi(nwave,nf+1,nmu,nmu)   !Integrated phase function coefficients in + and - direction
@@ -558,36 +566,55 @@ contains
         dphi = 2.0*PI/nphi
         ntheta = nmu*nmu*(nphi+1)
 
-        ix = 1
-        do j=1,nmu
-            do i=1,nmu
-                do k=1,nphi+1
-                    phi = (k-1)*dphi
+        !$omp parallel do private(iwave,ix,i,j,kl,k,phi,plx,pmx,wphi) &
+        !$omp shared(ppl,pmi,pplpl,pplmi,nwave,nmu,nf,nphi,dphi,pi) &
+        !$omp collapse(1)
+        do iwave=1,nwave
+            !print*,iwave,nwave
+            ix = 1
+            do j=1,nmu
+                do i=1,nmu
+
+                    !Initialising matrices
                     do kl=1,nf+1
-
-                        plx(:) = ppl(:,ix) * dcos((kl-1)*phi)
-                        pmx(:) = pmi(:,ix) * dcos((kl-1)*phi)
-
-                        wphi = 1.d0*dphi
-                        if(k.eq.1) wphi = 0.5d0*dphi
-                        if(k.eq.nphi+1) wphi = 0.5d0*dphi
-
-                        if(kl.eq.1)then 
-                            wphi = wphi / (2.d0*PI)
-                        else
-                            wphi = wphi / PI
-                        endif
-
-                        pplpl(:,kl,i,j) = pplpl(:,kl,i,j) + wphi*plx(:)
-                        pplmi(:,kl,i,j) = pplmi(:,kl,i,j) + wphi*pmx(:)
-
+                        pplpl(iwave,kl,i,j) = 0.d0
+                        pplmi(iwave,kl,i,j) = 0.d0
                     enddo
 
-                    ix = ix + 1
+                    do k=1,nphi+1
+                        phi = (k-1)*dphi
+                        do kl=1,nf+1
 
+                            plx = ppl(iwave,ix) * dcos((kl-1)*phi)
+                            pmx = pmi(iwave,ix) * dcos((kl-1)*phi)
+
+                            wphi = 1.d0*dphi
+                            if(k==1)then
+                                wphi = 0.5*dphi
+                            elseif(k==nphi+1)then
+                                wphi = 0.5*dphi
+                            endif
+
+                            if(kl==1)then 
+                                wphi = wphi / (2.0*PI)
+                            else
+                                wphi = wphi / PI
+                            endif
+
+                            !$omp critical
+                            pplpl(iwave,kl,i,j) = pplpl(iwave,kl,i,j) + wphi*plx
+                            pplmi(iwave,kl,i,j) = pplmi(iwave,kl,i,j) + wphi*pmx
+                            !$omp end critical
+
+                        enddo
+
+                        ix = ix + 1
+
+                    enddo
                 enddo
             enddo
         enddo
+        !$omp end parallel do
 
         RETURN
     end subroutine
@@ -613,38 +640,47 @@ contains
 
         !Local
         integer :: i,j,k,ic,iwave,niter
-        double precision :: pi,testj,test,xi,xj
-        double precision :: rsum(nwave,nmu),fc(nmu,nmu),tsum(nmu)
-        logical :: normalise
+        double precision :: pi,testj,test,xi,xj,x1
+        double precision :: rsum(nmu),fc(nmu,nmu),tsum(nmu)
 
         !Outputs
         double precision, intent(out) :: pplplx(nwave,nf+1,nmu,nmu) !Normalised phase functions
         double precision, intent(out) :: pplmix(nwave,nf+1,nmu,nmu) !Normalised phase functions
 
+        
 
-
-        ic = 0
+        
 
         !Initialising several parameters
         pi = 4.0D0*DATAN(1.0D0)
+        x1 = 2.0D0*PI
+        ic = 1
 
-        do j=1,nmu
-            do i=1,nmu
-                rsum(:,j) = rsum(:,j) + pplmi(:,ic,i,j) * wtmu(i) * 2.d0 * pi
-            enddo
-        enddo
+        pplmix(:,:,:,:) = 0.d0
+        pplplx(:,:,:,:) = 0.d0
 
         !Looping over wavelength
+        !$omp parallel do &
+        !$omp shared(pplmi,pplpl,pplplx,pplmix,wtmu,pi,x1,ic,nwave,nmu,nf) &
+        !$omp private(iwave,i,j,k,test,testj,rsum,tsum,niter,xi,xj,fc) &
+        !$omp collapse(1)
+
         do iwave=1,nwave
 
-            normalise = .true.
+            !Initialising parameters
+            do j=1,nmu
+                rsum(j) = 0.d0
+                do i=1,nmu
+                    rsum(j) = rsum(j) + pplmi(iwave,ic,i,j) * wtmu(i) * 2.d0 * pi
+                enddo
+            enddo
             fc(:,:) = 1.D0
-            niter = 1
 
             niter = 0
-            do while (test.gt.1.0d-14) !when false we leave the while loop
+            test = 1.0d10
+            do while (test>=1.0d-14) !when false we leave the while loop
 
-                if(niter.gt.10000)then
+                if(niter>10000)then
                     print*,'error in calc_phase_matrix :: Normalisation of phase matrix did not converge'
                     stop
                 endif
@@ -653,16 +689,16 @@ contains
                 do j=1,nmu
                     tsum(j) = 0.d0
                     do i=1,nmu
-                        tsum(j) = tsum(j) + pplpl(iwave,ic,i,j)*wtmu(i) * 2.0d0 * pi
+                        tsum(j) = tsum(j) + pplpl(iwave,ic,i,j)*wtmu(i) * 2.0d0 * pi * fc(i,j)
                     enddo
-                    testj = abs( rsum(iwave,j)+tsum(j)-1.d0 )
-                    if(testj.gt.test) test = testj
+                    testj = abs( rsum(j)+tsum(j)-1.d0 )
+                    if(testj>test) test = testj
                 enddo
 
                 do j=1,nmu
-                    xj = (1.d0-rsum(iwave,j))/tsum(j)
-                    do i=1,nmu
-                        xi = (1.d0-rsum(iwave,i))/tsum(i)
+                    xj = (1.d0-rsum(j))/tsum(j)
+                    do i=1,j
+                        xi = (1.d0-rsum(i))/tsum(i)
                         fc(i,j) = 0.5d0 * (fc(i,j)*xj+fc(j,i)*xi)
                         fc(j,i) = fc(i,j)
                     enddo
@@ -672,6 +708,7 @@ contains
 
             enddo
 
+            !$omp critical
             do k=1,nf+1
                 do j=1,nmu
                     do i=1,nmu
@@ -680,8 +717,10 @@ contains
                     enddo
                 enddo
             enddo
+            !$omp end critical
 
         enddo
+        !$omp end parallel do
 
         RETURN
 
@@ -717,7 +756,7 @@ contains
 
 
         !Checking if rayleigh scattering must be included
-        if(nscat.eq.naero)then
+        if(nscat==naero)then
             rayleigh = .false.
         elseif(nscat.eq.naero+1)then
             rayleigh = .true.
@@ -732,6 +771,9 @@ contains
         pplpls(:,:,:,:,:) = 0.d0
 
         !Looping over wavelength
+        !$omp parallel do private(iwave,ilay,iaero,ig,iscat,tauscat,frac) &
+        !$omp shared(pplpls,pplmis,omega,pplpl,pplmi,tauray,tauclscat,tautot,rayleigh,nscat) &
+        !$omp collapse(1)
         do iwave=1,nwave
 
             !Looping through each atmospheric layer
@@ -742,33 +784,135 @@ contains
                 do iaero=1,naero
                     tauscat = tauscat + tauclscat(iwave,ilay,iaero)
                 enddo
-                if(rayleigh) tauscat = tauscat + tauray(iwave,ilay)
+                if(rayleigh)then
+                    tauscat = tauscat + tauray(iwave,ilay)
+                endif
 
                 !If there is scattering, we continue
-                if(tauscat.gt.0.d0)then
+                if(tauscat>0.d0)then
 
                     !Calculating the fraction of scattering from each source
                     do iaero=1,naero
                         frac(iaero) = tauclscat(iwave,ilay,iaero) / tauscat
                     enddo
-                    if(rayleigh) frac(naero+1) = tauray(iwave,ilay) / tauscat
+                    if(rayleigh)then
+                         frac(naero+1) = tauray(iwave,ilay) / tauscat
+                    endif
 
                     !Calculating the weighted averaged phase matrix in each layer and direction
+                    !$omp critical
                     do iscat=1,nscat
                         pplpls(iwave,ilay,:,:,:) = pplpls(iwave,ilay,:,:,:) + pplpl(iwave,iscat,:,:,:) * frac(iscat)
                         pplmis(iwave,ilay,:,:,:) = pplmis(iwave,ilay,:,:,:) + pplmi(iwave,iscat,:,:,:) * frac(iscat)
                     enddo
+                    !$omp end critical
 
                     !Calculating the single scattering albedo of the layer
+                    !$omp critical
                     do ig=1,ng
                         omega(iwave,ig,ilay) = tauscat / tautot(iwave,ig,ilay)
                     enddo
+                    !$omp end critical
                     
                 endif
 
             enddo
             
         enddo
+        !!$omp end parallel do
+
+        RETURN
+
+    end subroutine
+
+    !==================================================================================================
+    subroutine calc_lpphase(nwave,nlpol,ntheta,wlpol,theta,phase)
+
+        !Subroutine to calculate the phase function given the weights of the Legendre Polynomials
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: nwave        !Number of wavelengths
+        integer, intent(in) :: ntheta       !Number of angles at which to evaluate the phase function
+        integer, intent(in) :: nlpol        !Number of Legendre polynomials to be included in each wavelength
+        double precision, intent(in) :: wlpol(nwave,nlpol)  !Weights of each of the Legendre polynomials
+        double precision, intent(in) :: theta(ntheta) !Angle at which to calculate the phase function (degrees)
+        
+        !Local
+        integer :: it,il,iv
+        double precision :: Pn,pi,thetax
+
+        !Output
+        double precision, intent(out) :: phase(nwave,ntheta)  !Phase function
+
+        pi = 4.0D0*DATAN(1.0D0)
+        phase(:,:)=0.0D0
+
+        !$omp parallel do private(il,it,iv,thetax,Pn) &
+        !$omp collapse(1) shared(theta,wlpol,pi,phase)
+        !!$omp num_threads(30)
+
+        do il=1,nlpol
+
+            do it=1,ntheta
+
+                !Calculating the Legendre polynomials for the given angle
+                thetax = theta(it)
+                call flegendre(il-1,dcos(thetax/180.d0*pi),Pn)
+
+                !Multiplying by the weights to get the phase function
+                !$omp critical
+                do iv=1,nwave
+                    !!$omp atomic
+                    phase(iv,it) = phase(iv,it) + Pn * wlpol(iv,il)
+                enddo
+                !$omp end critical
+
+            enddo
+        enddo
+        !$omp end parallel do
+
+
+        RETURN
+
+    end subroutine
+
+
+    !==================================================================================================
+    subroutine flegendre(N,X,OUT)
+
+        !Subroutine to calculate the value of the Legendre polynomials
+
+        implicit none
+
+        !Inputs
+        integer, intent(in) :: N
+        double precision, intent(in) :: X
+
+        !Local
+        double precision :: FI,PIM1,PIM2,PI
+        integer :: i
+
+        !Outputs
+        double precision, intent(out) :: OUT
+
+        if(N==0)then
+            OUT = 1.d0
+        elseif(N==1)then
+            OUT = X
+        else
+            PIM1=1
+            PI=X
+
+            do i=2,N
+                FI=i
+                PIM2=PIM1
+                PIM1=PI
+                PI=((i+i-1)*X*PIM1-(i-1)*PIM2)/FI
+            enddo
+            OUT=PI
+        endif
 
         RETURN
 
