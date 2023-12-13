@@ -23,7 +23,7 @@ from copy import *
 ###############################################################################################
 
 def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,\
-                 NITER=10,PHILIMIT=0.1,NCores=1,nemesisSO=False):
+                 NITER=10,PHILIMIT=0.1,NCores=1,nemesisSO=False,write_itr=True):
 
 
     """
@@ -93,8 +93,9 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
     #################################################################
 
     if OptimalEstimation.NITER>0:
-        fitr = open(runname+'.itr','w')
-        fitr.write("\t %i \t %i \t %i\n" % (OptimalEstimation.NX,OptimalEstimation.NY,OptimalEstimation.NITER))
+        if write_itr==True:
+            fitr = open(runname+'.itr','w')
+            fitr.write("\t %i \t %i \t %i\n" % (OptimalEstimation.NX,OptimalEstimation.NY,OptimalEstimation.NITER))
 
     #Calculate the first measurement vector and jacobian matrix
     #################################################################
@@ -148,18 +149,20 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
 
         print('nemesis :: Iteration '+str(it)+'/'+str(OptimalEstimation.NITER))
 
+        if write_itr==True:
+            
         #Writing into .itr file
         ####################################
 
-        fitr.write('%10.5f %10.5f \n' % (OptimalEstimation.CHISQ,OptimalEstimation.PHI))
-        for i in range(OptimalEstimation.NX):fitr.write('%10.5f \n' % (XN1[i]))
-        for i in range(OptimalEstimation.NX):fitr.write('%10.5f \n' % (OptimalEstimation.XA[i]))
-        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.Y[i]))
-        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.SE[i,i]))
-        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (YN1[i]))
-        for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.YN[i]))
-        for i in range(OptimalEstimation.NX):
-            for j in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.KK[j,i]))
+            fitr.write('%10.5f %10.5f \n' % (OptimalEstimation.CHISQ,OptimalEstimation.PHI))
+            for i in range(OptimalEstimation.NX):fitr.write('%10.5f \n' % (XN1[i]))
+            for i in range(OptimalEstimation.NX):fitr.write('%10.5f \n' % (OptimalEstimation.XA[i]))
+            for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.Y[i]))
+            for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.SE[i,i]))
+            for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (YN1[i]))
+            for i in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.YN[i]))
+            for i in range(OptimalEstimation.NX):
+                for j in range(OptimalEstimation.NY):fitr.write('%10.5f \n' % (OptimalEstimation.KK[j,i]))
 
 
         #Calculating next state vector
@@ -294,8 +297,9 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         OptimalEstimation.ST = copy(OptimalEstimation.SA)
 
     #Closing .itr file
-    if OptimalEstimation.NITER>0:
-        fitr.close()
+    if write_itr==True:
+        if OptimalEstimation.NITER>0:
+            fitr.close()
 
     #Writing the contribution of each gas to .gcn file
     #if nemesisSO==True:
