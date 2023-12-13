@@ -984,6 +984,27 @@ class Scatter_0:
         #            phase[IWAVE,:,IDUST] = phase[IWAVE,:,IDUST] + P_n[:] * self.WLPOL[IWAVE,IL,IDUST]
                     
         return phase
+    
+    
+    def check_phase_norm(self):
+        """
+        Function to quickly check whether the phase function is correctly normalised to 1 
+        """
+        
+        #Defining angles
+        Theta = np.linspace(0.,180.,361)
+        
+        #Calculating phase function
+        phase = self.calc_phase(Theta,self.WAVE)
+        
+        #Integrating phase function
+        total = 2 * np.pi * np.trapz(phase, -np.cos(Theta/180.*np.pi),axis=1)
+        
+        print('Normalisation of phase function should be 1.0')
+        print('Minimum integral of phase function is ',total.min())
+        print('Maximum integral of phase function is ',total.max())
+    
+    
 
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
