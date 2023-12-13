@@ -1015,11 +1015,27 @@ class Atmosphere_0:
         Fills the parameters of the Atmospheric class by reading the .ref file
         """
 
+
+        #Checking if there are lines starting with #
+        with open(self.runname+'.ref', 'r') as file:
+            
+            i0 = 0
+            for line in file:
+                # Skip lines starting with #
+                if line.startswith('#'):
+                    i0 = i0 + 1
+                else:
+                    break
+                
+        
         #Opening file
         f = open(self.runname+'.ref','r')
-
+        
+        #Skipping all lines starting with #
+        for i in range(i0):
+            header = f.readline()
+         
         #Reading first and second lines
-
         tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
         amform = int(tmp[0])
         tmp = np.fromfile(f,sep=' ',count=1,dtype='int')
@@ -1124,12 +1140,26 @@ class Atmosphere_0:
 
         if self.NLOCATIONS!=1:
             sys.exit('error :: read_aerosol only works if NLOCATIONS=1')
+            
+            
+        #Checking if there are lines starting with #
+        with open('aerosol.ref', 'r') as file:
+            
+            i0 = 0
+            for line in file:
+                # Skip lines starting with #
+                if line.startswith('#'):
+                    i0 = i0 + 1
+                else:
+                    break
+                
 
         #Opening file
         f = open('aerosol.ref','r')
 
         #Reading header
-        s = f.readline().split()
+        for i in range(i0):
+            header = f.readline()
 
         #Reading first line
         tmp = np.fromfile(f,sep=' ',count=2,dtype='int')
