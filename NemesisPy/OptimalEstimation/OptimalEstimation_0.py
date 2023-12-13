@@ -169,7 +169,7 @@ class OptimalEstimation_0:
 
         f.close()
 
-    def write_output_hdf5(self,runname,Variables):
+    def write_output_hdf5(self,runname,Variables,write_cov=True):
         """
         Write the Retrieval outputs into an HDF5 file
         """
@@ -200,37 +200,43 @@ class OptimalEstimation_0:
         #####################################################################
 
         if self.IRET==0:
-
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/NX',data=self.NX)
-            dset.attrs['title'] = "Number of elements in state vector"
-
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/XN',data=self.XN)
-            dset.attrs['title'] = "Retrieved state vector"
-
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SX',data=self.ST)
-            dset.attrs['title'] = "Retrieved covariance matrix"
-
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/XA',data=self.XA)
-            dset.attrs['title'] = "A priori state vector"
-
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SA',data=self.SA)
-            dset.attrs['title'] = "A priori covariance matrix"
-
-
+            
             dset = f.create_dataset('Retrieval/Output/OptimalEstimation/NY',data=self.NY)
             dset.attrs['title'] = "Number of elements in measurement vector"
 
             dset = f.create_dataset('Retrieval/Output/OptimalEstimation/Y',data=self.Y)
             dset.attrs['title'] = "Measurement vector"
 
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SY',data=self.SE)
-            dset.attrs['title'] = "Measurement vector covariance matrix"
+            YERR = np.zeros(self.NY)
+            for i in range(self.NY):
+                YERR[i] = np.sqrt(self.SE[i,i])
 
-            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/YERR',data=self.SE)
-            dset.attrs['title'] = "Measurement vector covariance matrix"
+            dset = f.create_dataset('Retrieval/Output/OptimalEstimation/YERR',data=YERR)
+            dset.attrs['title'] = "Uncertainty in Measurement vector"
 
             dset = f.create_dataset('Retrieval/Output/OptimalEstimation/YN',data=self.YN)
             dset.attrs['title'] = "Modelled measurement vector"
+            
+            if write_cov==True:
+
+                dset = f.create_dataset('Retrieval/Output/OptimalEstimation/NX',data=self.NX)
+                dset.attrs['title'] = "Number of elements in state vector"
+
+                dset = f.create_dataset('Retrieval/Output/OptimalEstimation/XN',data=self.XN)
+                dset.attrs['title'] = "Retrieved state vector"
+
+                dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SX',data=self.ST)
+                dset.attrs['title'] = "Retrieved covariance matrix"
+
+                dset = f.create_dataset('Retrieval/Output/OptimalEstimation/XA',data=self.XA)
+                dset.attrs['title'] = "A priori state vector"
+
+                dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SA',data=self.SA)
+                dset.attrs['title'] = "A priori covariance matrix"
+                
+                dset = f.create_dataset('Retrieval/Output/OptimalEstimation/SY',data=self.SE)
+                dset.attrs['title'] = "Measurement vector covariance matrix"
+
 
 
         #Writing the parameters in the same form as the input .apr file
