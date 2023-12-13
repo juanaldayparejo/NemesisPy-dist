@@ -26,6 +26,163 @@ contains
     !==================================================================================================
 
 
+    !==================================================================================================
+    subroutine calc_spectrum(nwave,ng,nlaytot,nf,nmu,mu,wtmu,sol_ang,emiss_ang,azi_ang,RTOT,TTOT,JTOT,ISCTOT,solar,radground,SPEC)
+
+        !Subroutine to add the RTF matrices from the different atmospheric layers and compute the
+        !spectrum at the required angles
+
+        integer, intent(in) :: nwave,ng,nlaytot,nf,nmu
+        double precision, intent(in) :: RTOT(nwave,ng,nlaytot,nf+1,nmu,nmu)  !Reflection matrix in each layer (including surface)
+        double precision, intent(in) :: TTOT(nwave,ng,nlaytot,nf+1,nmu,nmu)  !Transmission matrix in each layer (including surface)
+        double precision, intent(in) :: JTOT(nwave,ng,nlaytot,nf+1,nmu,1)    !Source matrix in each layer (including surface)
+        integer, intent(in) :: ISCTOT(nwave,ng,nlaytot)                      !Flag indicating whether layer is scattering
+        double precision, intent(in) :: mu(nmu),wtmu(nmu)                    !Zenith ordinates
+        double precision, intent(in) :: sol_ang, emiss_ang, azi_ang          !Solar zenith angle, emission angle and azimuth angle (degrees)
+        double precision, intent(in) :: solar(nwave)                         !Solar flux at top of atmosphere
+        double precision, intent(in) :: radground(nwave)                     !Radiation from bottom atmosphere/surface layer
+
+
+        !Local
+        double precision :: JBASE(nlaytot,nmu,1)
+        double precision :: RBASE(nlaytot,nmu,nmu),TBASE(nlaytot,nmu,nmu)
+        double precision :: E(nmu,nmu),radd(4)
+        double precision :: zmu,zmu0,pi,solarx,radgroundx,fsol,femm
+        integer :: iwave,ig,i,j,ic,ilay,isol,iemm,ico
+        double precision :: utmi(nmu,1),u0pl(nmu,1),acom(nmu,1),bcom(nmu,1),umi(nmu,1)
+        double precision :: u,t,radi,drad
+
+        !Output
+        double precision, intent(out) :: spec(nwave,ng)
+
+        !Initialising variables
+        JBASE(:,:,:) = 0.D0
+        RBASE(:,:,:) = 0.D0
+        TBASE(:,:,:) = 0.D0
+        spec(:,:) = 0.D0
+        radd(:)=0.d0
+        PI = 4.0D0*DATAN(1.0D0)
+
+        !Defining the identity matrix
+        E(:,:) = 0.d0
+        do i=1,nmu
+            E(i,i) = 1.d0
+        enddo
+
+
+        !Calculating the observation angles
+        if (sol_ang>90.d0) then
+            ZMU0 = dcos((180.d0 - sol_ang)*pi/180.d0)
+            solarx = 0.d0
+        else
+            ZMU0 = dcos(sol_ang*pi/180.d0)
+        endif
+
+        ZMU = dcos(emiss_ang*pi/180.d0)
+
+        !Finding the coefficients for interpolating the spectrum
+        !at the correct angles
+        isol = 1
+        iemm = 1
+        do j=1,nmu-1
+            if( zmu0<=mu(j) .and. zmu>mu(j+1) ) isol = j
+            if( zmu<=mu(j) .and. zmu>mu(j+1) ) iemm = j 
+        enddo
+
+        if (zmu0<=mu(nmu)) isol = nmu - 1
+        if (zmu<=mu(nmu)) iemm = nmu - 1 
+
+        fsol = (mu(isol)-zmu0)/(mu(isol)-mu(isol+1))
+        femm = (mu(iemm)-zmu)/(mu(iemm)-mu(iemm+1))
+        
+        !Looping over wavelength to calculate spectrum
+        do iwave=1,nwave
+
+            !Getting the radiation from ground and solar
+            radgroundx = radground(iwave)
+            solarx = solar(iwave)
+
+            !Looping over g-ordinate
+            do ig=1,ng
+
+                do ic=1,nf+1
+
+                    !The BASE matrices will store the combined layers starting from bottom to top
+                    !We start filling them with the bottom layer (either surface or lowest atmospheric layer)
+                    do i=1,nmu
+                        do j=1,nmu
+                            RBASE(1,i,j) = RTOT(iwave,ig,1,ic,i,j)
+                            TBASE(1,i,j) = TTOT(iwave,ig,1,ic,i,j)
+                        enddo
+                        JBASE(1,i,1) = JTOT(iwave,ig,1,ic,i,1)
+                    enddo
+
+                    !Combining the adjacent layers from bottom to top
+                    do ilay=1,nlaytot-1
+                        call addp_layer(nmu,E,RTOT(iwave,ig,ilay+1,ic,:,:),TTOT(iwave,ig,ilay+1,ic,:,:), &
+                                              JTOT(iwave,ig,ilay+1,ic,:,:),ISCTOT(iwave,ig,ilay+1), &
+                                              RBASE(ilay,:,:),TBASE(ilay,:,:),JBASE(ilay,:,:),&
+                                              RBASE(ilay+1,:,:),TBASE(ilay+1,:,:),JBASE(ilay+1,:,:))
+                    enddo
+
+                    !Source matrix is defined only for ic=1
+                    if (ic==1) then
+                        JBASE(:,:,:) = 0.d0
+                    endif
+
+
+                    !Defining the bottom boundary condition (radground)
+                    if (ic==1) then
+                        do i=1,nmu
+                            utmi(i,1) = radgroundx   !assumed to be equal in all direction
+                        enddo
+                    endif
+
+                    !Calculating the spectrum in the iemm and isol direction
+                    ico = 1
+                    do imu0=isol,isol+1
+                        
+                        !Top of atmosphere solar contribution
+                        u0pl(:,1) = 0.d0
+                        u0pl(imu0,1) = solarx/(2.0d0*pi*wtmu(imu0))
+
+                        !Summing different sources
+                        call MMUL(1.0D0,NMU,NMU,1,RBASE(nlaytot,:,:),u0pl(:,:),ACOM)
+                        call MMUL(1.0D0,NMU,NMU,1,TBASE(nlaytot,:,:),utmi(:,:),BCOM)
+                        do i=1,nmu
+                                ACOM(i,1) = ACOM(i,1) + BCOM(i,1)
+                                UMI(i,1) = ACOM(i,1) + JBASE(nlaytot,i,1)
+                        enddo
+                        
+                        !Saving the radiance in the 4 directions
+                        do imu=iemm,iemm+1
+                            radd(ico)=umi(imu,1)
+                            ico = ico + 1
+                            print*,radd(ico)
+                        enddo
+
+                    enddo
+
+        
+                    !Interpolating spectrum to correct direction
+                    T = femm
+                    U = fsol
+                    RADI = (1-T)*(1-U)*RADD(1) + T*(1-U)*RADD(2) + T*U*RADD(3) + (1-T)*U*RADD(4)
+
+                    !Reconstructing the Fourier expansion in the azimuth direction
+                    DRAD = RADI*dcos((ic-1)*azi_ang*pi/180.d0)
+                    if (ic>1) DRAD = DRAD*2.
+
+                    spec(iwave,ig) = spec(iwave,ig) + DRAD
+
+                enddo
+
+            enddo
+        enddo
+
+        return
+
+    end subroutine
 
     !==================================================================================================
     subroutine calc_RTF_matrix(nwave,ng,nlay,nf,nmu,mu,wtmu,TAUTOT,OMEGAS,TAURAY,BNU,PPLPL,PPLMI,&
@@ -463,8 +620,8 @@ contains
         double precision, intent(out) :: RANS(NWAVE,NG,NMU,NMU),TANS(NWAVE,NG,NMU,NMU),JANS(NWAVE,NG,NMU,1)
 
 
-        !$omp parallel do private(IWAVE,IG) &
-        !$omp shared(R1,T1,J1,ISCAT1,RSUB,TSUB,JSUB,RANS,TANS,JANS)
+        !!$omp parallel do private(IWAVE,IG) &
+        !!$omp shared(R1,T1,J1,ISCAT1,RSUB,TSUB,JSUB,RANS,TANS,JANS)
         do IWAVE=1,NWAVE
             do IG=1,NG
                 call addp_layer(NMU,E, &
@@ -473,7 +630,7 @@ contains
                     RANS(IWAVE,IG,:,:),TANS(IWAVE,IG,:,:),JANS(IWAVE,IG,:,:))
             enddo
         enddo
-        !$omp end parallel do
+        !!$omp end parallel do
 
    
         RETURN
@@ -601,10 +758,10 @@ contains
                                 wphi = wphi / PI
                             endif
 
-                            !$omp critical
+                            !$omp atomic
                             pplpl(iwave,kl,i,j) = pplpl(iwave,kl,i,j) + wphi*plx
                             pplmi(iwave,kl,i,j) = pplmi(iwave,kl,i,j) + wphi*pmx
-                            !$omp end critical
+                            
 
                         enddo
 
@@ -708,16 +865,17 @@ contains
 
             enddo
 
-            !$omp critical
+            
             do k=1,nf+1
                 do j=1,nmu
                     do i=1,nmu
+                        !$omp atomic write
                         pplmix(iwave,k,i,j) = pplmi(iwave,k,i,j)
                         pplplx(iwave,k,i,j) = pplpl(iwave,k,i,j) * fc(i,j)
                     enddo
                 enddo
             enddo
-            !$omp end critical
+            
 
         enddo
         !$omp end parallel do
@@ -745,7 +903,7 @@ contains
         double precision, intent(in) :: tautot(nwave,ng,nlayer)   !Total optical depth in each atmospheric layer (absorption + scattering)
 
         !Local
-        integer :: iscat,iwave,ilay,iaero,ig
+        integer :: iscat,iwave,ilay,iaero,ig,i,j,k
         double precision :: frac(nscat),tauscat
         logical :: rayleigh
 
@@ -800,19 +958,27 @@ contains
                     endif
 
                     !Calculating the weighted averaged phase matrix in each layer and direction
-                    !$omp critical
+                    
                     do iscat=1,nscat
-                        pplpls(iwave,ilay,:,:,:) = pplpls(iwave,ilay,:,:,:) + pplpl(iwave,iscat,:,:,:) * frac(iscat)
-                        pplmis(iwave,ilay,:,:,:) = pplmis(iwave,ilay,:,:,:) + pplmi(iwave,iscat,:,:,:) * frac(iscat)
+                        do k=1,nf+1
+                            do i=1,nmu
+                                do j=1,nmu
+                                    !$omp atomic
+                                    pplpls(iwave,ilay,k,i,j) = pplpls(iwave,ilay,k,i,j) + pplpl(iwave,iscat,k,i,j) * frac(iscat)
+                                    pplmis(iwave,ilay,k,i,j) = pplmis(iwave,ilay,k,i,j) + pplmi(iwave,iscat,k,i,j) * frac(iscat)
+                                enddo
+                            enddo
+                        enddo
                     enddo
-                    !$omp end critical
+                    
 
                     !Calculating the single scattering albedo of the layer
-                    !$omp critical
+                    
                     do ig=1,ng
+                        !$omp critical
                         omega(iwave,ig,ilay) = tauscat / tautot(iwave,ig,ilay)
+                        !$omp end critical
                     enddo
-                    !$omp end critical
                     
                 endif
 
