@@ -2766,13 +2766,6 @@ class Measurement_0:
             cbar2 = plt.colorbar(im4,cax=cax,orientation='horizontal')
             cbar2.set_label('Solar Zenith angle')
             
-
-
-
-
-
-
-
             #Plotting the spectra in linear scale
             ax5 = plt.subplot2grid((2,4),(0,2),rowspan=1,colspan=2)
             ax5.fill_between(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]-self.ERRMEAS[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]+self.ERRMEAS[0:self.NCONV[igeom],igeom],alpha=0.3)
@@ -2781,7 +2774,7 @@ class Measurement_0:
             ax5.grid()
 
             #Plotting the spectra in log scale
-            ax6 = plt.subplot2grid((2,4),(1,2),rowspan=1,colspan=2,sharex=ax5e)
+            ax6 = plt.subplot2grid((2,4),(1,2),rowspan=1,colspan=2,sharex=ax5)
             ax6.fill_between(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]-self.ERRMEAS[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom]+self.ERRMEAS[0:self.NCONV[igeom],igeom],alpha=0.3)
             ax6.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
             ax6.set_yscale('log')
