@@ -5,9 +5,10 @@ import numpy as np
 Object to calculate the atmospheric paths
 """
 class AtmCalc_0:
-    def __init__(self,Layer,LIMB=False,NADIR=False,BOTLAY=0,ANGLE=0.0,IPZEN=0,WF=False,NETFLUX=False,OUTFLUX=False,\
-                BOTFLUX=False,UPFLUX=False,CG=False,THERM=False,HEMISPHERE=False,NEARLIMB=False,\
-                SINGLE=False,SPHSINGLE=False,SCATTER=False,BROAD=False,ABSORB=False,BINBB=True):
+    def __init__(self,Layer,LIMB=False,NADIR=False,BOTLAY=0,ANGLE=0.0,EMISS_ANG=0.0,SOL_ANG=0.0,AZI_ANG=0.0,IPZEN=0,
+                WF=False,NETFLUX=False,OUTFLUX=False,BOTFLUX=False,UPFLUX=False,CG=False,
+                THERM=False,HEMISPHERE=False,NEARLIMB=False,SINGLE=False,SPHSINGLE=False,SCATTER=False,
+                BROAD=False,ABSORB=False,BINBB=True):
         """
         After splitting the atmosphere in different layers and storing them in the Layer class,
         the atmospheric paths are calculated.
@@ -26,6 +27,12 @@ class AtmCalc_0:
             Bottom layer to use in the calculation of the path            
         @param ANGLE: real
             Observing angle from nadir (deg). Note that more than 90deg is looking upwards
+        @param EMISS_ANG: real
+            Observing angle from nadir (deg). Note that more than 90deg is looking upwards
+        @param SOL_ANG: real
+            Solar zenith angle (deg). Note that 0 is at zenith ang >90 is below the horizon
+        @param AZI_ANG: real
+            Azimuth angle (deg). Note that 0 is forward scattering
         @param IPZEN: int
             Flag defining where the zenith angle is defined. 
             0 = at bottom of bottom layer. 
@@ -91,6 +98,9 @@ class AtmCalc_0:
         self.NADIR = NADIR
         self.BOTLAY = BOTLAY
         self.ANGLE = ANGLE
+        self.EMISS_ANG = EMISS_ANG
+        self.SOL_ANG = SOL_ANG
+        self.AZI_ANG = AZI_ANG
         self.IPZEN = IPZEN
         self.WF = WF
         self.NETFLUX = NETFLUX
@@ -129,7 +139,7 @@ class AtmCalc_0:
 
         if self.NADIR==True:
             self.LIMB = False    #Nadir and limb paths cannot be set up at the same time
-            if self.ANGLE > 90.:
+            if self.EMISS_ANG > 90.:
                 self.ANGLE = 180.0 - self.ANGLE
                 self.SURFACE = True
             else:

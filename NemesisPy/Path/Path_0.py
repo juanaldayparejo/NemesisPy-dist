@@ -90,6 +90,9 @@ class Path_0:
         #Creating arrays to store the information
         IMOD = np.zeros(self.NPATH,dtype='int32')
         NLAYIN = np.zeros(self.NPATH,dtype='int32')
+        EMISS_ANG = np.zeros(self.NPATH)
+        AZI_ANG = np.zeros(self.NPATH)
+        SOL_ANG = np.zeros(self.NPATH)
         LAYINC = np.zeros([MLAYIN,self.NPATH],dtype='int32')
         EMTEMP = np.zeros([MLAYIN,self.NPATH])
         SCALE = np.zeros([MLAYIN,self.NPATH])
@@ -106,6 +109,10 @@ class Path_0:
 
             IMOD[IPATH:IPATH+NPATH1] = AtmClass_List[ICALC].IMOD            
             NLAYIN[IPATH:IPATH+NPATH1] = AtmClass_List[ICALC].NLAYIN
+            
+            EMISS_ANG[IPATH:IPATH+NPATH1] = AtmClass_List[ICALC].EMISS_ANG
+            SOL_ANG[IPATH:IPATH+NPATH1] = AtmClass_List[ICALC].SOL_ANG
+            AZI_ANG[IPATH:IPATH+NPATH1] = AtmClass_List[ICALC].AZI_ANG
 
             if self.COMBINE==False:
                 ITYPE[ICALC] = AtmClass_List[ICALC].ITYPE
@@ -130,6 +137,9 @@ class Path_0:
         
         self.IMOD = IMOD
         self.NLAYIN = NLAYIN
+        self.EMISS_ANG = EMISS_ANG
+        self.AZI_ANG = AZI_ANG
+        self.SOL_ANG = SOL_ANG
         self.LAYINC = LAYINC
         self.SCALE = SCALE
         self.EMTEMP = EMTEMP
