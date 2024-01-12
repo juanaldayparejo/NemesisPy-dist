@@ -956,6 +956,7 @@ class Spectroscopy_0:
                 for igas in range(self.NGAS):
                     
                     f = h5py.File(self.LOCATION[igas],'r')
+
                     kfile = f['K']
                     wave = f['WAVE']
                     

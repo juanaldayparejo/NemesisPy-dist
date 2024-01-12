@@ -4067,10 +4067,14 @@ class ForwardModel_0:
         for i in range(Scatter.NDUST):
 
             #Interpolating the cross sections to the correct grid
-            f = interpolate.interp1d(Scatter.WAVE,np.log(Scatter.KEXT[:,i]))
-            kext = np.exp(f(WAVEC))
-            f = interpolate.interp1d(Scatter.WAVE,np.log(Scatter.KSCA[:,i]))
-            ksca = np.exp(f(WAVEC))
+            #f = interpolate.interp1d(Scatter.WAVE,np.log(Scatter.KEXT[:,i]))
+            #kext = np.exp(f(WAVEC))
+            #f = interpolate.interp1d(Scatter.WAVE,np.log(Scatter.KSCA[:,i]))
+            #ksca = np.exp(f(WAVEC))
+            f = interpolate.interp1d(Scatter.WAVE,Scatter.KEXT[:,i])
+            kext = f(WAVEC)
+            f = interpolate.interp1d(Scatter.WAVE,Scatter.KSCA[:,i])
+            ksca = f(WAVEC)
 
             #Calculating the opacity at each layer
             for j in range(Layer.NLAY):
@@ -4079,6 +4083,7 @@ class ForwardModel_0:
                 TAUCLSCAT[:,j,i] = ksca * 1.0e-4 * DUSTCOLDENS
                 dTAUDUSTdq[:,j,i] = kext * 1.0e-4 #dtau/dAMOUNT (m2)
                 dTAUCLSCATdq[:,j,i] = ksca * 1.0e-4 #dtau/dAMOUNT (m2)
+
 
         return TAUDUST,TAUCLSCAT,dTAUDUSTdq,dTAUCLSCATdq
 
@@ -4264,7 +4269,6 @@ class ForwardModel_0:
         if(len(iin[0])>0):
             OMEGA[iin[0],iin[1],iin[2]] = (Layer.TAURAY[iin[0],iin[2]]+Layer.TAUSCAT[iin[0],iin[2]]) / Layer.TAUTOT[iin[0],iin[1],iin[2]]
 
-        
 
         ################################################################################
         #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR EACH LAYER
@@ -4401,7 +4405,7 @@ class ForwardModel_0:
                 RBASE[:,:,0,:,:] = RTOT[:,:,0,IC,:,:]
                 TBASE[:,:,0,:,:] = TTOT[:,:,0,IC,:,:]
 
-                #Combining the adjacent layers
+                #Combining the adjacent layers from bottom to top (upward matrices)
                 for ILAY in range(LTOT-1):
 
                     #In the Fortran version of NEMESIS the layers are defined from top to 
@@ -4493,27 +4497,59 @@ class ForwardModel_0:
         
         elif lookdown==False:
             ### In this case we have an observer on the bottom of the atmosphere looking up
+            
+            ### We have two possible cases, that the planet has a solid surface or not. In these two 
+            ### cases we need to do slightly different calculations. This is carried as with the 
+            ### parameter iATMbottom. If 0, then there is no solid surface; if 1, there is solid surface.
 
             for IC in range(Scatter.NF+1):
 
-                JBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
-                RBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Reflection matrix
-                TBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Transmission matrix            
+                #Combined matrices from top to bottom
+                JTOP = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
+                RTOP = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+                TTOP = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Transmission matrix            
 
                 #Filling the first value with the top  
-                JBASE[:,:,LTOT-1,:,:] = JTOT[:,:,LTOT-1,IC,:,:]
-                RBASE[:,:,LTOT-1,:,:] = RTOT[:,:,LTOT-1,IC,:,:]
-                TBASE[:,:,LTOT-1,:,:] = TTOT[:,:,LTOT-1,IC,:,:]
+                JTOP[:,:,LTOT-1,:,:] = JTOT[:,:,LTOT-1,IC,:,:]
+                RTOP[:,:,LTOT-1,:,:] = RTOT[:,:,LTOT-1,IC,:,:]
+                TTOP[:,:,LTOT-1,:,:] = TTOT[:,:,LTOT-1,IC,:,:]
 
-                #Combining the adjacent layers
+                #Combining the adjacent layers from top to bottom
                 for ILAY in range(LTOT-1):
                     
                     #We combine the layers from top to bottom
-                    RBASE[:,:,LTOT-2-ILAY,:,:],TBASE[:,:,LTOT-2-ILAY,:,:],JBASE[:,:,LTOT-2-ILAY,:,:] = mulscatter.addp_layer_nwave(\
-                    E,RTOT[:,:,LTOT-2-ILAY,IC,:,:],TTOT[:,:,LTOT-2-ILAY,IC,:,:],JTOT[:,:,LTOT-2-ILAY,IC,:,:],ISCTOT[:,:,LTOT-2-ILAY],RBASE[:,:,LTOT-1-ILAY,:,:],TBASE[:,:,LTOT-1-ILAY,:,:],JBASE[:,:,LTOT-1-ILAY,:,:])
+                    RTOP[:,:,LTOT-2-ILAY,:,:],TTOP[:,:,LTOT-2-ILAY,:,:],JTOP[:,:,LTOT-2-ILAY,:,:] = mulscatter.addp_layer_nwave(\
+                    E,RTOT[:,:,LTOT-2-ILAY,IC,:,:],TTOT[:,:,LTOT-2-ILAY,IC,:,:],JTOT[:,:,LTOT-2-ILAY,IC,:,:],ISCTOT[:,:,LTOT-2-ILAY],RTOP[:,:,LTOT-1-ILAY,:,:],TTOP[:,:,LTOT-1-ILAY,:,:],JTOP[:,:,LTOT-1-ILAY,:,:])
+
 
                 if IC!=0:
-                    JBASE[:,:,:,:,:] = 0.0
+                    JTOP[:,:,:,:,:] = 0.0
+
+
+                if iATMbottom==1:
+                    
+                    #There is a solid surface, we also need to compute the matrices from bottom to top
+                    #Combined matrices from bottom to top
+                    JBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,1))  #Source function
+                    RBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Reflection matrix
+                    TBASE = np.zeros((Measurement.NWAVE,NG,LTOT,Scatter.NMU,Scatter.NMU))  #Transmission matrix            
+
+                    #Filling the first value with the surface or bottom atmospheric layer
+                    JBASE[:,:,0,:,:] = JTOT[:,:,0,IC,:,:]
+                    RBASE[:,:,0,:,:] = RTOT[:,:,0,IC,:,:]
+                    TBASE[:,:,0,:,:] = TTOT[:,:,0,IC,:,:]
+
+                    #Combining the adjacent layers from bottom to top (upward matrices)
+                    for ILAY in range(LTOT-1):
+
+                        #In the Fortran version of NEMESIS the layers are defined from top to 
+                        #bottom while here they are from bottom to top, therefore the indexing
+                        #in this part of the code differs with respect to the Fortran version
+                        RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = mulscatter.addp_layer_nwave(\
+                        E,RTOT[:,:,ILAY+1,IC,:,:],TTOT[:,:,ILAY+1,IC,:,:],JTOT[:,:,ILAY+1,IC,:,:],ISCTOT[:,:,ILAY+1],RBASE[:,:,ILAY,:,:],TBASE[:,:,ILAY,:,:],JBASE[:,:,ILAY,:,:])
+
+                    if IC!=0:
+                        JBASE[:,:,:,:,:] = 0.0
 
                 for iPATH in range(Path.NPATH):
 
@@ -4567,14 +4603,22 @@ class ForwardModel_0:
                         U0PL[:,IMU0,0] = SOLARx[:]/(2.0*np.pi*Scatter.WTMU[IMU0])
                         U0PL = np.repeat(U0PL[:,np.newaxis,:,:],NG,axis=1)
 
-                        #Summing different sources
-                        ACOM = np.matmul(TBASE[:,:,iATMbottom,:,:],U0PL)
-                        BCOM = np.matmul(RBASE[:,:,iATMbottom,:,:],UTMI)
-                        ACOM = ACOM + BCOM
-                        UMI = ACOM + JBASE[:,:,iATMbottom,:,:]
+
+                        if iATMbottom==0:
+                            #No solid surface, then we want the downward intensity at the bottom
+                            ACOM = np.matmul(TTOP[:,:,iATMbottom,:,:],U0PL)
+                            BCOM = np.matmul(RTOP[:,:,iATMbottom,:,:],UTMI)
+                            ACOM = ACOM + BCOM
+                            UPL = ACOM + JTOP[:,:,iATMbottom,:,:]
+                        elif iATMbottom==1:
+                            #Solid surface, then we want the downward intensity at layer 1
+                            UPL = mulscatter.idown(\
+                                E,U0PL,UTMI,\
+                                RTOP[:,:,iATMbottom,:,:],TTOP[:,:,iATMbottom,:,:],JTOP[:,:,iATMbottom,:,:],\
+                                RBASE[:,:,iATMbottom-1,:,:],TBASE[:,:,iATMbottom-1,:,:],JBASE[:,:,iATMbottom-1,:,:])
 
                         for IMU in range(IEMM,IEMM+2,1):
-                            RADD[:,:,ICO]=UMI[:,:,IMU,0]
+                            RADD[:,:,ICO]=UPL[:,:,IMU,0]
                             ICO = ICO + 1
 
                     #Interpolating spectrum to correct direction
@@ -4589,6 +4633,9 @@ class ForwardModel_0:
                         DRAD = DRAD*2.
 
                     SPEC[:,:,iPATH] = SPEC[:,:,iPATH] + DRAD[:,:]
+                    
+                    #if iPATH==549:
+                    #    print('iPATH',iPATH,'IC',IC,DRAD[0,0],SPEC[0,0,iPATH],DRAD[0,0]/SPEC[0,0,iPATH]*100.)
         
 
         return SPEC
@@ -4757,6 +4804,7 @@ class ForwardModel_0:
         if(len(iin[0])>0):
             OMEGA[iin[0],iin[1],iin[2]] = (Layer.TAURAY[iin[0],iin[2]]+Layer.TAUSCAT[iin[0],iin[2]]) / Layer.TAUTOT[iin[0],iin[1],iin[2]]
 
+
         if diffuse==False:
             OMEGA[:,:,:] = 0.0  #No scattering if diffuse component is turned off
         
@@ -4767,6 +4815,7 @@ class ForwardModel_0:
         RL1,TL1,JL1,ISCL1 = mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
                                                     Layer.TAUTOT,OMEGA,Layer.TAURAY,BB,PPLPLS,PPLMIS)
         #(NWAVE,NG,NLAY,NF+1,NMU,NMU)
+        
         
         #################################################################################
         #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR SURFACE
@@ -5330,7 +5379,6 @@ class ForwardModel_0:
         PPLPL = np.zeros((NWAVE,ncont,Scatter.NF+1,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in + direction (i.e. downwards)
         PPLMI = np.zeros((NWAVE,ncont,Scatter.NF+1,Scatter.NMU,Scatter.NMU)) #Integrated phase function coefficients in - direction (i.e. upwards)
 
-        print('is problem here instead,before the integration?')
         #Aerosol phase functions
         for icont in range(Scatter.NDUST):
             PPLPL[:,icont,:,:,:],PPLMI[:,icont,:,:,:] = mulscatter.integrate_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nphi=Scatter.NPHI,nf=Scatter.NF,ppl=ppl[:,:,icont],pmi=pmi[:,:,icont])
@@ -5355,10 +5403,8 @@ class ForwardModel_0:
         #PHASE FUNCTION.  THE NORMALIZATION OF THE TRUE PHASE FCN. IS:
         #integral over sphere [ P(mu,mu',phi) * dO] = 1
         #WHERE dO IS THE ELEMENT OF SOLID ANGLE AND phi IS THE AZIMUTHAL ANGLE.
-        print('is problem when normalising the phase function?')
         for icont in range(ncont):
             PPLPL[:,icont,:,:,:],PPLMI[:,icont,:,:,:] = mulscatter.normalise_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nf=Scatter.NF,wtmu=Scatter.WTMU,pplpl=PPLPL[:,icont,:,:,:],pplmi=PPLMI[:,icont,:,:,:])
-        print('finished normalisation')
         
         #To be compare with calc_pmat6 after hansen normalisation
         #for icont in range(Scatter.NDUST):

@@ -522,6 +522,30 @@ contains
 
 
         !Subroutine solves Eq. 7b,8b,9b of Plass et al. (1973) 
+
+
+        !We want to combine the matrices of the layers 0-1 and 2-1. 
+
+        !   t20 = t10 * (E-r12*r10)^-1 * t21
+        !   
+
+
+        !   0 -------------------
+        !                         |I0-
+        !                         v
+        !     R10,T10,J10+,J10-
+        !                         ^
+        !                         | I1+
+        !   1 ------------------- 
+        !                         | I1-
+        !                         v
+        !     R12,T21,J21-                     
+        !                         ^
+        !                         | I2+
+        !   2 ------------------- 
+
+        ! Here, it is assumed that each atmospheric layer is homogeneous
+
         !Here :
             !R1 is R10 for the homogenous layer 1 being added (and thus equal to R01)
             !T1 is T10 for the homogenous layer 1 being added (and thus equal to T10)
@@ -723,9 +747,9 @@ contains
         dphi = 2.0*PI/nphi
         ntheta = nmu*nmu*(nphi+1)
 
-        !$omp parallel do private(iwave,ix,i,j,kl,k,phi,plx,pmx,wphi) &
-        !$omp shared(ppl,pmi,pplpl,pplmi,nwave,nmu,nf,nphi,dphi,pi) &
-        !$omp collapse(1)
+        !!$omp parallel do private(iwave,ix,i,j,kl,k,phi,plx,pmx,wphi) &
+        !!$omp shared(ppl,pmi,pplpl,pplmi,nwave,nmu,nf,nphi,dphi,pi) &
+        !!$omp collapse(1)
         do iwave=1,nwave
             !print*,iwave,nwave
             ix = 1
@@ -758,7 +782,7 @@ contains
                                 wphi = wphi / PI
                             endif
 
-                            !$omp atomic
+                            !!$omp atomic
                             pplpl(iwave,kl,i,j) = pplpl(iwave,kl,i,j) + wphi*plx
                             pplmi(iwave,kl,i,j) = pplmi(iwave,kl,i,j) + wphi*pmx
                             
@@ -771,7 +795,7 @@ contains
                 enddo
             enddo
         enddo
-        !$omp end parallel do
+        !!$omp end parallel do
 
         RETURN
     end subroutine
@@ -817,10 +841,10 @@ contains
         pplplx(:,:,:,:) = 0.d0
 
         !Looping over wavelength
-        !$omp parallel do &
-        !$omp shared(pplmi,pplpl,pplplx,pplmix,wtmu,pi,x1,ic,nwave,nmu,nf) &
-        !$omp private(iwave,i,j,k,test,testj,rsum,tsum,niter,xi,xj,fc) &
-        !$omp collapse(1)
+        !!$omp parallel do &
+        !!$omp shared(pplmi,pplpl,pplplx,pplmix,wtmu,pi,x1,ic,nwave,nmu,nf) &
+        !!$omp private(iwave,i,j,k,test,testj,rsum,tsum,niter,xi,xj,fc) &
+        !!$omp collapse(1)
 
         do iwave=1,nwave
 
@@ -869,7 +893,7 @@ contains
             do k=1,nf+1
                 do j=1,nmu
                     do i=1,nmu
-                        !$omp atomic write
+                        !!$omp atomic write
                         pplmix(iwave,k,i,j) = pplmi(iwave,k,i,j)
                         pplplx(iwave,k,i,j) = pplpl(iwave,k,i,j) * fc(i,j)
                     enddo
@@ -878,7 +902,7 @@ contains
             
 
         enddo
-        !$omp end parallel do
+        !!$omp end parallel do
 
         RETURN
 
@@ -929,9 +953,9 @@ contains
         pplpls(:,:,:,:,:) = 0.d0
 
         !Looping over wavelength
-        !$omp parallel do private(iwave,ilay,iaero,ig,iscat,tauscat,frac) &
-        !$omp shared(pplpls,pplmis,omega,pplpl,pplmi,tauray,tauclscat,tautot,rayleigh,nscat) &
-        !$omp collapse(1)
+        !!$omp parallel do private(iwave,ilay,iaero,ig,iscat,tauscat,frac) &
+        !!$omp shared(pplpls,pplmis,omega,pplpl,pplmi,tauray,tauclscat,tautot,rayleigh,nscat) &
+        !!$omp collapse(1)
         do iwave=1,nwave
 
             !Looping through each atmospheric layer
@@ -963,7 +987,7 @@ contains
                         do k=1,nf+1
                             do i=1,nmu
                                 do j=1,nmu
-                                    !$omp atomic
+                                    !!$omp atomic
                                     pplpls(iwave,ilay,k,i,j) = pplpls(iwave,ilay,k,i,j) + pplpl(iwave,iscat,k,i,j) * frac(iscat)
                                     pplmis(iwave,ilay,k,i,j) = pplmis(iwave,ilay,k,i,j) + pplmi(iwave,iscat,k,i,j) * frac(iscat)
                                 enddo
@@ -975,9 +999,9 @@ contains
                     !Calculating the single scattering albedo of the layer
                     
                     do ig=1,ng
-                        !$omp critical
+                        !!$omp critical
                         omega(iwave,ig,ilay) = tauscat / tautot(iwave,ig,ilay)
-                        !$omp end critical
+                        !!$omp end critical
                     enddo
                     
                 endif
@@ -1015,9 +1039,9 @@ contains
         pi = 4.0D0*DATAN(1.0D0)
         phase(:,:)=0.0D0
 
-        !$omp parallel do private(il,it,iv,thetax,Pn) &
-        !$omp collapse(1) shared(theta,wlpol,pi,phase)
-        !!$omp num_threads(30)
+        !!$omp parallel do private(il,it,iv,thetax,Pn) &
+        !!$omp collapse(1) shared(theta,wlpol,pi,phase)
+        !!!$omp num_threads(30)
 
         do il=1,nlpol
 
@@ -1028,16 +1052,16 @@ contains
                 call flegendre(il-1,dcos(thetax/180.d0*pi),Pn)
 
                 !Multiplying by the weights to get the phase function
-                !$omp critical
+                !!$omp critical
                 do iv=1,nwave
                     !!$omp atomic
                     phase(iv,it) = phase(iv,it) + Pn * wlpol(iv,il)
                 enddo
-                !$omp end critical
+                !!$omp end critical
 
             enddo
         enddo
-        !$omp end parallel do
+        !!$omp end parallel do
 
 
         RETURN
@@ -1086,20 +1110,41 @@ contains
 
 
     !==================================================================================================
-    subroutine iup(NWAVE,NG,NMU,E,U0PL,UTMI,RA,TA,JA,RB,TB,JB,UMI)
+    subroutine iup(NWAVE,NG,NMU,E,U0PL,UTMI,RTOP,TTOP,JTOP,RBASE,TBASE,JBASE,UMI)
         !*****************************************************************
-        !Subroutine to calculate the upwards intensity of a cloud
+        !Subroutine to calculate the upwards intensity of a cloud 
 
         !For a detailed description, see Plass et al.(1993), Apl. Opt. 12, pp 314-329.
 
+        !The indices 0,1,2 represent the boundaries between layers. In particular, we will
+        !have the layer between 0-1 and the layer between 1-2. The upwards intensity of the
+        !layer in boundary 1 can be calculated as:
+
+        ! I1- = (E-r12*r10)^-1 * (t21*I2- + r12*t01*I0+ + J21- + r12*J01+)
+
+
+        !   0 -------------------
+        !                         |I0-
+        !                         v
+        !
+        !                         ^
+        !                         | I1+
+        !   1 ------------------- 
+        !                         | I1-
+        !                         v
+        !                          
+        !                         ^
+        !                         | I2+
+        !   2 ------------------- 
+
         !This is equation 5
-        !RA = R10
-        !RB = R12
-        !TA = T01
-        !TB = T21
-        !JA = JP01
-        !JB = JM21
-        !U0PL is I0+
+        !RTOP = R10      reflection matrix of layer on top
+        !RBASE = R12     reflection matrix of layer below
+        !TTOP = T01      transmission matrix of layer on top
+        !TBASE = T21     transmission matrix of layer below
+        !JTOP = J01+     source matrix (downwards) of layer on top
+        !JBASE = J21-    source matrix (upwards) of layer below     
+        !U0PL is I0+     
         !UTMI is I2-
 
         !Output UMI is I1-
@@ -1107,12 +1152,12 @@ contains
         !   Input variables:
         !   U0PL(NWAVE,NG,NMU,1) DOUBLE  Top of atmosphere solar contribution
         !   UTMI(NWAVE,NG,NMU,1) DOUBLE  Bottom of atmosphere contribution
-        !	RA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 1st layer
-        !	TA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 1st layer
-        !	JA(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 1st layer
-        !	RB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 2nd layer
-        !	TB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 2nd layer
-        !	JB(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 2nd layer
+        !	RTOP(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 1st layer
+        !	TTOP(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 1st layer
+        !	JTOP(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 1st layer
+        !	RBASE(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 2nd layer
+        !	TBASE(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 2nd layer
+        !	JBASE(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 2nd layer
         !   NWAVE   INTEGER Number of wavelengths
         !   NG      INTEGER Number of g-ordinates
         !	NMU		INTEGER	Number of elements used
@@ -1131,8 +1176,8 @@ contains
         !Inputs
         integer, intent(in) :: NMU,NWAVE,NG
         double precision, intent(in) :: E(NMU,NMU),U0PL(NWAVE,NG,NMU,1),UTMI(NWAVE,NG,NMU,1)
-        double precision, intent(in) :: RA(NWAVE,NG,NMU,NMU),TA(NWAVE,NG,NMU,NMU),JA(NWAVE,NG,NMU,1)
-        double precision, intent(in) :: RB(NWAVE,NG,NMU,NMU),TB(NWAVE,NG,NMU,NMU),JB(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RTOP(NWAVE,NG,NMU,NMU),TTOP(NWAVE,NG,NMU,NMU),JTOP(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RBASE(NWAVE,NG,NMU,NMU),TBASE(NWAVE,NG,NMU,NMU),JBASE(NWAVE,NG,NMU,1)
 
         !Local
         double precision :: ACOM(NMU,NMU),BCOM(NMU,NMU),UMI1(NMU,1)
@@ -1146,7 +1191,7 @@ contains
             do IG=1,NG
 
                 !Calculate r12*r10 -> ACOM
-                CALL MMUL(1.0D0,NMU,NMU,NMU,RB(IWAVE,IG,:,:),RA(IWAVE,IG,:,:),ACOM)
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RBASE(IWAVE,IG,:,:),RTOP(IWAVE,IG,:,:),ACOM)
         
                 !Calculate (E - r12*r10) -> BCOM
                 CALL MADD(-1.0D0,NMU,NMU,E,ACOM,BCOM)
@@ -1158,10 +1203,10 @@ contains
                 CALL MEQU(NMU,ACOM,BCOM)
         
                 !Calculate t21*I2- -> XCOM
-                CALL MMUL(1.0D0,NMU,NMU,1,TB(IWAVE,IG,:,:),UTMI(IWAVE,IG,:,:),XCOM)
+                CALL MMUL(1.0D0,NMU,NMU,1,TBASE(IWAVE,IG,:,:),UTMI(IWAVE,IG,:,:),XCOM)
         
                 !Calculate r12*t01 -> ACOM
-                CALL MMUL(1.0D0,NMU,NMU,NMU,RB(IWAVE,IG,:,:),TA(IWAVE,IG,:,:),ACOM)
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RBASE(IWAVE,IG,:,:),TTOP(IWAVE,IG,:,:),ACOM)
         
                 !Calculate r12*t01*I0+ -> YCOM
                 CALL MMUL(1.0D0,NMU,NMU,1,ACOM,U0PL(IWAVE,IG,:,:),YCOM)
@@ -1170,13 +1215,13 @@ contains
                 CALL MADD(1.0D0,NMU,1,XCOM,YCOM,XCOM2)
         
                 !Calculate r12*J01+ -> YCOM
-                CALL MMUL(1.0D0,NMU,NMU,1,RB(IWAVE,IG,:,:),JA(IWAVE,IG,:,:),YCOM)
+                CALL MMUL(1.0D0,NMU,NMU,1,RBASE(IWAVE,IG,:,:),JTOP(IWAVE,IG,:,:),YCOM)
         
                 !Add total and put in UMI
                 CALL MADD(1.0D0,NMU,1,XCOM2,YCOM,UMI1)
         
                 !Add J21- to UMI
-                CALL MADD(1.0D0,NMU,1,UMI1,JB(IWAVE,IG,:,:),XCOM)
+                CALL MADD(1.0D0,NMU,1,UMI1,JBASE(IWAVE,IG,:,:),XCOM)
 
                 !Multiply and put result in UMI
                 CALL MMUL(1.0D0,NMU,NMU,1,BCOM,XCOM,UMI(IWAVE,IG,:,:))
@@ -1190,21 +1235,58 @@ contains
 
     !==================================================================================================
 
-    subroutine idown(NWAVE,NG,NMU,E,U0PL,UTMI,RA,TA,JA,RB,TB,JB,UPL)
+    subroutine idown(NWAVE,NG,NMU,E,U0PL,UTMI,RTOP,TTOP,JTOP,RBASE,TBASE,JBASE,UPL)
         !*****************************************************************
         !Subroutine to calculate the downward intensity of a cloud
 
-        !For a detailed description, see Plass et al.(1993), Apl. Opt. 12, pp 314-329. (eq.6)
+        !For a detailed description, see Plass et al.(1993), Apl. Opt. 12, pp 314-329.
+
+        !The indices 0,1,2 represent the boundaries between layers. In particular, we will
+        !have the layer between 0-1 and the layer between 1-2. The upwards intensity of the
+        !layer in boundary 1 can be calculated as:
+
+        ! I1+ = (E-r10*r12)^-1 * (t01*I0+ + r10*t21*I2- + J01+ + r10*J21-)
+
+
+        !   0 -------------------
+        !                         |I0-
+        !                         v
+        !
+        !                         ^
+        !                         | I1+
+        !   1 ------------------- 
+        !                         | I1-
+        !                         v
+        !                          
+        !                         ^
+        !                         | I2+
+        !   2 ------------------- 
+
+        !Assuming that the layers are homogeneous yields r10=r01, etc.
+
+        !This is equation 6
+        !RTOP = R10      reflection matrix of layer on top
+        !RBASE = R12     reflection matrix of layer below
+        !TTOP = T01      transmission matrix of layer on top
+        !TBASE = T21     transmission matrix of layer below
+        !JTOP = J01+     source matrix (downwards) of layer on top
+        !JBASE = J21-    source matrix (upwards) of layer below     
+        !U0PL is I0+     
+        !UTMI is I2-
+
+        !Output UMI is I1-
+
+
         
         !   Input variables:
         !   U0PL(NWAVE,NG,NMU,1) DOUBLE  Top of atmosphere solar contribution
         !   UTMI(NWAVE,NG,NMU,1) DOUBLE  Bottom of atmosphere contribution
-        !	RA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 1st layer
-        !	TA(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 1st layer
-        !	JA(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 1st layer
-        !	RB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 2nd layer
-        !	TB(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 2nd layer
-        !	JB(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 2nd layer
+        !	RTOP(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 1st layer
+        !	TTOP(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 1st layer
+        !	JTOP(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 1st layer
+        !	RBASE(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse reflection operator for 2nd layer
+        !	TBASE(NWAVE,NG,NMU,NMU)	DOUBLE	Diffuse transmission operator for 2nd layer
+        !	JBASE(NWAVE,NG,NMU,1)	DOUBLE	Diffuse source function for 2nd layer
         !   NWAVE   INTEGER Number of wavelengths
         !   NG      INTEGER Number of g-ordinates
         !	NMU		INTEGER	Number of elements used
@@ -1223,8 +1305,8 @@ contains
         !Inputs
         integer, intent(in) :: NMU,NWAVE,NG
         double precision, intent(in) :: E(NMU,NMU),U0PL(NWAVE,NG,NMU,1),UTMI(NWAVE,NG,NMU,1)
-        double precision, intent(in) :: RA(NWAVE,NG,NMU,NMU),TA(NWAVE,NG,NMU,NMU),JA(NWAVE,NG,NMU,1)
-        double precision, intent(in) :: RB(NWAVE,NG,NMU,NMU),TB(NWAVE,NG,NMU,NMU),JB(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RTOP(NWAVE,NG,NMU,NMU),TTOP(NWAVE,NG,NMU,NMU),JTOP(NWAVE,NG,NMU,1)
+        double precision, intent(in) :: RBASE(NWAVE,NG,NMU,NMU),TBASE(NWAVE,NG,NMU,NMU),JBASE(NWAVE,NG,NMU,1)
 
         !Local
         double precision :: ACOM(NMU,NMU),BCOM(NMU,NMU)
@@ -1238,7 +1320,7 @@ contains
             do IG=1,NG
 
                 !Calculate r10*r12
-                CALL MMUL(1.0D0,NMU,NMU,NMU,RA(IWAVE,IG,:,:),RB(IWAVE,IG,:,:),ACOM)
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RTOP(IWAVE,IG,:,:),RBASE(IWAVE,IG,:,:),ACOM)
         
                 !Calculate E-r10*r12
                 CALL MADD(-1.0D0,NMU,NMU,E,ACOM,BCOM)
@@ -1250,10 +1332,10 @@ contains
                 CALL MEQU(NMU,ACOM,BCOM)
         
                 !Calculate t01*I0+
-                CALL MMUL(1.0D0,NMU,NMU,1,TA(IWAVE,IG,:,:),U0PL(IWAVE,IG,:,:),XCOM)
+                CALL MMUL(1.0D0,NMU,NMU,1,TTOP(IWAVE,IG,:,:),U0PL(IWAVE,IG,:,:),XCOM)
         
                 !Calculate r10*t21
-                CALL MMUL(1.0D0,NMU,NMU,NMU,RA(IWAVE,IG,:,:),TB(IWAVE,IG,:,:),ACOM)
+                CALL MMUL(1.0D0,NMU,NMU,NMU,RTOP(IWAVE,IG,:,:),TBASE(IWAVE,IG,:,:),ACOM)
         
                 !Calculate r10*t21*I2-
                 CALL MMUL(1.0D0,NMU,NMU,1,ACOM,UTMI(IWAVE,IG,:,:),YCOM)
@@ -1262,13 +1344,13 @@ contains
                 CALL MADD(1.0D0,NMU,1,XCOM,YCOM,XCOM2)
         
                 !calculate r10*J21-
-                CALL MMUL(1.0D0,NMU,NMU,1,RA(IWAVE,IG,:,:),JB(IWAVE,IG,:,:),YCOM)
+                CALL MMUL(1.0D0,NMU,NMU,1,RTOP(IWAVE,IG,:,:),JBASE(IWAVE,IG,:,:),YCOM)
         
                 !Add to total
                 CALL MADD(1.0D0,NMU,1,XCOM2,YCOM,UPL1)
         
                 !Add J01+ to total and put in UPL
-                CALL MADD(1.0D0,NMU,1,UPL1,JA(IWAVE,IG,:,:),XCOM)
+                CALL MADD(1.0D0,NMU,1,UPL1,JTOP(IWAVE,IG,:,:),XCOM)
         
                 !Multiply by (E-r10*r12)^-1 for result in UPL
                 CALL MMUL(1.0D0,NMU,NMU,1,BCOM,XCOM,UPL(IWAVE,IG,:,:))
@@ -1326,7 +1408,6 @@ contains
          
         do IWAVE=1,NWAVE
             do IG=1,NG
-
                 CALL MMUL(1.0D0,NMU,NMU,1,R(IWAVE,IG,:,:),U0PL(IWAVE,IG,:,:),ACOM)
                 CALL MMUL(1.0D0,NMU,NMU,1,T(IWAVE,IG,:,:),UTMI(IWAVE,IG,:,:),BCOM)
                 CALL MADD(1.0D0,NMU,1,ACOM,BCOM,CCOM)

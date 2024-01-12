@@ -1886,6 +1886,37 @@ def write_hlay(nlayer,heightlay):
 
 ###############################################################################################
 
+def convert_input_hdf5_nemesis(runname):
+
+    """
+        FUNCTION NAME : convert_input_hdf5_nemesis()
+        
+        DESCRIPTION : 
+
+            Routine to read the input files from an HDF5 run and write the into the regular NEMESIS input files
+ 
+        INPUTS :
+      
+            runname :: Name of the NEMESIS run
+
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS : 
+
+            NEMESIS input files
+
+        CALLING SEQUENCE:
+        
+            convert_input_hdf5_nemesis(runname)
+ 
+        MODIFICATION HISTORY : Juan Alday (12/12/2023)
+    """
+    
+    
+
+
+###############################################################################################
+
 def convert_input_nemesis_hdf5(runname):
 
     """
@@ -2146,6 +2177,7 @@ def read_retparam_hdf5(runname):
     #Checking if Surface exists
     e = "/Retrieval" in f
     if e==False:
+        f.close()
         sys.exit('error :: Retrieval is not defined in HDF5 file')
     else:
 
@@ -2162,7 +2194,8 @@ def read_retparam_hdf5(runname):
             APRERRPARAM = np.array(f.get('Retrieval/Output/Parameters/APRERRPARAM'))
 
         else:
-
+            
+            f.close()
             sys.exit('error :: Retrieval/Output/Parameters is not defined in HDF5 file')
     
 
@@ -2194,16 +2227,21 @@ def read_bestfit_hdf5(runname):
         MODIFICATION HISTORY : Juan Alday (25/03/2023)
     """
 
-    Retrieval = OptimalEstimation_0()
-    Retrieval.read_hdf5(runname)
+    import h5py
 
+    #Reading the best fit
+    f = h5py.File(runname+'.h5','r')
+    YN = np.array(f.get('Retrieval/Output/OptimalEstimation/YN'))
+    f.close()
+ 
+    #Writing the measurement vector in same format as in Measurement
     Measurement = Measurement_0()
     Measurement.read_hdf5(runname)
 
     SPECMOD = np.zeros(Measurement.MEAS.shape)
     ix = 0
     for i in range(Measurement.NGEOM):
-        SPECMOD[0:Measurement.NCONV[i],i] = Retrieval.YN[ix:ix+Measurement.NCONV[i]]
+        SPECMOD[0:Measurement.NCONV[i],i] = YN[ix:ix+Measurement.NCONV[i]]
         ix = ix + Measurement.NCONV[i]
 
     Measurement.edit_SPECMOD(SPECMOD)
