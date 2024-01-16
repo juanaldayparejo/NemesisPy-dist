@@ -121,6 +121,7 @@ class ForwardModel_0:
             ForwardModel_0.CIRSradg()
             ForwardModel_0.calc_tau_cia()
             ForwardModel_0.calc_tau_dust()
+            ForwardModel_0.calc_tau_gas()
 
         Multiple scattering routines
         ###########################################
@@ -4086,6 +4087,86 @@ class ForwardModel_0:
 
 
         return TAUDUST,TAUCLSCAT,dTAUDUSTdq,dTAUCLSCATdq
+
+###############################################################################################
+
+    def calc_tau_gas(self):
+        """
+        Calculate the aerosol opacity in each atmospheric layer
+
+        Inputs
+        ________
+        
+        Measurement :: Measurement class
+        Spectroscopy :: Spectroscopy class
+        Layer :: Layer class 
+
+        Outputs
+        ________
+
+        TAUGAS(NWAVE,NG,NLAY) :: Gaseous opacity in each layer for each g-ordinate (NG=1 if line-by-line)
+
+        """
+
+        from NemesisPy.nemesisf import spectroscopy
+
+        #Calculating the gaseous line opacity in each layer
+        ########################################################################################################
+
+        if self.SpectroscopyX.ILBL==2:  #LBL-table
+
+            TAUGAS = np.zeros((self.MeasurementX.NWAVE,self.SpectroscopyX.NG,self.LayerX.NLAY,self.SpectroscopyX.NGAS))  #Vertical opacity of each gas in each layer
+
+            #Calculating the cross sections for each gas in each layer
+            k = self.SpectroscopyX.calc_klbl(self.LayerX.NLAY,self.LayerX.PRESS/101325.,self.LayerX.TEMP,WAVECALC=self.MeasurementX.WAVE)
+
+            for i in range(self.SpectroscopyX.NGAS):
+                IGAS = np.where( (self.AtmosphereX.ID==self.SpectroscopyX.ID[i]) & (self.AtmosphereX.ISO==self.SpectroscopyX.ISO[i]) )
+                IGAS = IGAS[0]
+
+                #Calculating vertical column density in each layer
+                VLOSDENS = self.LayerX.AMOUNT[:,IGAS].T * 1.0e-4 * 1.0e-20   #cm-2
+
+                #Calculating vertical opacity for each gas in each layer
+                TAUGAS[:,0,:,i] = k[:,:,i] * VLOSDENS
+
+            #Combining the gaseous opacity in each layer
+            TAUGAS = np.sum(TAUGAS,3) #(NWAVE,NG,NLAY)
+
+            #Removing necessary data to save memory
+            del k
+
+        elif self.SpectroscopyX.ILBL==0:    #K-table
+
+            #Calculating the k-coefficients for each gas in each layer
+            k_gas,dkgasdT = self.SpectroscopyX.calc_kg(self.LayerX.NLAY,self.LayerX.PRESS/101325.,self.LayerX.TEMP,WAVECALC=self.MeasurementX.WAVE) # (NWAVE,NG,NLAY,NGAS)
+
+            f_gas = np.zeros((self.SpectroscopyX.NGAS,self.LayerX.NLAY))
+            utotl = np.zeros(self.LayerX.NLAY)
+            for i in range(self.SpectroscopyX.NGAS):
+                IGAS = np.where( (self.AtmosphereX.ID==self.SpectroscopyX.ID[i]) & (self.AtmosphereX.ISO==self.SpectroscopyX.ISO[i]) )
+                IGAS = IGAS[0]
+
+                #When using gradients
+                f_gas[i,:] = self.LayerX.AMOUNT[:,IGAS[0]] * 1.0e-4 * 1.0e-20  #Vertical column density of the radiatively active gases in cm-2
+
+            #Combining the k-distributions of the different gases in each layer
+            #k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)            
+            k_layer,dk_layer = spectroscopy.k_overlapg(self.SpectroscopyX.DELG,k_gas,dkgasdT,f_gas) #Fortran version
+
+            #Calculating the opacity of each layer
+            TAUGAS = k_layer #(NWAVE,NG,NLAY)
+            #Calculating the opacity of each layer
+            #TAUGAS = k_layer * utotl   #(NWAVE,NG,NLAY)
+
+            #Removing necessary data to save memory
+            del k_gas
+            del k_layer
+
+        else:
+            sys.exit('error in CIRSrad :: ILBL must be either 0 or 2')
+
+        return TAUGAS
 
 
     ###############################################################################################
