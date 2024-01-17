@@ -12,5 +12,5 @@ setup(name='NemesisPy',
       description='NEMESIS radiative transfer code',
       packages=['NemesisPy'],
       install_requires=['numpy','matplotlib','sympy','miepython','numba','ray','scipy'],
-      #ext_modules=[ext1],
+      ext_modules=[ext1],
       )
