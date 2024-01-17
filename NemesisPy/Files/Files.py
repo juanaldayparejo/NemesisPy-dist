@@ -1912,7 +1912,8 @@ def convert_input_hdf5_nemesis(runname):
         MODIFICATION HISTORY : Juan Alday (12/12/2023)
     """
     
-    
+    Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval = read_input_files_hdf5(Outdir+runname)
+
 
 
 ###############################################################################################
@@ -2092,8 +2093,16 @@ def read_input_files_hdf5(runname):
     #Initialise Spectroscopy class and read file
     ###############################################################
 
-    Spectroscopy = Spectroscopy_0()
-    Spectroscopy.read_hdf5(runname)
+    f = h5py.File(runname+'.h5','r')
+    #Checking if Spectroscopy exists
+    e = "/Spectroscopy" in f
+    f.close()
+
+    if e is True:
+        Spectroscopy = Spectroscopy_0()
+        Spectroscopy.read_hdf5(runname)
+    else:
+        Spectroscopy = None
 
     #Initialise Measurement class and read file
     ###############################################################
@@ -2101,6 +2110,7 @@ def read_input_files_hdf5(runname):
     Measurement = Measurement_0()
     Measurement.read_hdf5(runname)
     Measurement.calc_MeasurementVector()
+    
 
     #Calculating the 'calculation wavelengths'
     if Spectroscopy.ILBL==0:
@@ -2109,9 +2119,28 @@ def read_input_files_hdf5(runname):
         Measurement.wavesetc(Spectroscopy,IGEOM=0)
     else:
         sys.exit('error :: ILBL has to be either 0 or 2')
+        
+    if Spectroscopy is not None:
 
-    #Now, reading k-tables or lbl-tables for the spectral range of interest
-    Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
+        #Now, reading k-tables or lbl-tables for the spectral range of interest
+        Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
+        
+    else:
+        
+        #Creating dummy Spectroscopy file if it does not exist
+        Spectroscopy = Spectroscopy_0()
+        Spectroscopy.NWAVE = Measurement.NWAVE
+        Spectroscopy.WAVE = Measurement.WAVE
+        Spectroscopy.NG = 1
+        Spectroscopy.ILBL = 2
+        Spectroscopy.NGAS = 1
+        Spectroscopy.ID = np.array([Atmosphere.ID[0]],dtype='int32')
+        Spectroscopy.ISO = np.array([Atmosphere.ISO[0]],dtype='int32')
+        Spectroscopy.NP = 2
+        Spectroscopy.NT = 2
+        Spectroscopy.PRESS = np.array([Atmosphere.P.min()/101325.,Atmosphere.P.max()/101325.])
+        Spectroscopy.TEMP = np.array([Atmosphere.T.min(),Atmosphere.T.max()])
+        Spectroscopy.K = np.zeros([Spectroscopy.NWAVE,Spectroscopy.NP,Spectroscopy.NT,Spectroscopy.NGAS])
 
 
     #Reading Stellar class

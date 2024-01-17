@@ -1311,68 +1311,79 @@ class Measurement_0:
             Integer defining the geometry at which the calculation numbers will be computed
         """
 
-        if self.FWHM>0.0:
+        if Spectroscopy is not None:
 
-            if self.ISHAPE==0:
-                dv = 0.5*self.FWHM
-            elif self.ISHAPE==1:
-                dv = self.FWHM
-            elif self.ISHAPE==2:
-                dv = 3.* 0.5 * self.FWHM / np.sqrt(np.log(2.0))
+            if self.FWHM>0.0:
+
+                if self.ISHAPE==0:
+                    dv = 0.5*self.FWHM
+                elif self.ISHAPE==1:
+                    dv = self.FWHM
+                elif self.ISHAPE==2:
+                    dv = 3.* 0.5 * self.FWHM / np.sqrt(np.log(2.0))
+                else:
+                    dv = 3.*self.FWHM
+
+                wavemin = self.VCONV[0,IGEOM] - dv
+                wavemax = self.VCONV[self.NCONV[IGEOM]-1,IGEOM] + dv
+
+            elif self.FWHM<=0.0:
+
+                wavemin = 1.0e10
+                wavemax = 0.0
+                for i in range(self.NCONV[IGEOM]):
+                    vminx = self.VFIL[0,i]
+                    vmaxx = self.VFIL[self.NFIL[i]-1,i]
+                    if vminx<wavemin:
+                        wavemin = vminx
+                    if vmaxx>wavemax:
+                        wavemax= vmaxx
+
+            #Correcting the wavelengths for Doppler shift
+            print('nemesis :: Correcting for Doppler shift of ',self.V_DOPPLER,'km/s')        
+            wavemin = self.invert_doppler_shift(wavemin)
+            wavemax = self.invert_doppler_shift(wavemax)
+            
+            #Sorting the wavenumbers if the ILS is flipped
+            if wavemin>=wavemax:
+                sys.exit('error in wavesetc :: the spectral points defining the instrument lineshape must be increasing')
+
+            #Checking that the lbl-tables encompass this wavelength range
+            err = 0.001
+            if (wavemin<(1-err)*Spectroscopy.WAVE.min() or wavemax>(1+err)*Spectroscopy.WAVE.max()):
+                print('Required wavelength range :: ',wavemin,wavemax)
+                print('Wavelength range in lbl-tables :: ',Spectroscopy.WAVE.min(),Spectroscopy.WAVE.max())
+                sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
+
+
+            #Selecting the necessary wavenumbers
+            iwave = np.where( (Spectroscopy.WAVE>=wavemin) & (Spectroscopy.WAVE<=wavemax) )
+            iwave = iwave[0]
+            
+            #Adding two more points to avoid problems with edges
+            iwavex = np.zeros(len(iwave)+2,dtype='int32')
+            if iwave[0]>0:
+                iwavex[0] = iwave[0] - 1
+            if iwave[len(iwave)-1]<Spectroscopy.NWAVE-1:
+                iwavex[len(iwave)+1] = iwave[len(iwave)-1] + 1
             else:
-                dv = 3.*self.FWHM
+                iwavex[len(iwave)+1] = Spectroscopy.NWAVE-1
+            iwavex[1:len(iwave)+1] = iwave[:]
 
-            wavemin = self.VCONV[0,IGEOM] - dv
-            wavemax = self.VCONV[self.NCONV[IGEOM]-1,IGEOM] + dv
-
-        elif self.FWHM<=0.0:
-
-            wavemin = 1.0e10
-            wavemax = 0.0
-            for i in range(self.NCONV[IGEOM]):
-                vminx = self.VFIL[0,i]
-                vmaxx = self.VFIL[self.NFIL[i]-1,i]
-                if vminx<wavemin:
-                    wavemin = vminx
-                if vmaxx>wavemax:
-                    wavemax= vmaxx
-
-        #Correcting the wavelengths for Doppler shift
-        print('nemesis :: Correcting for Doppler shift of ',self.V_DOPPLER,'km/s')        
-        wavemin = self.invert_doppler_shift(wavemin)
-        wavemax = self.invert_doppler_shift(wavemax)
-        
-        #Sorting the wavenumbers if the ILS is flipped
-        if wavemin>=wavemax:
-            sys.exit('error in wavesetc :: the spectral points defining the instrument lineshape must be increasing')
-
-        #Checking that the lbl-tables encompass this wavelength range
-        err = 0.001
-        if (wavemin<(1-err)*Spectroscopy.WAVE.min() or wavemax>(1+err)*Spectroscopy.WAVE.max()):
-            print('Required wavelength range :: ',wavemin,wavemax)
-            print('Wavelength range in lbl-tables :: ',Spectroscopy.WAVE.min(),Spectroscopy.WAVE.max())
-            sys.exit('error from wavesetc :: Channel wavelengths not covered by lbl-tables')
-
-
-        #Selecting the necessary wavenumbers
-        iwave = np.where( (Spectroscopy.WAVE>=wavemin) & (Spectroscopy.WAVE<=wavemax) )
-        iwave = iwave[0]
-        
-        #Adding two more points to avoid problems with edges
-        iwavex = np.zeros(len(iwave)+2,dtype='int32')
-        if iwave[0]>0:
-            iwavex[0] = iwave[0] - 1
-        if iwave[len(iwave)-1]<Spectroscopy.NWAVE-1:
-            iwavex[len(iwave)+1] = iwave[len(iwave)-1] + 1
+            iwavex = np.unique(iwavex)
+            
+            self.WAVE = Spectroscopy.WAVE[iwave]
+            self.NWAVE = len(self.WAVE)
+            
         else:
-            iwavex[len(iwave)+1] = Spectroscopy.NWAVE-1
-        iwavex[1:len(iwave)+1] = iwave[:]
-
-        iwavex = np.unique(iwavex)
-        
-        self.WAVE = Spectroscopy.WAVE[iwave]
-        self.NWAVE = len(self.WAVE)
-
+            
+            if self.FWHM !=0.0:
+                
+                sys.exit('error :: if FWHM is not 0.0, then Spectroscopy needs to be defined to set the "calculation wavelengths"')
+            
+            self.NWAVE = self.NCONV[IGEOM]
+            self.WAVE = np.zeros(self.NWAVE)
+            self.WAVE[:] = self.VCONV[self.NCONV[IGEOM],IGEOM]
 
 
     def wavesetb(self,Spectroscopy,IGEOM=0):
@@ -3080,7 +3091,7 @@ def lblconv_fil_ngeom(nwave,vwave,y,nconv,vconv,nfil,vfil,afil):
 
         CALLING SEQUENCE:
         
-            yout = lblconv_fil(fwhm,ishape,nwave,vwave,y,nconv,vconv,nfil,vfil,afil)
+            yout = lblconv_fil(nwave,vwave,y,nconv,vconv,nfil,vfil,afil)
         
         MODIFICATION HISTORY : Juan Alday (29/04/2021)
         

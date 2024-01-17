@@ -250,8 +250,7 @@ class ForwardModel_0:
                 self.calc_path()
 
                 #Calling CIRSrad to perform the radiative transfer calculations
-                #SPEC1 = CIRSrad(self.runname,self.Variables.self.MeasurementX,self.AtmosphereX,self.SpectroscopyX,self.ScatterX,self.StellarX,self.SurfaceX,self.CIAX,self.LayerX,self.PathX)
-                SPEC1X = self.CIRSrad() #()
+                SPEC1X = self.CIRSrad()
 
                 if self.PathX.NPATH>1:  #If the calculation type requires several paths for a given geometry (e.g. netflux calculation)
                     SPEC1 = np.zeros((self.PathX.NPATH*self.MeasurementX.NWAVE,1))  #We linearise all paths into 1 measurement
@@ -503,7 +502,6 @@ class ForwardModel_0:
             BASEH_TANHE[i] = self.LayerX.BASEH[self.PathX.LAYINC[int(self.PathX.NLAYIN[i]/2),i]]/1.0e3
 
         #Calling CIRSrad to calculate the spectra
-        #SPECOUT = CIRSrad(self.MeasurementX,self.AtmosphereX,self.SpectroscopyX,self.ScatterX,self.StellarX,self.SurfaceX,self.CIAX,self.LayerX,self.PathX)
         SPECOUT = self.CIRSrad()
 
         #Interpolating the spectra to the correct altitudes defined in Measurement
@@ -2988,7 +2986,7 @@ class ForwardModel_0:
         elif IMODM==1:
 
             #Calculating the line-of-sight opacities
-            TAUTOT_LAYINC = self.LayerX.TAUTOT[:,:,Path.LAYINC[:,:]] * self.PathX.SCALE[:,:]  #(NWAVE,NG,NLAYIN,NPATH)
+            TAUTOT_LAYINC = self.LayerX.TAUTOT[:,:,self.PathX.LAYINC[:,:]] * self.PathX.SCALE[:,:]  #(NWAVE,NG,NLAYIN,NPATH)
 
             #Calculating the total opacity over the path
             TAUTOT_PATH = np.sum(TAUTOT_LAYINC,2) #(NWAVE,NG,NPATH)
