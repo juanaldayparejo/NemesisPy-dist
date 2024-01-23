@@ -132,7 +132,7 @@ class ForwardModel_0:
 
         """
 
-        from copy import copy
+        from copy import deepcopy
 
         self.runname = runname
 
@@ -149,17 +149,17 @@ class ForwardModel_0:
         self.adjust_hydrostat=adjust_hydrostat
 
         #Creating extra class to hold the variables class in each permutation of the Jacobian Matrix
-        self.Variables1 = copy(Variables)
+        self.Variables1 = deepcopy(Variables)
 
         #Creating extra classes to store the parameters for a particular forward model
-        self.AtmosphereX = copy(Atmosphere)
-        self.SurfaceX = copy(Surface)
-        self.MeasurementX = copy(Measurement)
-        self.ScatterX = copy(Scatter)
-        self.SpectroscopyX = copy(Spectroscopy)
-        self.CIAX = copy(CIA)
-        self.StellarX = copy(Stellar)
-        self.LayerX = copy(Layer)
+        self.AtmosphereX = deepcopy(Atmosphere)
+        self.SurfaceX = deepcopy(Surface)
+        self.MeasurementX = deepcopy(Measurement)
+        self.ScatterX = deepcopy(Scatter)
+        self.SpectroscopyX = deepcopy(Spectroscopy)
+        self.CIAX = deepcopy(CIA)
+        self.StellarX = deepcopy(Stellar)
+        self.LayerX = deepcopy(Layer)
         self.PathX = None
 
 
@@ -475,18 +475,18 @@ class ForwardModel_0:
 
         from NemesisPy import find_nearest
         from scipy import interpolate
-        from copy import copy
+        from copy import deepcopy
 
         #First we change the reference atmosphere taking into account the parameterisations in the state vector
-        self.Variables1 = copy(self.Variables)
-        self.MeasurementX = copy(self.Measurement)
-        self.AtmosphereX = copy(self.Atmosphere)
-        self.ScatterX = copy(self.Scatter)
-        self.StellarX = copy(self.Stellar)
-        self.SurfaceX = copy(self.Surface)
-        self.LayerX = copy(self.Layer)
-        self.SpectroscopyX = copy(self.Spectroscopy)
-        self.CIAX = copy(self.CIA)
+        self.Variables1 = deepcopy(self.Variables)
+        self.MeasurementX = deepcopy(self.Measurement)
+        self.AtmosphereX = deepcopy(self.Atmosphere)
+        self.ScatterX = deepcopy(self.Scatter)
+        self.StellarX = deepcopy(self.Stellar)
+        self.SurfaceX = deepcopy(self.Surface)
+        self.LayerX = deepcopy(self.Layer)
+        self.SpectroscopyX = deepcopy(self.Spectroscopy)
+        self.CIAX = deepcopy(self.CIA)
         flagh2p = False
 
         #Setting up flag not to re-compute levels based on hydrostatic equilibrium (unless pressure or tangent altitude are retrieved)
@@ -594,20 +594,21 @@ class ForwardModel_0:
         from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg_SO
         from NemesisPy import find_nearest
         from scipy import interpolate
-        from copy import copy
+        from copy import deepcopy
         from NemesisPy.Radtrans.Radtrans import CIRSradg
         from NemesisPy.Radtrans.Radtrans import map2pro
         from NemesisPy.Radtrans.Radtrans import map2xvec
 
         #First we change the reference atmosphere taking into account the parameterisations in the state vector
-        self.MeasurementX = copy(self.Measurement)
-        self.AtmosphereX = copy(self.Atmosphere)
-        self.ScatterX = copy(self.Scatter)
-        self.StellarX = copy(self.Stellar)
-        self.SurfaceX = copy(self.Surface)
-        self.LayerX = copy(self.Layer)
-        self.SpectroscopyX = copy(self.Spectroscopy)
-        self.CIAX = copy(self.CIA)
+        self.Variables1 = deepcopy(self.Variables)
+        self.MeasurementX = deepcopy(self.Measurement)
+        self.AtmosphereX = deepcopy(self.Atmosphere)
+        self.ScatterX = deepcopy(self.Scatter)
+        self.StellarX = deepcopy(self.Stellar)
+        self.SurfaceX = deepcopy(self.Surface)
+        self.LayerX = deepcopy(self.Layer)
+        self.SpectroscopyX = deepcopy(self.Spectroscopy)
+        self.CIAX = deepcopy(self.CIA)
         flagh2p = False
 
         #Setting up flag not to re-compute levels based on hydrostatic equilibrium (unless pressure or tangent altitude are retrieved)
@@ -903,7 +904,7 @@ class ForwardModel_0:
 
         """
 
-            FUNCTION NAME : jacobian_nemesisSO()
+            FUNCTION NAME : jacobian_nemesis()
 
             DESCRIPTION :
 
@@ -935,7 +936,7 @@ class ForwardModel_0:
 
             CALLING SEQUENCE:
 
-                YN,KK = jacobian_nemesisSO(Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,CIA,Layer)
+                YN,KK = jacobian_nemesis(Variables,Measurement,Atmosphere,Scatter,Stellar,Surface,CIA,Layer)
 
             MODIFICATION HISTORY : Juan Alday (29/07/2021)
 
@@ -1056,7 +1057,7 @@ class ForwardModel_0:
                 #self.Variables1 = copy(self.Variables)
                 #self.Variables1.XN = xnx[0:self.Variables1.NX,ixrun[ifm]]
                 self.Variables.XN = xnx[0:self.Variables.NX,ixrun[ifm]]
-
+            
                 if nemesisSO==True:
                     SPECMOD = self.nemesisSOfm()
                 else:
@@ -1449,39 +1450,22 @@ class ForwardModel_0:
                 ix = ix + self.Variables.NXVAR[ivar]
 
             elif self.Variables.VARIDENT[ivar,0]==446:
-#           Model 446. model for retrieving an aerosol density profile + aerosol particle size (log-normal distribution)
+#           Model 446. model for retrieving the particle size distribution based on the data in a look-up table
 #           ***************************************************************
 
-                #This model fits a continuous vertical profile for the aerosol density and the particle size, which
-                #is assumed to follow a log-normal distribution
+                #This model fits the particle size distribution based on the optical properties at different sizes
+                #tabulated in a pre-computed look-up table. What this model does is to interpolate the optical 
+                #properties based on those tabulated.
 
-                if int(self.Variables.NXVAR[ivar]/2)!=self.AtmosphereX.NP:
-                    sys.exit('error using Model 446 :: The number of levels for the addition of continuum must be the same as NPRO')
+                idust0 = int(self.Variables.VARPARAM[ivar,0])
+                wavenorm = int(self.Variables.VARPARAM[ivar,1])
+                xwave = self.Variables.VARPARAM[ivar,2]
+                lookupfile = self.Variables.VARFILE[ivar]
+                rsize = self.Variables.XN[ix]
 
-                aero_dens = np.zeros(self.AtmosphereX.NP)
-                aero_rsize = np.zeros(self.AtmosphereX.NP)
-                aero_dens[:] = np.exp(self.Variables.XN[ix:ix+self.AtmosphereX.NP])
-                aero_rsize[:] = np.exp(self.Variables.XN[ix+self.AtmosphereX.NP:ix+self.AtmosphereX.NP+self.AtmosphereX.NP])
-                #aero_rsize[:] = Variables.XN[ix+Atmosphere.NP:ix+Atmosphere.NP+Atmosphere.NP]
+                self.ScatterX = model446(self.ScatterX,idust0,wavenorm,xwave,rsize,lookupfile,MakePlot=False)
 
-                nlevel = int(self.Variables.VARPARAM[ivar,0])
-                aero_id = int(self.Variables.VARPARAM[ivar,1])
-                sigma_rsize = self.Variables.VARPARAM[ivar,2]
-                idust0 = int(self.Variables.VARPARAM[ivar,3])
-                WaveNorm = self.Variables.VARPARAM[ivar,4]
-
-                #Reading the refractive index from the dictionary
-                self.ScatterX.WAVER = aerosol_info[str(aero_id)]["wave"]
-                self.ScatterX.REFIND_REAL = aerosol_info[str(aero_id)]["refind_real"]
-                self.ScatterX.REFIND_IM = aerosol_info[str(aero_id)]["refind_im"]
-
-                if self.AtmosphereX.NDUST<nlevel:
-                    sys.exit('error in Model 446 :: The number of aerosol populations must at least be equal to the number of altitude levels')
-
-                self.AtmosphereX,self.ScatterX,xmap1 = model446(self.AtmosphereX,self.ScatterX,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,WaveNorm)
-
-                xmap[ix:ix+self.Variables.NXVAR[ivar],:,0:self.AtmosphereX.NP] = xmap1[:,:,:]
-
+                ipar = -1
                 ix = ix + self.Variables.NXVAR[ivar]
 
             elif self.Variables.VARIDENT[ivar,0]==666:
@@ -2906,7 +2890,7 @@ class ForwardModel_0:
         TAUDUST1,TAUCLSCAT,dTAUDUST1,dTAUCLSCAT = self.calc_tau_dust() #(NWAVE,NLAYER,NDUST)
 
         #Calculating the total optical depth for the aerosols
-        print('CIRSrad :: Aerosol optical depths at ',self.MeasurementX.WAVE[0],' :: ',np.sum(TAUDUST1[0,:,:],axis=0))
+        #print('CIRSrad :: Aerosol optical depths at ',self.MeasurementX.WAVE[0],' :: ',np.sum(TAUDUST1[0,:,:],axis=0))
 
         #Adding the opacity by the different dust populations
         TAUDUST = np.sum(TAUDUST1,2)  #(NWAVE,NLAYER) Absorption + Scattering
@@ -3280,6 +3264,9 @@ class ForwardModel_0:
         for i in range(Scatter.NDUST):
             dTAUCON[:,Atmosphere.NVMR+1+i,:] = dTAUCON[:,Atmosphere.NVMR+1+i,:] + dTAUDUST1[:,:,i]  #dTAUDUST/dAMOUNT (m2)
             dTAUSCA[:,Atmosphere.NVMR+1+i,:] = dTAUSCA[:,Atmosphere.NVMR+1+i,:] + dTAUCLSCAT[:,:,i]
+
+        #Calculating the total optical depth for the aerosols
+        print('CIRSrad :: Aerosol optical depths at ',self.MeasurementX.WAVE[0],' :: ',np.sum(TAUDUST1[0,:,:],axis=0))
 
         #Calculating the gaseous line opacity in each layer
         ########################################################################################################
