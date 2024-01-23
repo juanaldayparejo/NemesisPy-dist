@@ -685,7 +685,7 @@ class OptimalEstimation_0:
         self.SM = np.matmul(a,dt)
 
         #Calculate aa-ii where I is a diagonal matrix
-        b = copy(self.AA)
+        b = deepcopy(self.AA)
         for i in range(self.NX):
             b[i,i] = b[i,i] - 1.0
         bt = np.transpose(b)

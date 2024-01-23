@@ -141,9 +141,9 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
     #Initializing some variables
     alambda = 1.0   #Marquardt-Levenberg-type 'braking parameter'
     NX11 = np.zeros(OptimalEstimation.NX)
-    XN1 = copy(OptimalEstimation.XN)
+    XN1 = deepcopy(OptimalEstimation.XN)
     NY1 = np.zeros(OptimalEstimation.NY)
-    YN1 = copy(OptimalEstimation.YN)
+    YN1 = deepcopy(OptimalEstimation.YN)
 
     for it in range(OptimalEstimation.NITER):
 
@@ -200,7 +200,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
                 continue
                         
             #Check to see if any VMRs or other parameters have gone negative.
-            Variables1 = copy(Variables)
+            Variables1 = deepcopy(Variables)
             Variables1.XN = XN1
 
             ForwardModel1 = ForwardModel_0(runname=runname, Atmosphere=Atmosphere,Surface=Surface,Measurement=Measurement,Spectroscopy=Spectroscopy,Stellar=Stellar,Scatter=Scatter,CIA=CIA,Layer=Layer,Variables=Variables1)
@@ -249,7 +249,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
         #    print('nemesis :: Calculating Jacobian matrix KK')
         #    YN1,KK1 = jacobian_nemesis(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,NCores=NCores)
 
-        OptimalEstimation1 = copy(OptimalEstimation)
+        OptimalEstimation1 = deepcopy(OptimalEstimation)
         OptimalEstimation1.edit_YN(YN1)
         OptimalEstimation1.edit_XN(XN1)
         OptimalEstimation1.edit_KK(KK1)
@@ -294,7 +294,7 @@ def coreretOE(runname,Variables,Measurement,Atmosphere,Spectroscopy,Scatter,Stel
 
     #Make sure errors stay as a priori for kiter < 0
     if OptimalEstimation.NITER<0:
-        OptimalEstimation.ST = copy(OptimalEstimation.SA)
+        OptimalEstimation.ST = deepcopy(OptimalEstimation.SA)
 
     #Closing .itr file
     if write_itr==True:
