@@ -1377,13 +1377,9 @@ class Measurement_0:
             
         else:
             
-            if self.FWHM !=0.0:
-                
-                sys.exit('error :: if FWHM is not 0.0, then Spectroscopy needs to be defined to set the "calculation wavelengths"')
-            
             self.NWAVE = self.NCONV[IGEOM]
             self.WAVE = np.zeros(self.NWAVE)
-            self.WAVE[:] = self.VCONV[self.NCONV[IGEOM],IGEOM]
+            self.WAVE[:] = self.VCONV[0:self.NCONV[IGEOM],IGEOM]
 
 
     def wavesetb(self,Spectroscopy,IGEOM=0):
@@ -1401,84 +1397,93 @@ class Measurement_0:
         """
 
         from NemesisPy import find_nearest
+        
+        if Spectroscopy is not None:
 
-        #if (vkstep < 0.0 or fwhm == 0.0):
-        if self.FWHM==0:
+            #if (vkstep < 0.0 or fwhm == 0.0):
+            if self.FWHM==0:
 
+                wave = np.zeros(self.NCONV[IGEOM])
+                wave[:] = self.VCONV[0:self.NCONV[IGEOM],IGEOM]
+                self.WAVE = wave
+                self.NWAVE = self.NCONV[IGEOM]
+
+            elif self.FWHM<0.0:
+
+                wavemin = 1.0e10
+                wavemax = 0.0
+                for i in range(self.NCONV[IGEOM]):
+                    vminx = self.VFIL[0,i]
+                    vmaxx = self.VFIL[self.NFIL[i]-1,i]
+                    if vminx<wavemin:
+                        wavemin = vminx
+                    if vmaxx>wavemax:
+                        wavemax= vmaxx
+
+                """
+                #The ILS and FWHM are specified in the .fil file
+                nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
+                if self.NCONV[IGEOM] != nconv1:
+                    sys.exit('error :: onvolution wavenumbers must be the same in .spx and .fil files')
+
+                for i in range(nconv1):
+                    vcentral = vconv1[i]
+                    wavemin = 1.0e6
+                    wavemax = 0.0
+                    for j in range(self.NCONV[IGEOM]):
+                        dv = abs(vcentral-self.VCONV[j,IGEOM])
+                        if dv < 0.0001:
+                            vminx = vfil[0,i]
+                            vmaxx = vfil[nfil[i]-1,i]
+                            if vminx<wavemin:
+                                wavemin = vminx
+                            if vmaxx>wavemax:
+                                wavemax= vmaxx
+                        else:
+                            print('warning from wavesetb :: Convolution wavenumbers in .spx and .fil do not coincide')
+                """
+
+
+                if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
+                    sys.exit('error from wavesetc :: Channel wavelengths not covered by k-tables')
+
+                #Selecting the necessary wavenumbers
+                wave0min,iwavemin = find_nearest(Spectroscopy.WAVE,wavemin)
+                wave0max,iwavemax = find_nearest(Spectroscopy.WAVE,wavemax)
+
+                if wave0min>wavemin:
+                    iwavemin = iwavemin - 1
+                if wave0max<wavemax:
+                    iwavemax = iwavemax + 1
+
+                iwave = np.linspace(iwavemin,iwavemax,iwavemax-iwavemin+1,dtype='int32')
+
+                self.WAVE = Spectroscopy.WAVE[iwave]
+                self.NWAVE = len(self.WAVE)
+
+            elif self.FWHM>0.0:
+
+                dv = self.FWHM * 0.5
+                wavemin = self.VCONV[0,IGEOM] - dv
+                wavemax = self.VCONV[self.NCONV[IGEOM]-1,IGEOM] + dv
+
+                if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
+                    sys.exit('error from wavesetc :: Channel wavelengths not covered by k-tables')
+
+                iwave = np.where( (Spectroscopy.WAVE>=wavemin) & (Spectroscopy.WAVE<=wavemax) )
+                iwave = iwave[0]
+                self.WAVE = Spectroscopy.WAVE[iwave]
+                self.NWAVE = len(self.WAVE)
+
+            else:
+                sys.exit('error :: Measurement FWHM is not defined')
+
+        else:
+            
             wave = np.zeros(self.NCONV[IGEOM])
             wave[:] = self.VCONV[0:self.NCONV[IGEOM],IGEOM]
             self.WAVE = wave
             self.NWAVE = self.NCONV[IGEOM]
-
-        elif self.FWHM<0.0:
-
-            wavemin = 1.0e10
-            wavemax = 0.0
-            for i in range(self.NCONV[IGEOM]):
-                vminx = self.VFIL[0,i]
-                vmaxx = self.VFIL[self.NFIL[i]-1,i]
-                if vminx<wavemin:
-                    wavemin = vminx
-                if vmaxx>wavemax:
-                    wavemax= vmaxx
-
-            """
-            #The ILS and FWHM are specified in the .fil file
-            nconv1,vconv1,nfil,vfil,afil = read_fil_nemesis(runname)
-            if self.NCONV[IGEOM] != nconv1:
-                sys.exit('error :: onvolution wavenumbers must be the same in .spx and .fil files')
-
-            for i in range(nconv1):
-                vcentral = vconv1[i]
-                wavemin = 1.0e6
-                wavemax = 0.0
-                for j in range(self.NCONV[IGEOM]):
-                    dv = abs(vcentral-self.VCONV[j,IGEOM])
-                    if dv < 0.0001:
-                        vminx = vfil[0,i]
-                        vmaxx = vfil[nfil[i]-1,i]
-                        if vminx<wavemin:
-                            wavemin = vminx
-                        if vmaxx>wavemax:
-                            wavemax= vmaxx
-                    else:
-                        print('warning from wavesetb :: Convolution wavenumbers in .spx and .fil do not coincide')
-            """
-
-
-            if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
-                sys.exit('error from wavesetc :: Channel wavelengths not covered by k-tables')
-
-            #Selecting the necessary wavenumbers
-            wave0min,iwavemin = find_nearest(Spectroscopy.WAVE,wavemin)
-            wave0max,iwavemax = find_nearest(Spectroscopy.WAVE,wavemax)
-
-            if wave0min>wavemin:
-                iwavemin = iwavemin - 1
-            if wave0max<wavemax:
-                iwavemax = iwavemax + 1
-
-            iwave = np.linspace(iwavemin,iwavemax,iwavemax-iwavemin+1,dtype='int32')
-
-            self.WAVE = Spectroscopy.WAVE[iwave]
-            self.NWAVE = len(self.WAVE)
-
-        elif self.FWHM>0.0:
-
-            dv = self.FWHM * 0.5
-            wavemin = self.VCONV[0,IGEOM] - dv
-            wavemax = self.VCONV[self.NCONV[IGEOM]-1,IGEOM] + dv
-
-            if (wavemin<Spectroscopy.WAVE.min() or wavemax>Spectroscopy.WAVE.max()):
-                sys.exit('error from wavesetc :: Channel wavelengths not covered by k-tables')
-
-            iwave = np.where( (Spectroscopy.WAVE>=wavemin) & (Spectroscopy.WAVE<=wavemax) )
-            iwave = iwave[0]
-            self.WAVE = Spectroscopy.WAVE[iwave]
-            self.NWAVE = len(self.WAVE)
-
-        else:
-            sys.exit('error :: Measurement FWHM is not defined')
 
 
     def calc_doppler_shift(self,wave):
@@ -1802,6 +1807,18 @@ class Measurement_0:
                 IG = IGEOM
                 SPECONV = lblconv_fil(self.NWAVE,wavecorr,ModSpec,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
 
+        elif self.FWHM==0.0:
+            
+            if IGEOM=='All':
+                if ModSpec.ndim!=2:
+                    sys.exit('error in lblconvg :: ModSpec must have 2 dimensions (NWAVE,NGEOM)')
+
+                SPECONV = ModSpec
+                
+            else:
+                
+                SPECONV = ModSpec[:,IG]
+
         return SPECONV
 
 
@@ -2084,6 +2101,28 @@ class Measurement_0:
                 
                 IG = IGEOM
                 SPECONV,dSPECONV = lblconvg_fil(self.NWAVE,wavecorr,ModSpec,ModGrad,self.NCONV[IG],self.VCONV[:,IG],self.NFIL,self.VFIL,self.AFIL)
+
+        elif self.FWHM==0.0:
+            
+            if IGEOM=='All':
+            
+                if ModSpec.ndim!=2:
+                    sys.exit('error in lblconvg :: ModSpec must have 2 dimensions (NWAVE,NGEOM)')
+                if ModGrad.ndim!=3:
+                    sys.exit('error in lblconvg :: ModGrad must have 3 dimensions (NWAVE,NGEOM,NX)')
+
+                SPECONV = ModSpec
+                dSPECONV = ModGrad
+                
+            else:
+
+                if ModSpec.ndim!=1:
+                    sys.exit('error in lblconvg :: ModSpec must have 1 dimensions (NWAVE)')
+                if ModGrad.ndim!=2:
+                    sys.exit('error in lblconvg :: ModGrad must have 2 dimensions (NWAVE,NX)')
+
+                SPECONV = ModSpec[:,IGEOM]
+                dSPECONV = ModGrad[:,IGEOM,:]
 
         return SPECONV,dSPECONV
 
