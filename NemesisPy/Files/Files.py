@@ -2111,21 +2111,22 @@ def read_input_files_hdf5(runname):
     Measurement.read_hdf5(runname)
     Measurement.calc_MeasurementVector()
     
-
-    #Calculating the 'calculation wavelengths'
-    if Spectroscopy.ILBL==0:
-        Measurement.wavesetb(Spectroscopy,IGEOM=0)
-    elif Spectroscopy.ILBL==2:
-        Measurement.wavesetc(Spectroscopy,IGEOM=0)
-    else:
-        sys.exit('error :: ILBL has to be either 0 or 2')
-        
     if Spectroscopy is not None:
+
+        #Calculating the 'calculation wavelengths'
+        if Spectroscopy.ILBL==0:
+            Measurement.wavesetb(Spectroscopy,IGEOM=0)
+        elif Spectroscopy.ILBL==2:
+            Measurement.wavesetc(Spectroscopy,IGEOM=0)
+        else:
+            sys.exit('error :: ILBL has to be either 0 or 2')
 
         #Now, reading k-tables or lbl-tables for the spectral range of interest
         Spectroscopy.read_tables(wavemin=Measurement.WAVE.min(),wavemax=Measurement.WAVE.max())
         
     else:
+        
+        Measurement.wavesetc(Spectroscopy,IGEOM=0)
         
         #Creating dummy Spectroscopy file if it does not exist
         Spectroscopy = Spectroscopy_0()
@@ -2141,8 +2142,8 @@ def read_input_files_hdf5(runname):
         Spectroscopy.PRESS = np.array([Atmosphere.P.min()/101325.,Atmosphere.P.max()/101325.])
         Spectroscopy.TEMP = np.array([Atmosphere.T.min(),Atmosphere.T.max()])
         Spectroscopy.K = np.zeros([Spectroscopy.NWAVE,Spectroscopy.NP,Spectroscopy.NT,Spectroscopy.NGAS])
-
-
+        Spectroscopy.DELG = np.array([1])
+    
     #Reading Stellar class
     ################################################################
 
