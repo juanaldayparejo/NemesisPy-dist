@@ -329,9 +329,7 @@ class ForwardModel_0:
 
         """
 
-        from copy import copy
-        from NemesisPy.Radtrans.Radtrans import map2pro
-        from NemesisPy.Radtrans.Radtrans import map2xvec
+        from copy import deepcopy
         
         if self.Atmosphere.NLOCATIONS!=1:
             sys.exit('error in nemesisfm :: NemesisPy has not been setup for dealing with multiple locations yet')
@@ -362,13 +360,13 @@ class ForwardModel_0:
                 self.select_Measurement(IGEOM,IAV)
 
                 #Making copy of classes to avoid overwriting them
-                self.AtmosphereX = copy(self.Atmosphere)
-                self.ScatterX = copy(self.Scatter)
-                self.StellarX = copy(self.Stellar)
-                self.SurfaceX = copy(self.Surface)
-                self.SpectroscopyX = copy(self.Spectroscopy)
-                self.LayerX = copy(self.Layer)
-                self.CIAX = copy(self.CIA)
+                self.AtmosphereX = deepcopy(self.Atmosphere)
+                self.ScatterX = deepcopy(self.Scatter)
+                self.StellarX = deepcopy(self.Stellar)
+                self.SurfaceX = deepcopy(self.Surface)
+                self.SpectroscopyX = deepcopy(self.Spectroscopy)
+                self.LayerX = deepcopy(self.Layer)
+                self.CIAX = deepcopy(self.CIA)
                 flagh2p = False
 
                 #Updating the required parameters based on the current geometry
@@ -591,13 +589,9 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0,calc_pathg_SO
         from NemesisPy import find_nearest
         from scipy import interpolate
         from copy import deepcopy
-        from NemesisPy.Radtrans.Radtrans import CIRSradg
-        from NemesisPy.Radtrans.Radtrans import map2pro
-        from NemesisPy.Radtrans.Radtrans import map2xvec
 
         #First we change the reference atmosphere taking into account the parameterisations in the state vector
         self.Variables1 = deepcopy(self.Variables)
@@ -857,16 +851,16 @@ class ForwardModel_0:
 
             print('nemesisMAPfm :: Calculating spectra at different locations in parallel')
 
-            ray.init(num_cpus=NCores)
-            SPECtot_ids = []
-            for ISPEC in range(self.Atmosphere.NLOCATIONS):
-                SPECtot_ids.append(calc_spectrum_location_parallel.remote(ISPEC,self.Atmosphere,self.Surface,self.Measurement,self.Scatter,self.Spectroscopy,self.CIA,self.Stellar,self.Variables,self.Layer))
+            #ray.init(num_cpus=NCores)
+            #SPECtot_ids = []
+            #for ISPEC in range(self.Atmosphere.NLOCATIONS):
+            #    SPECtot_ids.append(calc_spectrum_location_parallel.remote(ISPEC,self.Atmosphere,self.Surface,self.Measurement,self.Scatter,self.Spectroscopy,self.CIA,self.Stellar,self.Variables,self.Layer))
             
             #Block until the results have finished and get the results.
-            SPECtot1 = ray.get(SPECtot_ids)
-            for ix in range(self.Atmosphere.NLOCATIONS):
-                SPEC[0:self.Measurement.NWAVE,ix] = SPECtot1[ix]
-            ray.shutdown()
+            #SPECtot1 = ray.get(SPECtot_ids)
+            #for ix in range(self.Atmosphere.NLOCATIONS):
+            #    SPEC[0:self.Measurement.NWAVE,ix] = SPECtot1[ix]
+            #ray.shutdown()
             
             
         #Convolving the spectra with the point spread function (WGEOM) for each geometry
@@ -942,9 +936,7 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy import nemesisSOfm
-        from NemesisPy import nemesisSOfm_parallel
-        from copy import copy
+        from copy import deepcopy
 
 
         #################################################################################
@@ -1045,10 +1037,10 @@ class ForwardModel_0:
 
 
             #Block until the results have finished and get the results.
-            YNtot1 = ray.get(YNtot_ids)
-            for ix in range(nfm):
-                YNtot[0:self.Measurement.NY,ix] = YNtot1[ix]
-            ray.shutdown()
+            #YNtot1 = ray.get(YNtot_ids)
+            #for ix in range(nfm):
+            #    YNtot[0:self.Measurement.NY,ix] = YNtot1[ix]
+            #ray.shutdown()
 
         else:
 
@@ -2739,7 +2731,6 @@ class ForwardModel_0:
 
         #import matplotlib as matplotlib
         from scipy import interpolate
-        from NemesisPy import k_overlap, k_overlapg, planck
         from NemesisPy.nemesisf import spectroscopy
         from copy import copy
 
@@ -3152,7 +3143,6 @@ class ForwardModel_0:
 
         import matplotlib as matplotlib
         from scipy import interpolate
-        from NemesisPy import k_overlap, k_overlapg, planck, planckg
         from NemesisPy.nemesisf import spectroscopy
         from copy import copy
 
@@ -3543,7 +3533,6 @@ class ForwardModel_0:
 
 
 ###############################################################################################
-
     def calc_tau_cia_new(self,ISPACE=None,WAVEC=None,CIA=None,Atmosphere=None,Layer=None,MakePlot=False):
         """
         Calculate the CIA opacity in each atmospheric layer
@@ -3775,9 +3764,7 @@ class ForwardModel_0:
 
         return tau_cia_layer,dtau_cia_layer
 
-
 ###############################################################################################
-
     def calc_tau_cia(self,ISPACE=None,WAVEC=None,CIA=None,Atmosphere=None,Layer=None,MakePlot=False):
         """
         Calculate the CIA opacity in each atmospheric layer
@@ -4008,7 +3995,6 @@ class ForwardModel_0:
         return tau_cia_layer,dtau_cia_layer
 
 ###############################################################################################
-
     def calc_tau_dust(self,WAVEC=None,Scatter=None,Layer=None,MakePlot=False):
         """
         Calculate the aerosol opacity in each atmospheric layer
@@ -4074,7 +4060,6 @@ class ForwardModel_0:
         return TAUDUST,TAUCLSCAT,dTAUDUSTdq,dTAUCLSCATdq
 
 ###############################################################################################
-
     def calc_tau_gas(self):
         """
         Calculate the aerosol opacity in each atmospheric layer
@@ -4153,14 +4138,12 @@ class ForwardModel_0:
 
         return TAUGAS
 
-
     ###############################################################################################
     ###############################################################################################
     # MULTIPLE SCATTERING ROUTINES
     ###############################################################################################
     ###############################################################################################
-
-
+    
     def scloud11wave(self,Scatter,Surface,Layer,Measurement,Path,SOLAR):
         """
 
@@ -4204,7 +4187,6 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy import planck
         from scipy.interpolate import interp1d
         from NemesisPy.nemesisf import mulscatter
 
@@ -4707,7 +4689,6 @@ class ForwardModel_0:
         return SPEC
 
 ###############################################################################################
-
     def scloud11flux(self,Scatter,Surface,Layer,Measurement,SOLAR,diffuse=True):
         """
         Compute and return internal radiation fields in a scattering atmosphere
@@ -4749,7 +4730,6 @@ class ForwardModel_0:
         Umif(NWAVE,NG,NMU,NLAY,NF) :: Internal radiances in each viewing direction (upwards)
         """
 
-        from NemesisPy import planck
         from scipy.interpolate import interp1d
         from NemesisPy.nemesisf import mulscatter
 
@@ -5144,7 +5124,6 @@ class ForwardModel_0:
         return Umifout,Uplfout
 
 ###############################################################################################
-
     def streamflux(self,NLAY,NMU,MU,WTMU,Umif,Uplf):
         """
         Subroutine to calculate the upward and downward flux in the boundaries of each layer.
@@ -5207,7 +5186,6 @@ class ForwardModel_0:
         return fup,fdown
 
 ###############################################################################################
-
     def calc_phase_matrix_v2(self,Scatter,WAVE,normalise=True):
         """
 
@@ -5375,7 +5353,6 @@ class ForwardModel_0:
         return PPLPL,PPLMI
 
 ###############################################################################################
-
     def calc_phase_matrix(self,Scatter,WAVE):
         """
 
@@ -5482,7 +5459,6 @@ class ForwardModel_0:
         return PPLPL,PPLMI
 
 ###############################################################################################
-
     def calc_layer_scatt_matrix(self,WAVE,Layer):
         """
 
@@ -5533,7 +5509,6 @@ class ForwardModel_0:
             OMEGA[:,:,:] = 0.0  #No scattering if diffuse component is turned off
 
 ###############################################################################################
-
     def calc_hapke_reflectivity(self,Scatter,Surface,WAVE):
         """
         Calculate the surface reflectivity modelled using the Hapke reflectance model.
@@ -5609,6 +5584,264 @@ class ForwardModel_0:
                     ix = ix + 1
 
         return Reflectivity
+
+#END OF FORWARD MODEL CLASS
+
+
+
+
+###############################################################################################
+#@jit(nopython=True)
+def map2pro(dSPECIN,NWAVE,NVMR,NDUST,NPRO,NPATH,NLAYIN,LAYINC,DTE,DAM,DCO,INCPAR=[-1]):
+    
+    """
+        FUNCTION NAME : map2pro()
+        
+        DESCRIPTION : This function maps the analytical gradients defined with respect to the Layers
+                      onto the input atmospheric levels defined in Atmosphere
+        
+        INPUTS :
+        
+            dSPECIN(NWAVE,NVMR+2+NDUST,NLAYIN,NPATH) :: Rate of change of output spectrum with respect to layer
+                                                         properties along the path
+            NWAVE :: Number of spectral points
+            NVMR :: Number of gases in reference atmosphere
+            NDUST :: Number of aerosol populations in reference atmosphere
+            NPRO :: Number of altitude points in reference atmosphere
+            NPATH :: Number of atmospheric paths
+            NLAYIN(NPATH) :: Number of layer in each of the paths
+            LAYINC(NLAY,NPATH) :: Layers in each path
+            DTE(NLAY,NPRO) :: Matrix relating the temperature in each layer to the temperature in the profiles
+            DAM(NLAY,NPRO) :: Matrix relating the gas amounts in each layer to the gas VMR in the profiles
+            DCO(NLAY,NPRO) :: Matrix relating the dust amounts in each layer to the dust abundance in the profiles
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            dSPECOUT(NWAVE,NVMR+2+NDUST,NPRO,NPATH) :: Rate of change of output spectrum with respect to the
+                                                        atmospheric profile parameters
+        
+        CALLING SEQUENCE:
+        
+            dSPECOUT = map2pro(dSPECIN,NWAVE,NVMR,NDUST,NPRO,NPATH,NLAYIN,LAYINC,DTE,DAM,DCO)
+        
+        MODIFICATION HISTORY : Juan Alday (25/07/2021)
+        
+    """
+
+    DAMx = DAM[LAYINC,:] #NLAYIN,NPATH,NPRO
+    DCOx = DCO[LAYINC,:]
+    DTEx = DTE[LAYINC,:]
+
+    dSPECOUT = np.zeros((NWAVE,NVMR+2+NDUST,NPRO,NPATH))
+
+    if INCPAR[0]!=-1:
+        NPARAM = len(INCPAR)
+    else:
+        NPARAM = NVMR+2+NDUST
+        INCPAR = range(NPARAM)
+
+    for ipath in range(NPATH):
+        for iparam in range(NPARAM):
+
+            if INCPAR[iparam]<=NVMR-1: #Gas gradients
+                dSPECOUT1 = np.tensordot(dSPECIN[:,INCPAR[iparam],:,ipath], DAMx[:,ipath,:], axes=(1,0))
+            elif INCPAR[iparam]<=NVMR: #Temperature gradients
+                dSPECOUT1 = np.tensordot(dSPECIN[:,INCPAR[iparam],:,ipath], DTEx[:,ipath,:], axes=(1,0))
+            elif( (INCPAR[iparam]>NVMR) & (INCPAR[iparam]<=NVMR+NDUST) ): #Dust gradient
+                dSPECOUT1 = np.tensordot(dSPECIN[:,INCPAR[iparam],:,ipath], DCOx[:,ipath,:], axes=(1,0))
+            elif INCPAR[iparam]==NVMR+NDUST+1: #ParaH gradient
+                dSPECOUT[:,INCPAR[iparam],:,ipath] = 0.0  #Needs to be included
+
+            dSPECOUT[:,INCPAR[iparam],:,ipath] = dSPECOUT1[:,:]
+
+    return dSPECOUT
+
+###############################################################################################
+#@jit(nopython=True)
+def map2xvec(dSPECIN,NWAVE,NVMR,NDUST,NPRO,NPATH,NX,xmap):
+    
+    """
+        FUNCTION NAME : map2xvec()
+        
+        DESCRIPTION : This function maps the analytical gradients defined with respect to the Layers
+                      onto the input atmospheric levels defined in Atmosphere
+        
+        INPUTS :
+        
+            dSPECIN(NWAVE,NVMR+2+NDUST,NPRO,NPATH) :: Rate of change of output spectrum with respect to profiles
+            NWAVE :: Number of spectral points
+            NVMR :: Number of gases in reference atmosphere
+            NDUST :: Number of aerosol populations in reference atmosphere
+            NPRO :: Number of altitude points in reference atmosphere
+            NPATH :: Number of atmospheric paths
+            NX :: Number of elements in state vector
+            XMAP(NX,NVMR+2+NDUST,NPRO) :: Matrix relating the gradients in the profiles to the elemenents in state vector
+
+        
+        OPTIONAL INPUTS: none
+        
+        OUTPUTS :
+        
+            dSPECOUT(NWAVE,NPATH,NX) :: Rate of change of output spectrum with respect to the elements in the state vector
+        
+        CALLING SEQUENCE:
+        
+            dSPECOUT = map2xvec(dSPECIN,NWAVE,NVMR,NDUST,NPRO,NPATH,NX,xmap)
+        
+        MODIFICATION HISTORY : Juan Alday (25/07/2021)
+        
+    """
+
+    #Mapping the gradients to the elements in the state vector
+    dSPECOUT = np.tensordot(dSPECIN, xmap, axes=([1,2],[1,2])) #NWAVE,NPATH,NX
+
+    return dSPECOUT
+
+###############################################################################################
+def planck(ispace,wave,temp,MakePlot=False):
+
+
+    """
+    FUNCTION NAME : planck()
+
+    DESCRIPTION : Function to calculate the blackbody radiation given by the Planck function
+
+    INPUTS : 
+
+        ispace :: Flag indicating the spectral units
+                  (0) Wavenumber (cm-1)
+                  (1) Wavelength (um)
+        wave(nwave) :: Wavelength or wavenumber array
+        temp(ntemp) :: Temperature of the blackbody (K)
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    bb(nwave,ntemp) :: Planck function (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)
+ 
+    CALLING SEQUENCE:
+
+	    bb = planck(ispace,wave,temp)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/07/2021)
+
+    """
+
+    if(np.isscalar(temp)==True):  #Only one temperature value bb(nwave)
+        ntemp = 0
+    else:  #Several temperature values bb(nwave,ntemp)
+        ntemp = len(temp)
+        wave = np.repeat(wave[:, np.newaxis],ntemp,axis=1)
+
+    c1 = 1.1911e-12
+    c2 = 1.439
+    if ispace==0:
+        y = wave
+        a = c1 * (y**3.)
+    elif ispace==1:
+        y = 1.0e4/wave
+        a = c1 * (y**5.) / 1.0e4
+    else:
+        sys.exit('error in planck :: ISPACE must be either 0 or 1')
+
+    tmp = c2 * y / temp
+    b = np.exp(tmp) - 1
+    bb = a/b
+
+
+    if MakePlot==True:
+        fig,ax1 = plt.subplots(1,1,figsize=(10,3))
+        ax1.plot(wave,bb)
+        if ispace==0:
+            ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+        else:
+            ax1.set_xlabel('Wavelength ($\mu$m)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+        ax1.grid()
+        plt.tight_layout()
+        plt.show()
+
+    return bb
+
+###############################################################################################
+def planckg(ispace,wave,temp,MakePlot=False):
+
+
+    """
+    FUNCTION NAME : planckg()
+
+    DESCRIPTION : Function to calculate the blackbody radiation given by the Planck function
+                    as well as its derivative with respect to temperature
+
+    INPUTS : 
+
+        ispace :: Flag indicating the spectral units
+                  (0) Wavenumber (cm-1)
+                  (1) Wavelength (um)
+        wave(nwave) :: Wavelength or wavenumber array
+        temp :: Temperature of the blackbody (K)
+
+    OPTIONAL INPUTS:  none
+
+    OUTPUTS : 
+
+	    bb(nwave) :: Planck function (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)
+        dBdT(nwave) :: Temperature gradient (W cm-2 sr-1 (cm-1)-1 or W cm-2 sr-1 um-1)/K
+ 
+    CALLING SEQUENCE:
+
+	    bb,dBdT = planckg(ispace,wave,temp)
+ 
+    MODIFICATION HISTORY : Juan Alday (29/07/2021)
+
+    """
+
+    c1 = 1.1911e-12
+    c2 = 1.439
+    if ispace==0:
+        y = wave
+        a = c1 * (y**3.)
+        ap = c1 * c2 * (y**4.)/temp**2.
+    elif ispace==1:
+        y = 1.0e4/wave
+        a = c1 * (y**5.) / 1.0e4
+        ap = c1 * c2 * (y**6.) / 1.0e4 / temp**2.
+    else:
+        sys.exit('error in planck :: ISPACE must be either 0 or 1')
+
+    tmp = c2 * y / temp
+    b = np.exp(tmp) - 1
+    bb = a/b
+
+    tmpp = c2 * y / temp
+    bp = (np.exp(tmp) - 1.)**2.
+    tp = np.exp(tmpp) * ap
+    dBdT = tp/bp
+
+    if MakePlot==True:
+        fig,(ax1,ax2) = plt.subplots(2,1,figsize=(10,5))
+        ax1.plot(wave,bb)
+        ax2.plot(wave,dBdT)
+        if ispace==0:
+            ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$)')
+            ax2.set_xlabel('Wavenumber (cm$^{-1}$)')
+            ax2.set_ylabel('dB/dT (W cm$^{-2}$ sr$^{-1}$ (cm$^{-1}$)$^{-1}$ K$^{-1}$)')    
+        else:
+            ax1.set_xlabel('Wavelength ($\mu$m)')
+            ax1.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$)')
+            ax2.set_xlabel('Wavelength ($\mu$m)')
+            ax2.set_ylabel('Radiance (W cm$^{-2}$ sr$^{-1}$ $\mu$m$^{-1}$ K$^{-1}$)')
+        ax1.grid()
+        ax2.grid()
+        plt.tight_layout()
+        plt.show()
+
+    return bb,dBdT
 
 ###############################################################################################
 @jit(nopython=True)
@@ -5791,6 +6024,7 @@ def double_layer(NN,R1,T1,J1):
 
     return RFIN,TFIN,JFIN
 
+###############################################################################################
 @jit(nopython=True,parallel=True)
 def matmul(A, B):
     """Perform square matrix multiplication of C = A * B
@@ -5805,7 +6039,6 @@ def matmul(A, B):
     return C
 
 ###############################################################################################
-
 def calc_spectrum_location(iLOCATION,Atmosphere,Surface,Measurement,Scatter,Spectroscopy,CIA,Stellar,Variables,Layer):
     """
 
@@ -5901,7 +6134,7 @@ def calc_spectrum_location(iLOCATION,Atmosphere,Surface,Measurement,Scatter,Spec
     return SPEC[:,0]
 
 ###############################################################################################
-@ray.remote
+#@ray.remote
 def calc_spectrum_location_parallel(iLOCATION,Atmosphere,Surface,Measurement,Scatter,Spectroscopy,CIA,Stellar,Variables,Layer):
     """
 
