@@ -25,11 +25,6 @@ from NemesisPy.Profile import *
 from NemesisPy.Data import *
 from NemesisPy.Models import *
 from NemesisPy.Path import *
-from NemesisPy.Layer import *
-from NemesisPy.Radtrans import *
-from NemesisPy.Surface import *
-from NemesisPy.Scatter import *
-from NemesisPy.OptimalEstimation import *
 
 ###############################################################################################
 
@@ -333,7 +328,6 @@ def write_fla(runname,inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv):
     f.write('%i \n' % (iuv))
     f.close()
     
-
 ###############################################################################################
 
 def read_cov(runname,MakePlot=False):
@@ -896,8 +890,6 @@ def read_spx(runname, MakePlot=False, SavePlot=False):
 
     return inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emiss_ang,azi_ang,wgeom,wave,meas,errmeas
 
-
-
 ###############################################################################################
 
 def write_spx(runname,inst_fwhm,xlat,xlon,ngeom,nav,nconv,flat,flon,sol_ang,emiss_ang,azi_ang,wgeom,wave,meas,errmeas, MakePlot=False, SavePlot=False):
@@ -1092,9 +1084,7 @@ def read_fil(runname, MakePlot=False):
     
     return nconv,wave,nfil,vfil,afil
 
-
 ###############################################################################################
-
 
 def read_inp(runname,Measurement=None,Scatter=None,Spectroscopy=None):
 
@@ -1470,7 +1460,6 @@ def read_fla(runname):
     iuv = int(s[0])
    
     return inormal,iray,ih2o,ich4,io3,inh3,iptf,imie,iuv
-
 
 ###############################################################################################
 
@@ -1883,7 +1872,6 @@ def write_hlay(nlayer,heightlay):
         f.write('\t %7.3f \n' % (heightlay[i]))
     f.close()
 
-
 ###############################################################################################
 
 def convert_input_hdf5_nemesis(runname):
@@ -1913,8 +1901,6 @@ def convert_input_hdf5_nemesis(runname):
     """
     
     Atmosphere,Measurement,Spectroscopy,Scatter,Stellar,Surface,CIA,Layer,Variables,Retrieval = read_input_files_hdf5(Outdir+runname)
-
-
 
 ###############################################################################################
 
@@ -1997,7 +1983,6 @@ def convert_input_nemesis_hdf5(runname):
     #Retrieval
     Retrieval = OptimalEstimation_0(IRET=0,NITER=NITER,PHILIMIT=PHILIMIT,NCORES=1)
     Retrieval.write_input_hdf5(runname)
-
 
 ###############################################################################################
 
@@ -2277,7 +2262,6 @@ def read_bestfit_hdf5(runname):
     Measurement.edit_SPECMOD(SPECMOD)
 
     return Measurement
-
 
 ###############################################################################################
 
