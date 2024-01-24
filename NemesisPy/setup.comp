@@ -1,1 +1,0 @@
-f2py -c --fcompiler=gfortran -m nemesisf Fortran/mulscatter.f90 Fortran/spectroscopy.f90 Fortran/hapke.f90

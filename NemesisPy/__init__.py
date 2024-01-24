@@ -16,4 +16,4 @@ from .Spectroscopy_0 import *
 from .CIA_0 import *
 from .Stellar_0 import *
 from .Surface_0 import *
-from .nemesisf import *
+from .Fortran import nemesisf

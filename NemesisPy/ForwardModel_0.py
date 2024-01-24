@@ -2731,7 +2731,7 @@ class ForwardModel_0:
 
         #import matplotlib as matplotlib
         from scipy import interpolate
-        from NemesisPy.nemesisf import spectroscopy
+        from NemesisPy import nemesisf
         from copy import copy
 
         #Initialise some arrays
@@ -2807,7 +2807,7 @@ class ForwardModel_0:
 
             #Combining the k-distributions of the different gases in each layer
             #k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)            
-            k_layer,dk_layer = spectroscopy.k_overlapg(self.SpectroscopyX.DELG,k_gas,dkgasdT,f_gas) #Fortran version
+            k_layer,dk_layer = nemesisf.spectroscopy.k_overlapg(self.SpectroscopyX.DELG,k_gas,dkgasdT,f_gas) #Fortran version
 
             #Calculating the opacity of each layer
             TAUGAS = k_layer #(NWAVE,NG,NLAY)
@@ -3143,7 +3143,7 @@ class ForwardModel_0:
 
         import matplotlib as matplotlib
         from scipy import interpolate
-        from NemesisPy.nemesisf import spectroscopy
+        from NemesisPy import nemesisf
         from copy import copy
 
         #Initialise some arrays
@@ -3303,7 +3303,7 @@ class ForwardModel_0:
 
             #Combining the k-distributions of the different gases in each layer, as well as their gradients
             #k_layer,dk_layer = k_overlapg(Measurement.NWAVE,Spectroscopy.NG,Spectroscopy.DELG,Spectroscopy.NGAS,Layer.NLAY,k_gas,dkgasdT,f_gas)
-            k_layer,dk_layer = spectroscopy.k_overlapg(Spectroscopy.DELG,k_gas,dkgasdT,f_gas) #Fortran version
+            k_layer,dk_layer = nemesisf.spectroscopy.k_overlapg(Spectroscopy.DELG,k_gas,dkgasdT,f_gas) #Fortran version
 
             #Calculating the opacity of each layer
             TAUGAS = k_layer #(NWAVE,NG,NLAY)
@@ -4188,7 +4188,7 @@ class ForwardModel_0:
         """
 
         from scipy.interpolate import interp1d
-        from NemesisPy.nemesisf import mulscatter
+        from NemesisPy import nemesisf
 
 
         ################################################################################
@@ -4327,7 +4327,7 @@ class ForwardModel_0:
         #JL = np.zeros((Measurement.NWAVE,NG,Layer.NLAY,Scatter.NF+1,Scatter.NMU,1))  #Source function
         #RL = np.zeros((Measurement.NWAVE,NG,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Reflection matrix
         #TL = np.zeros((Measurement.NWAVE,NG,Layer.NLAY,Scatter.NF+1,Scatter.NMU,Scatter.NMU))  #Transmission matrix
-        RL,TL,JL,ISCL = mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
+        RL,TL,JL,ISCL = nemesisf.mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
                                                     Layer.TAUTOT,OMEGA,Layer.TAURAY,BB,PPLPLS,PPLMIS)
 
         #Arrays for combined atmosphere + surface
@@ -4459,7 +4459,7 @@ class ForwardModel_0:
                     #In the Fortran version of NEMESIS the layers are defined from top to 
                     #bottom while here they are from bottom to top, therefore the indexing
                     #in this part of the code differs with respect to the Fortran version
-                    RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = mulscatter.addp_layer_nwave(\
+                    RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = nemesisf.mulscatter.addp_layer_nwave(\
                     E,RTOT[:,:,ILAY+1,IC,:,:],TTOT[:,:,ILAY+1,IC,:,:],JTOT[:,:,ILAY+1,IC,:,:],ISCTOT[:,:,ILAY+1],RBASE[:,:,ILAY,:,:],TBASE[:,:,ILAY,:,:],JBASE[:,:,ILAY,:,:])
 
                 if IC!=0:
@@ -4566,7 +4566,7 @@ class ForwardModel_0:
                 for ILAY in range(LTOT-1):
                     
                     #We combine the layers from top to bottom
-                    RTOP[:,:,LTOT-2-ILAY,:,:],TTOP[:,:,LTOT-2-ILAY,:,:],JTOP[:,:,LTOT-2-ILAY,:,:] = mulscatter.addp_layer_nwave(\
+                    RTOP[:,:,LTOT-2-ILAY,:,:],TTOP[:,:,LTOT-2-ILAY,:,:],JTOP[:,:,LTOT-2-ILAY,:,:] = nemesisf.mulscatter.addp_layer_nwave(\
                     E,RTOT[:,:,LTOT-2-ILAY,IC,:,:],TTOT[:,:,LTOT-2-ILAY,IC,:,:],JTOT[:,:,LTOT-2-ILAY,IC,:,:],ISCTOT[:,:,LTOT-2-ILAY],RTOP[:,:,LTOT-1-ILAY,:,:],TTOP[:,:,LTOT-1-ILAY,:,:],JTOP[:,:,LTOT-1-ILAY,:,:])
 
 
@@ -4593,7 +4593,7 @@ class ForwardModel_0:
                         #In the Fortran version of NEMESIS the layers are defined from top to 
                         #bottom while here they are from bottom to top, therefore the indexing
                         #in this part of the code differs with respect to the Fortran version
-                        RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = mulscatter.addp_layer_nwave(\
+                        RBASE[:,:,ILAY+1,:,:],TBASE[:,:,ILAY+1,:,:],JBASE[:,:,ILAY+1,:,:] = nemesisf.mulscatter.addp_layer_nwave(\
                         E,RTOT[:,:,ILAY+1,IC,:,:],TTOT[:,:,ILAY+1,IC,:,:],JTOT[:,:,ILAY+1,IC,:,:],ISCTOT[:,:,ILAY+1],RBASE[:,:,ILAY,:,:],TBASE[:,:,ILAY,:,:],JBASE[:,:,ILAY,:,:])
 
                     if IC!=0:
@@ -4660,7 +4660,7 @@ class ForwardModel_0:
                             UPL = ACOM + JTOP[:,:,iATMbottom,:,:]
                         elif iATMbottom==1:
                             #Solid surface, then we want the downward intensity at layer 1
-                            UPL = mulscatter.idown(\
+                            UPL = nemesisf.mulscatter.idown(\
                                 E,U0PL,UTMI,\
                                 RTOP[:,:,iATMbottom,:,:],TTOP[:,:,iATMbottom,:,:],JTOP[:,:,iATMbottom,:,:],\
                                 RBASE[:,:,iATMbottom-1,:,:],TBASE[:,:,iATMbottom-1,:,:],JBASE[:,:,iATMbottom-1,:,:])
@@ -4731,7 +4731,7 @@ class ForwardModel_0:
         """
 
         from scipy.interpolate import interp1d
-        from NemesisPy.nemesisf import mulscatter
+        from NemesisPy import nemesisf
 
         ################################################################################
         #INITIALISING VARIABLES AND PERFORMING INITIAL CALCULATIONS
@@ -4858,7 +4858,7 @@ class ForwardModel_0:
         #CALCULATING THE REFLECTION, TRANSMISSION AND SOURCE MATRICES FOR EACH LAYER
         #################################################################################
 
-        RL1,TL1,JL1,ISCL1 = mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
+        RL1,TL1,JL1,ISCL1 = nemesisf.mulscatter.calc_rtf_matrix(Scatter.MU,Scatter.WTMU,\
                                                     Layer.TAUTOT,OMEGA,Layer.TAURAY,BB,PPLPLS,PPLMIS)
         #(NWAVE,NG,NLAY,NF+1,NMU,NMU)
         
@@ -4970,7 +4970,7 @@ class ForwardModel_0:
 
                 for iwave in range(Measurement.NWAVE):
                     for ig in range(NG):
-                        RBASE[iwave,ig,ILAY+1,:,:],TBASE[iwave,ig,ILAY+1,:,:],JBASE[iwave,ig,ILAY+1,:,:] = mulscatter.addp_layer(\
+                        RBASE[iwave,ig,ILAY+1,:,:],TBASE[iwave,ig,ILAY+1,:,:],JBASE[iwave,ig,ILAY+1,:,:] = nemesisf.mulscatter.addp_layer(\
                             E,RL[iwave,ig,ILAY+1,IC,:,:],TL[iwave,ig,ILAY+1,IC,:,:],JL[iwave,ig,ILAY+1,IC,:,:],ISCL[iwave,ig,ILAY+1],RBASE[iwave,ig,ILAY,:,:],TBASE[iwave,ig,ILAY,:,:],JBASE[iwave,ig,ILAY,:,:])
 
             if IC!=0:
@@ -5009,7 +5009,7 @@ class ForwardModel_0:
 
                 for iwave in range(Measurement.NWAVE):
                     for ig in range(NG):
-                        RTOP[iwave,ig,ILAY+1,:,:],TTOP[iwave,ig,ILAY+1,:,:],JTOP[iwave,ig,ILAY+1,:,:] = mulscatter.addp_layer(\
+                        RTOP[iwave,ig,ILAY+1,:,:],TTOP[iwave,ig,ILAY+1,:,:],JTOP[iwave,ig,ILAY+1,:,:] = nemesisf.mulscatter.addp_layer(\
                             E,RL[iwave,ig,LTOT-2-ILAY,IC,:,:],TL[iwave,ig,LTOT-2-ILAY,IC,:,:],JL[iwave,ig,LTOT-2-ILAY,IC,:,:],ISCL[iwave,ig,LTOT-2-ILAY],RTOP[iwave,ig,ILAY,:,:],TTOP[iwave,ig,ILAY,:,:],JTOP[iwave,ig,ILAY,:,:])
 
             if IC!=0:
@@ -5064,20 +5064,20 @@ class ForwardModel_0:
                 for ILAY in range(LTOT-1):
 
                     #Calculate I(ILAY+1)-
-                    UMI[:,:,ILAY+1,:,:] = mulscatter.iup(\
+                    UMI[:,:,ILAY+1,:,:] = nemesisf.mulscatter.iup(\
                         E,U0PL,UTMI,\
                         RTOP[:,:,ILAY,:,:],TTOP[:,:,ILAY,:,:],JTOP[:,:,ILAY,:,:],\
                         RBASE[:,:,LTOT-2-ILAY,:,:],TBASE[:,:,LTOT-2-ILAY,:,:],JBASE[:,:,LTOT-2-ILAY,:,:])
 
                     #Calculate I(ILAY)+
-                    UPL[:,:,ILAY,:,:] = mulscatter.idown(\
+                    UPL[:,:,ILAY,:,:] = nemesisf.mulscatter.idown(\
                         E,U0PL,UTMI,\
                         RTOP[:,:,ILAY,:,:],TTOP[:,:,ILAY,:,:],JTOP[:,:,ILAY,:,:],\
                         RBASE[:,:,LTOT-2-ILAY,:,:],TBASE[:,:,LTOT-2-ILAY,:,:],JBASE[:,:,LTOT-2-ILAY,:,:])
 
                 #Calculating the exterior intensities (upward intensity at top of atmosphere and downward at bottom of atmosphere)
-                U0MI = mulscatter.itop(U0PL,UTMI,RBASE[:,:,LTOT-1,:,:],TBASE[:,:,LTOT-1,:,:],JBASE[:,:,LTOT-1,:,:])
-                UTPL = mulscatter.ibottom(U0PL,UTMI,RTOP[:,:,LT1-1,:,:],TTOP[:,:,LT1-1,:,:],JTOP[:,:,LT1-1,:,:])
+                U0MI = nemesisf.mulscatter.itop(U0PL,UTMI,RBASE[:,:,LTOT-1,:,:],TBASE[:,:,LTOT-1,:,:],JBASE[:,:,LTOT-1,:,:])
+                UTPL = nemesisf.mulscatter.ibottom(U0PL,UTMI,RTOP[:,:,LT1-1,:,:],TTOP[:,:,LT1-1,:,:],JTOP[:,:,LT1-1,:,:])
 
                 #Calculating the radiance in each viewing angle
                 for IMU in range(Scatter.NMU):
@@ -5373,7 +5373,7 @@ class ForwardModel_0:
 
         """
 
-        from NemesisPy.nemesisf import mulscatter
+        from NemesisPy import nemesisf
 
         #Calculating the phase function at the scattering angles
         #######################################################################
@@ -5383,7 +5383,7 @@ class ForwardModel_0:
 
         
         #Defining the angles at which the phase functions must be calculated
-        apl,ami = mulscatter.define_scattering_angles(nmu=Scatter.NMU,nphi=Scatter.NPHI,mu=Scatter.MU)
+        apl,ami = nemesisf.mulscatter.define_scattering_angles(nmu=Scatter.NMU,nphi=Scatter.NPHI,mu=Scatter.MU)
         
         #Calculating the phase function at the scattering angles
         ppl = Scatter.calc_phase(apl,WAVE)  #(NWAVE,NTHETA,NDUST)
@@ -5424,7 +5424,7 @@ class ForwardModel_0:
 
         #Aerosol phase functions
         for icont in range(Scatter.NDUST):
-            PPLPL[:,icont,:,:,:],PPLMI[:,icont,:,:,:] = mulscatter.integrate_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nphi=Scatter.NPHI,nf=Scatter.NF,ppl=ppl[:,:,icont],pmi=pmi[:,:,icont])
+            PPLPL[:,icont,:,:,:],PPLMI[:,icont,:,:,:] = nemesisf.mulscatter.integrate_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nphi=Scatter.NPHI,nf=Scatter.NF,ppl=ppl[:,:,icont],pmi=pmi[:,:,icont])
 
         #To be compare with calc_pmat6 without hansen normalisation
         #for icont in range(Scatter.NDUST):
@@ -5437,7 +5437,7 @@ class ForwardModel_0:
         if Scatter.IRAY>0:
             pplrx = np.repeat(pplr[np.newaxis,:],NWAVE,axis=0)
             pmirx = np.repeat(pmir[np.newaxis,:],NWAVE,axis=0)
-            PPLPL[:,Scatter.NDUST,:,:,:],PPLMI[:,Scatter.NDUST,:,:,:] = mulscatter.integrate_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nphi=Scatter.NPHI,nf=Scatter.NF,ppl=pplrx[:,:],pmi=pmirx[:,:])
+            PPLPL[:,Scatter.NDUST,:,:,:],PPLMI[:,Scatter.NDUST,:,:,:] = nemesisf.mulscatter.integrate_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nphi=Scatter.NPHI,nf=Scatter.NF,ppl=pplrx[:,:],pmi=pmirx[:,:])
 
         #Normalising the phase matrices using the method of Hansen (1971,J.ATM.SCI., V28, 1400)
         ###############################################################################################
@@ -5447,7 +5447,7 @@ class ForwardModel_0:
         #integral over sphere [ P(mu,mu',phi) * dO] = 1
         #WHERE dO IS THE ELEMENT OF SOLID ANGLE AND phi IS THE AZIMUTHAL ANGLE.
         for icont in range(ncont):
-            PPLPL[:,icont,:,:,:],PPLMI[:,icont,:,:,:] = mulscatter.normalise_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nf=Scatter.NF,wtmu=Scatter.WTMU,pplpl=PPLPL[:,icont,:,:,:],pplmi=PPLMI[:,icont,:,:,:])
+            PPLPL[:,icont,:,:,:],PPLMI[:,icont,:,:,:] = nemesisf.mulscatter.normalise_phase_function(nwave=NWAVE,nmu=Scatter.NMU,nf=Scatter.NF,wtmu=Scatter.WTMU,pplpl=PPLPL[:,icont,:,:,:],pplmi=PPLMI[:,icont,:,:,:])
         
         #To be compare with calc_pmat6 after hansen normalisation
         #for icont in range(Scatter.NDUST):
