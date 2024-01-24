@@ -1,0 +1,3 @@
+f2py -c --fcompiler=gfortran -m nemesisf mulscatter.f90 spectroscopy.f90 hapke.f90
+#f2py -c --fcompiler=gfortran --opt='-fopenmp' -lgomp -m nemesisf mulscatter.f90 spectroscopy.f90 hapke.f90
+#f2py -c --fcompiler=gfortran  -m nemesisf mulscatter.f90 spectroscopy.f90 hapke.f90
