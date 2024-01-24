@@ -5,6 +5,10 @@ __pycache__/
 
 # C extensions
 *.so
+*.pyc
+
+# F2PY extensions
+*.mod
 
 # Distribution / packaging
 .Python
