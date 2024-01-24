@@ -2131,7 +2131,7 @@ class ForwardModel_0:
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0
+        from NemesisPy import AtmCalc_0,Path_0
 
 
         #Initialise variables
@@ -2272,7 +2272,7 @@ class ForwardModel_0:
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0
+        from NemesisPy import AtmCalc_0,Path_0
         import numpy as np
 
         #Initialise variables
@@ -2400,7 +2400,7 @@ class ForwardModel_0:
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0
+        from NemesisPy import AtmCalc_0,Path_0
         from NemesisPy import find_nearest
 
         #Initialise variables
@@ -2490,7 +2490,7 @@ class ForwardModel_0:
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0
+        from NemesisPy import AtmCalc_0,Path_0
         from NemesisPy import find_nearest
 
         #Initialise variables
@@ -2581,7 +2581,7 @@ class ForwardModel_0:
         MODIFICATION HISTORY : Juan Alday (15/03/2021)
         """
 
-        from NemesisPy.Path import AtmCalc_0,Path_0
+        from NemesisPy import AtmCalc_0,Path_0
 
         #Initialise variables
         if Atmosphere is None:

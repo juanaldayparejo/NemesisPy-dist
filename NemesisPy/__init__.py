@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from .Files import *
 from .Models import *
-from .Path import *
 from .Utils import *
 from .Profile import *
 from .Utils import *
@@ -16,4 +15,7 @@ from .Spectroscopy_0 import *
 from .CIA_0 import *
 from .Stellar_0 import *
 from .Surface_0 import *
+from .Measurement_0 import *
+from .AtmCalc_0 import *
+from .Path_0 import *
 from .Fortran import nemesisf

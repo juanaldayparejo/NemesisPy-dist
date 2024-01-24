@@ -24,7 +24,6 @@ from NemesisPy.Utils import *
 from NemesisPy.Profile import *
 from NemesisPy.Data import *
 from NemesisPy.Models import *
-from NemesisPy.Path import *
 
 ###############################################################################################
 
