@@ -16,6 +16,7 @@ import numpy as np
 from struct import *
 import pylab
 import sys,os,errno,shutil
+from copy import *
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.font_manager as font_manager
@@ -24,6 +25,7 @@ from NemesisPy.Utils import *
 from NemesisPy.Profile import *
 from NemesisPy.Data import *
 from NemesisPy.Models import *
+from NemesisPy import *
 
 ###############################################################################################
 
@@ -2019,7 +2021,7 @@ def read_input_files_hdf5(runname):
         MODIFICATION HISTORY : Juan Alday (25/03/2023)
     """
 
-    from NemesisPy.OptimalEstimation import OptimalEstimation_0
+    from NemesisPy import OptimalEstimation_0,Layer_0,Surface_0,Scatter_0,CIA_0,Measurement_0,Spectroscopy_0,Stellar_0
     import h5py
 
     #Initialise Atmosphere class and read file
@@ -2117,7 +2119,8 @@ def read_input_files_hdf5(runname):
         Spectroscopy.NWAVE = Measurement.NWAVE
         Spectroscopy.WAVE = Measurement.WAVE
         Spectroscopy.NG = 1
-        Spectroscopy.ILBL = 2
+        Spectroscopy.ILBL = 0
+        Spectroscopy.G_ORD = np.array([1.])
         Spectroscopy.NGAS = 1
         Spectroscopy.ID = np.array([Atmosphere.ID[0]],dtype='int32')
         Spectroscopy.ISO = np.array([Atmosphere.ISO[0]],dtype='int32')
@@ -2125,7 +2128,7 @@ def read_input_files_hdf5(runname):
         Spectroscopy.NT = 2
         Spectroscopy.PRESS = np.array([Atmosphere.P.min()/101325.,Atmosphere.P.max()/101325.])
         Spectroscopy.TEMP = np.array([Atmosphere.T.min(),Atmosphere.T.max()])
-        Spectroscopy.K = np.zeros([Spectroscopy.NWAVE,Spectroscopy.NP,Spectroscopy.NT,Spectroscopy.NGAS])
+        Spectroscopy.K = np.zeros([Spectroscopy.NWAVE,Spectroscopy.NG,Spectroscopy.NP,Spectroscopy.NT,Spectroscopy.NGAS])
         Spectroscopy.DELG = np.array([1])
     
     #Reading Stellar class
@@ -2242,6 +2245,7 @@ def read_bestfit_hdf5(runname):
     """
 
     import h5py
+    from NemesisPy.Measurement_0 import Measurement_0
 
     #Reading the best fit
     f = h5py.File(runname+'.h5','r')

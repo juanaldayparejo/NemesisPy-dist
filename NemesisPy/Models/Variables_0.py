@@ -48,10 +48,13 @@ class Variables_0:
 
         Attributes
         ----------
-        @attribute VARIDENT: 2D array
+        @attribute VARIDENT: 2D array (NVAR,3)
             Variable ID
-        @attribute VARPARAM: 2D array
+        @attribute VARPARAM: 2D array (NVAR,NPARAM)
             Extra parameters needed to implement the parameterisation
+        @attribute VARFILE: 1D array  (NVAR)
+            Extra parameters needed to implement the parameterisation that need to be passed as a string
+            For instance, giving the name of a file that stores data for a given parameterisation
         @attribute NXVAR: 1D array
             Number of points in state vector associated with each variable
         @attribute XA: 1D array
@@ -104,6 +107,7 @@ class Variables_0:
         # Input the following profiles using the edit_ methods.
         self.VARIDENT = None # np.zeros(NVAR,3)
         self.VARPARAM = None # np.zeros(NVAR,NPARAM)
+        self.VARFILE = None  #(NVAR)
         self.NXVAR =  None # np.zeros(NX)
         self.XN = None # np.zeros(NX)
         self.LX = None # np.zeros(NX)
@@ -249,7 +253,7 @@ class Variables_0:
             elif imod == 444:
                 nxvar[i] = 1 + 1 + int(ipar)
             elif imod == 446:
-                nxvar[i] = 2*int(ipar)
+                nxvar[i] = 1
             elif imod == 447:
                 nxvar[i] = 1
             elif imod == 666:
@@ -491,6 +495,7 @@ class Variables_0:
         x0 = np.zeros([mx])
         sx = np.zeros([mx,mx])
         inum = np.zeros([mx],dtype='int')
+        varfile = ['']*nvar
 
         #Reading data
         ix = 0
@@ -629,7 +634,7 @@ class Variables_0:
                     ix = ix + 1
 
                 elif varident[i,2] == 2:
-#               **** Simple scaling factor of reference profile *******
+#               **** model 3 - Simple scaling factor of reference profile *******
 #               Read in scaling factor
 
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
@@ -639,7 +644,7 @@ class Variables_0:
                     ix = ix + 1
 
                 elif varident[i,2] == 3:
-#               **** Exponential scaling factor of reference profile *******
+#               **** model 3 - Exponential scaling factor of reference profile *******
 #               Read in scaling factor
         
                     tmp = np.fromfile(f,sep=' ',count=2,dtype='float')
@@ -1212,99 +1217,41 @@ class Variables_0:
 
 
                 elif varident[i,2] == 446:
-#               ******** model for retrieving an aerosol density profile + aerosol particle size (log-normal distribution)
+#               ******** model for retrieving an aerosol particle size distribution from a tabulated look-up table
 
-                    #This model requires one aerosol population for altitude level in order to have the correct extinction
-                    #coefficients and single scattering albedo at all altitudes
-
-                    #Read the number of altitude levels (and therefore number of aerosol populations)
-                    #Read the aerosol id (from the aerosol dictionary) from which to take the refractive index
-                    #Read the sigma of the lognormal distribution (assumed to be fixed)
-                    #Read the 
-                    s = f.readline().split()
-                    nlevel = int(s[0])
-                    aerosol_id = int(s[1])
-                    sigma_dist = float(s[2])
-                    idust0 = int(s[3])
-                    WaveNorm = float(s[4])
+                    #This model changes the extinction coefficient of a given aerosol population based on 
+                    #the extinction coefficient look-up table stored in a separate file. 
                     
-                    varparam[i,0] = nlevel
-                    varparam[i,1] = aerosol_id
-                    varparam[i,2] = sigma_dist
-                    varparam[i,3] = idust0
-                    varparam[i,4] = WaveNorm
+                    #The look-up table specifies the extinction coefficient as a function of particle size, and 
+                    #the parameter in the state vector is the particle size
+                    
+                    #The look-up table must have the format specified in Models/Models.py (model446)
+                    
+                    s = f.readline().split()
+                    aerosol_id = int(s[0])    #Aerosol population (from 0 to NDUST-1)
+                    wavenorm = int(s[1])      #If 1 - then the extinction coefficient will be normalised at a given wavelength
+                    
+                    xwave = 0.0
+                    if wavenorm==1:
+                        xwave = float(s[2])   #If 1 - wavelength at which to normalise the extinction coefficient
+                    
+                    varparam[i,0] = aerosol_id
+                    varparam[i,1] = wavenorm
+                    varparam[i,2] = xwave
 
-                    if nlevel!=npro:
-                        sys.exit('error in model 446 : The number of aerosol levels in the input file must be the same as in the .ref file')
-
-                    #Read the name of the file where the a priori vertical profiles are defined
+                    #Read the name of the look-up table file
                     s = f.readline().split()
                     fnamex = s[0]
+                    varfile[i] = fnamex
 
-                    #Reading the file and the profiles
-                    faero = open(fnamex,'r')
-                    s = faero.readline().split()
-                    clen_dens = float(s[0])
-                    clen_rsize = float(s[1])
+                    #Reading the particle size and its a priori error
+                    s = f.readline().split()
+                    lx[ix] = 0
+                    inum[ix] = 1
+                    x0[ix] = float(s[0])
+                    sx[ix,ix] = (float(s[1]))**2.
 
-                    pref = np.zeros(nlevel)
-                    aerodens = np.zeros(nlevel)
-                    aerodenserr = np.zeros(nlevel)
-                    rsize = np.zeros(nlevel)
-                    rsizeerr = np.zeros(nlevel)
-                    for ih in range(nlevel):
-                        s = faero.readline().split()
-                        pref[ih] = float(s[0])
-                        aerodens[ih] = float(s[1])
-                        aerodenserr[ih] = float(s[2])
-                        rsize[ih] = float(s[3])
-                        rsizeerr[ih] = float(s[4])
-                    
-                    faero.close()
-
-                    #Filling the state vector and a priori covariance matrix with the dust abundance
-                    for ih in range(nlevel):
-                        lx[ix+ih] = 1
-                        x0[ix+ih] = np.log(aerodens[ih])
-                        sx[ix+ih,ix+ih] = ( aerodenserr[ih]/aerodens[ih]  )**2.
-
-                    for j in range(nlevel):
-                        for k in range(nlevel):
-                            if pref[j] < 0.0:
-                                sys.exit('Error in read_apr_nemesis().  A priori file must be on pressure grid')
-                        
-                            delp = np.log(pref[k])-np.log(pref[j])
-                            arg = abs(delp/clen_dens)
-                            xfac = np.exp(-arg)
-                            if xfac >= sxminfac:
-                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
-                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
-
-                    ix = ix + nlevel
-
-                    #Filling the state vector and a priori covariance matrix with the dust particle size
-                    for ih in range(nlevel):
-                        #x0[ix+ih] = rsize[ih]
-                        lx[ix+ih] = 1
-                        x0[ix+ih] = np.log(rsize[ih])
-                        inum[ix+ih] = 1
-                        sx[ix+ih,ix+ih] = ( rsizeerr[ih]/rsize[ih]  )**2.
-                        #sx[ix+ih,ix+ih] = (rsizeerr[ih])**2.
-
-                    for j in range(nlevel):
-                        for k in range(nlevel):
-                            if pref[j] < 0.0:
-                                sys.exit('Error in read_apr_nemesis().  A priori file must be on pressure grid')
-                        
-                            delp = np.log(pref[k])-np.log(pref[j])
-                            arg = abs(delp/clen_rsize)
-                            xfac = np.exp(-arg)
-                            if xfac >= sxminfac:
-                                sx[ix+j,ix+k] = np.sqrt(sx[ix+j,ix+j]*sx[ix+k,ix+k])*xfac
-                                sx[ix+k,ix+j] = sx[ix+j,ix+k]
-
-                    ix = ix + nlevel
-                    
+                    ix = ix + 1
                     
                 elif varident[i,2] == 447:
 #               ******** model for retrieving the Doppler shift
@@ -1321,7 +1268,6 @@ class Variables_0:
                     inum[ix] = 1
                     
                     ix = ix + 1
-                    
 
                 elif varident[i,2] == 666:
 #               ******** pressure at given altitude
@@ -1601,5 +1547,6 @@ class Variables_0:
         self.edit_SA(sa)
         self.edit_LX(lx1)
         self.NUM = inum1
+        self.VARFILE = varfile
         self.calc_DSTEP()
         self.calc_FIX()

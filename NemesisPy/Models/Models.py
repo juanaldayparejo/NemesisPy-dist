@@ -1430,7 +1430,7 @@ def model230(Measurement,nwindows,liml,limh,par,MakePlot=False):
 
 ###############################################################################################
 
-def model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,WaveNorm,MakePlot=False):
+def model446(Scatter,idust,wavenorm,xwave,rsize,lookupfile,MakePlot=False):
     
     """
         FUNCTION NAME : model446()
@@ -1438,27 +1438,19 @@ def model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,
         DESCRIPTION :
         
             Function defining the model parameterisation 446 in NEMESIS.
-            In this model, we fit a continuous profile of aerosol abundance in m-3, and a continuous
-            vertical profile for the vertical size, which is assumed to follow a log-normal distribution 
-            at each altitude with some mean value r and a standard deviation sigma. The extinction
-            properties of each aerosol population are computed using Mie Theory
+            
+            In this model, we change the extinction coefficient and single scattering albedo 
+            of a given aerosol population based on its particle size, and based on the extinction 
+            coefficients tabulated in a look-up table
         
         INPUTS :
         
-            Atmosphere :: Python class defining the atmosphere
-
             Scatter :: Python class defining the scattering parameters
-
-            idust0 :: Index of the aerosol distribution at the lowest altitude level (from 0 to NDUST-1)
-                      The rest of the IDUST at the different altitudes are expected to follow this one
-
-            aero_id :: ID of the particular aerosol to be modelled in the refractive index dictionary
-
-            aero_dens(npro) :: Aerosol abundance at each altitude level (m-3)
-
-            aero_rsize(npro) :: Mean particle size at each altitude level (um)
-
-            sigma_rsize :: Standard deviation of the distribution
+            idust :: Index of the aerosol distribution to be modified (from 0 to NDUST-1)
+            wavenorm :: Flag indicating if the extinction coefficient needs to be normalised to a given wavelength (1 if True)
+            xwave :: If wavenorm=1, then this indicates the normalisation wavelength/wavenumber
+            rsize :: Particle size at which to interpolate the extinction cross section
+            lookupfile :: Name of the look-up file storing the extinction cross section data
         
         OPTIONAL INPUTS:
 
@@ -1466,32 +1458,93 @@ def model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize,
         
         OUTPUTS :
         
-            Atmosphere :: Updated atmospheric class
-            Scatter :: Updated scattering class
-            xmap(npro,ngas+2+ncont,npro) :: Matrix of relating funtional derivatives to 
-                                             elements in state vector
+            Scatter :: Updated Scatter class
         
         CALLING SEQUENCE:
         
-            atm,Scatter,xmap = model446(Atmosphere,Scatter,idust0,aero_id,aero_dens,aero_rsize,sigma_rsize)
+            Scatter = model446(Scatter,idust,wavenorm,xwave,rsize,lookupfile)
         
         MODIFICATION HISTORY : Juan Alday (25/11/2021)
         
     """
+    
+    import h5py
+    from scipy.interpolate import interp1d
 
-    ipar0 = Atmosphere.NVMR+1+idust0
+    #Reading the look-up table file
+    f = h5py.File(lookupfile,'r')
+    
+    NWAVE = np.int32(f.get('NWAVE'))
+    NSIZE = np.int32(f.get('NSIZE'))
+     
+    WAVE = np.array(f.get('WAVE'))
+    REFF = np.array(f.get('REFF'))
+     
+    KEXT = np.array(f.get('KEXT'))      #(NWAVE,NSIZE)
+    SGLALB = np.array(f.get('SGLALB'))  #(NWAVE,NSIZE)
+    
+    f.close()
+    
+    #First we interpolate to the wavelengths in the Scatter class
+    sext = interp1d(WAVE,KEXT,axis=0)
+    KEXT1 = sext(Scatter.WAVE)
+    salb = interp1d(WAVE,SGLALB,axis=0)
+    SGLALB1 = salb(Scatter.WAVE)
+    
+    #Second we interpolate to the required particle size
+    if rsize<REFF.min():
+        rsize =REFF.min()
+    if rsize>REFF.max():
+        rsize=REFF.max()
+        
+    sext = interp1d(REFF,KEXT1,axis=1)
+    KEXTX = sext(rsize)
+    salb = interp1d(REFF,SGLALB1,axis=1)
+    SGLALBX = salb(rsize)
+    
+    #Now check if we need to normalise the extinction coefficient
+    if wavenorm==1:
+        snorm = interp1d(Scatter.WAVE,KEXTX)
+        vnorm = snorm(xwave)
+      
+        KEXTX[:] = KEXTX[:] / vnorm
+      
+    KSCAX = SGLALBX * KEXTX
+    
+    #Now we update the Scatter class with the required results
+    Scatter.KEXT[:,idust] = KEXTX[:]
+    Scatter.KSCA[:,idust] = KSCAX[:]
+    Scatter.SGLALB[:,idust] = SGLALBX[:]
+      
+    f.close()
+    
+    if MakePlot==True:
+        
+        fig,(ax1,ax2) = plt.subplots(2,1,figsize=(10,6),sharex=True)
+    
+        for i in range(NSIZE):
+            
+            ax1.plot(WAVE,KEXT[:,i])
+            ax2.plot(WAVE,SGLALB[:,i])
+            
+        ax1.plot(Scatter.WAVE,Scatter.KEXT[:,idust],c='black')
+        ax2.plot(Scatter.WAVE,Scatter.SGLALB[:,idust],c='black')
 
-    xmap = np.zeros((2*Atmosphere.NP,Atmosphere.NVMR+2+Atmosphere.NDUST,Atmosphere.NP))
+        if Scatter.ISPACE==0:
+            label='Wavenumber (cm$^{-1}$)'
+        else:
+            label='Wavelength ($\mu$m)'
+        ax2.set_xlabel(label)
+        ax1.set_xlabel('Extinction coefficient')
+        ax2.set_xlabel('Single scattering albedo')
+        
+        ax1.set_facecolor('lightgray')
+        ax2.set_facecolor('lightgray')
+        
+        plt.tight_layout()
 
-    for i in range(Atmosphere.NP):
-        Atmosphere.DUST[i,i+idust0] = aero_dens[i]
-        psdist = 1
-        pardist = [aero_rsize[i],sigma_rsize]
-        Scatter.miescat_k(idust0+i,psdist,pardist,WaveNorm=WaveNorm)
 
-        xmap[i,ipar0+i,i] = aero_dens[i]
-
-    return Atmosphere,Scatter,xmap
+    return Scatter
 
 
 ###############################################################################################

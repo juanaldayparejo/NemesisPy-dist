@@ -4429,7 +4429,7 @@ class ForwardModel_0:
         if all(value > 90 for value in Path.EMISS_ANG[:]):
             print('scloud11wave :: All geometries are upward-looking from the surface')
             lookdown = False
-        elif all(value > 90 for value in Path.EMISS_ANG[:]):
+        elif all(value < 90 for value in Path.EMISS_ANG[:]):
             print('scloud11wave :: All geometries are downward-looking from the top of atmosphere ')
             lookdown = True
         else:

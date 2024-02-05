@@ -260,7 +260,6 @@ class Scatter_0:
                     assert self.WLPOL.shape == (self.NWAVE,self.NLPOL,self.NDUST) , \
                         'WLPOL must have size (NWAVE,NLPOL,NDUST)'
 
-
     def write_hdf5(self,runname):
         """
         Write the scattering properties into an HDF5 file
@@ -450,7 +449,6 @@ class Scatter_0:
 
         f.close()
 
-
     def initialise_arrays(self,NDUST,NWAVE,NTHETA):
         """
         Initialise arrays for storing the scattering properties of the aerosols
@@ -562,7 +560,6 @@ class Scatter_0:
 
         f.close()
         
-
     def read_hgphase(self,NDUST=None):
         """
         Read the Henyey-Greenstein phase function parameters stored in the hgphaseN.dat files
@@ -615,7 +612,6 @@ class Scatter_0:
                 f.write('%10.7f \t %10.7f \t %10.7f \t %10.7f \n' % (self.WAVE[j],self.F[j,IDUST],self.G1[j,IDUST],self.G2[j,IDUST]))
 
             f.close()
-
 
     def calc_hgphase(self,Theta):
         """
@@ -735,7 +731,6 @@ class Scatter_0:
 
         return phase
 
-
     def calc_phase_ray(self,Theta):
         """
         Calculate the phase function of Rayleigh scattering at a given scattering angle (Dipole scattering)
@@ -761,7 +756,6 @@ class Scatter_0:
         phase = phase / (4.0*np.pi)
 
         return phase
-
 
     def read_phase(self,NDUST=None):
         """
@@ -854,7 +848,6 @@ class Scatter_0:
         self.KABS[:,:] = self.KEXT[:,:] - self.KSCA[:,:]
         self.PHASE[:,:,:] = phase[0:self.NWAVE,0:self.NTHETA,0:self.NDUST]
 
-
     def write_phase(self,IDUST):
         """
         Write a file with the format of the PHASE*.DAT using the format required by NEMESIS
@@ -905,7 +898,6 @@ class Scatter_0:
 
         f.write(str1+str2+str3+str4)
         f.close()
-
 
     def read_lpphase(self,NDUST=None):
         """
@@ -959,7 +951,7 @@ class Scatter_0:
         """
 
         from scipy.special import legendre
-        from NemesisPy.nemesisf import mulscatter
+        from NemesisPy.Fortran.nemesisf import mulscatter
 
         if np.isscalar(Theta)==True:
             ntheta = 1
@@ -985,7 +977,6 @@ class Scatter_0:
                     
         return phase
     
-    
     def check_phase_norm(self):
         """
         Function to quickly check whether the phase function is correctly normalised to 1 
@@ -1004,8 +995,6 @@ class Scatter_0:
         print('Minimum integral of phase function is ',total.min())
         print('Maximum integral of phase function is ',total.max())
     
-    
-
     def calc_tau_dust(self,WAVEC,Layer,MakePlot=False):
         """
         Calculate the aerosol opacity in each atmospheric layer
@@ -1242,7 +1231,6 @@ class Scatter_0:
 
         return tau_ray,dtau_ray
 
-
     def calc_tau_rayleighls(self,ISPACE,WAVEC,ID,ISO,Layer,MakePlot=False):
         """
         Function to calculate the Rayleigh scattering opacity in each atmospheric layer,
@@ -1370,7 +1358,6 @@ class Scatter_0:
                     
         return tau_ray, dtau_ray
 
-
     def read_refind(self,aeroID):
         """
         Read a file of the refractive index from the NEMESIS aerosol database 
@@ -1403,7 +1390,6 @@ class Scatter_0:
         self.WAVER = wave_aero
         self.REFIND_REAL = refind_real_aero1
         self.REFIND_IM = refind_im_aero1
-
 
     def read_refind_file(self,filename,MakePlot=False):
         """
