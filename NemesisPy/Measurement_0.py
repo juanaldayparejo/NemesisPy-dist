@@ -2591,15 +2591,16 @@ class Measurement_0:
         fig,ax1 = plt.subplots(1,1,figsize=(12,4))
 
         colormap = 'nipy_spectral'
-        norm = matplotlib.colors.Normalize(vmin=self.TANHE.min(),vmax=self.TANHE.max())
-        c_m = plt.cm.get_cmap(colormap,101)
-        # create a ScalarMappable and initialize a data structure
-        s_m = matplotlib.cm.ScalarMappable(cmap=c_m, norm=norm)
-        s_m.set_array([])
+        cmap = matplotlib.cm.get_cmap(colormap,100)
+        cmin = self.TANHE[:,0].min()
+        cmax = self.TANHE[:,0].max()
 
         for igeom in range(self.NGEOM):
+            
+            color = (self.TANHE[igeom,0]-cmin)/(cmax-cmin)
+            
             #ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom],c=s_m.to_rgba([self.TANHE[igeom,0]]))
-            ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom])
+            im1 = ax1.plot(self.VCONV[0:self.NCONV[igeom],igeom],self.MEAS[0:self.NCONV[igeom],igeom],color=cmap(color))
 
         if np.mean(self.VCONV)>30.:
             ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
@@ -2608,13 +2609,26 @@ class Measurement_0:
         ax1.set_ylabel('Transmission')
         ax1.set_title('Latitude = '+str(np.round(self.LATITUDE,1))+' - Longitude = '+str(np.round(self.LONGITUDE,1)))
         ax1.grid()
+        
+        # Create a ScalarMappable object
+        sm = plt.cm.ScalarMappable(cmap=cmap)
+        sm.set_array([])  # Set dummy array to create the colorbar
 
         # create an axes on the right side of ax. The width of cax will be 5%
         # of ax and the padding between cax and ax will be fixed at 0.05 inch.
         divider = make_axes_locatable(ax1)
         cax = divider.append_axes("right", size="5%", pad=0.05)
-        cbar2 = plt.colorbar(s_m,cax=cax,orientation='vertical')
+        cbar2 = plt.colorbar(sm,cax=cax,orientation='vertical')
         cbar2.set_label('Altitude (km)')
+        
+        # Update colorbar ticks based on TANHE values
+        n = 10
+        cbar_ticksx = np.linspace(0, 1, num=n)  # Adjust the number of ticks as needed
+        cbar_ticks = np.linspace(cmin, cmax, num=n)  # Adjust the number of ticks as needed
+        cbar2.set_ticks(cbar_ticksx)
+        cbar2.set_ticklabels([f'{tick:.2f}' for tick in cbar_ticks])  # Adjust the formatting as needed
+
+        
         plt.tight_layout()
         plt.show()
 
