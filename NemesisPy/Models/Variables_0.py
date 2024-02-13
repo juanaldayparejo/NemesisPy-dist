@@ -1102,7 +1102,8 @@ class Variables_0:
                     varparam[i,0] = nlevel
                     varparam[i,1] = ndegree
                     for ilevel in range(nlevel):
-                        tmp = np.fromfile(f1,sep=' ',count=2*(ndegree+1),dtype='float')
+                        #tmp = np.fromfile(f1,sep=' ',count=2*(ndegree+1),dtype='float')
+                        tmp = f1.readline().split()
                         for ic in range(ndegree+1):
                             r0 = float(tmp[2*ic])
                             err0 = float(tmp[2*ic+1])
