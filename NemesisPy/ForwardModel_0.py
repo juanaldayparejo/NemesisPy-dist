@@ -1471,6 +1471,20 @@ class ForwardModel_0:
 #           ***************************************************************
                 ipar = -1
                 ix = ix + self.Variables.NXVAR[ivar]
+                
+            elif self.Variables.VARIDENT[ivar,0]==777:
+#           Model 777. Retrieval of tangent height corrections
+#           ***************************************************************
+                
+                hcorr = self.Variables.XN[ix]
+                
+                self.MeasurementX = model777(self.MeasurementX,hcorr)
+                
+                print(hcorr)
+                print(self.MeasurementX.TANHE[:,0])
+                
+                ipar = -1
+                ix = ix + self.Variables.NXVAR[ivar]
 
             elif self.Variables.VARIDENT[ivar,0]==999:
 #           Model 999. Retrieval of surface temperature

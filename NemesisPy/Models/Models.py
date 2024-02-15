@@ -1624,6 +1624,60 @@ def model667(Spectrum,xfactor,MakePlot=False):
 
 ###############################################################################################
 
+def model777(Measurement,hcorr,MakePlot=False):
+    
+    """
+        FUNCTION NAME : model777()
+        
+        DESCRIPTION :
+        
+            Function defining the model parameterisation 777 in NEMESIS.
+            In this model, we apply a correction to the tangent heights listed on the 
+            Measurement class
+        
+        INPUTS :
+        
+            Measurement :: Measurement class
+            hcorr :: Correction to the tangent heights (km)
+        
+        OPTIONAL INPUTS: None
+        
+        OUTPUTS :
+        
+            Measurement :: Updated Measurement class with corrected tangent heights
+        
+        CALLING SEQUENCE:
+        
+            Measurement = model777(Measurement,hcorr)
+        
+        MODIFICATION HISTORY : Juan Alday (15/02/2023)
+        
+    """
+    
+    #Getting the tangent heights
+    tanhe = np.zeros(Measurement.NGEOM)
+    tanhe[:] = Measurement.TANHE[:,0]
+    
+    #Correcting tangent heights
+    tanhe_new = tanhe + hcorr
+    
+    #Updating Measurement class
+    Measurement.TANHE[:,0] = tanhe_new
+    
+    if MakePlot==True:
+        
+        fig,ax1 = plt.subplots(1,1,figsize=(3,4))
+        ax1.scatter(np.arange(0,Measurement.NGEOM,1),tanhe,label='Uncorrected')
+        ax1.scatter(np.arange(0,Measurement.NGEOM,1),Measurement.TANHE[:,0],label='Corrected')
+        ax1.set_xlabel('Geometry #')
+        ax1.set_ylabel('Tangent height (km)')
+        plt.tight_layout()
+
+    return Measurement
+
+
+###############################################################################################
+
 def model887(Scatter,xsc,idust,MakePlot=False):
     
     """

@@ -260,6 +260,8 @@ class Variables_0:
                 nxvar[i] = 1
             elif imod == 667:
                 nxvar[i] = 1
+            elif imod == 777:
+                nxvar[i] = 1
             elif imod == 887:
                 nxvar[i] = int(ipar)
             elif imod == 998:
@@ -1298,6 +1300,18 @@ class Variables_0:
                     x0[ix] = xfac
                     inum[ix] = 0 
                     sx[ix,ix] = xfacerr**2.
+                    ix = ix + 1
+                    
+                elif varident[i,2] == 777:
+#               ******** tangent height correction
+                    s = f.readline().split()
+                    hcorr = float(s[0])
+                    herr = float(s[1])
+                    
+                    x0[ix] = hcorr
+                    sx[ix,ix] = herr**2.
+                    inum[ix] = 1
+                
                     ix = ix + 1
 
                 elif varident[i,2] == 887:
